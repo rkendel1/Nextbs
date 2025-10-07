@@ -1,8 +1,14 @@
-Play Next.js is a free and **Open-source SaaS starter kit and boilerplate, designed and built for SaaS startups**, apps, businesses, and more. With its premium design and essential UI components and pages, it provides everything you need to kickstart a feature-rich SaaS website.
+Play Next.js is a free and **Open-source SaaS enablement platform, designed and built to help SaaS creators launch their products quickly**. With its premium design and comprehensive features including onboarding, Stripe OAuth integration, product management, and subscriber portals, it provides everything you need to kickstart a feature-rich SaaS-for-SaaS platform.
+
+This platform enables SaaS creators to:
+- **Launch faster**: Complete onboarding and Stripe integration in minutes
+- **Manage products**: Centralized dashboard for products, pricing tiers, and subscriptions
+- **Track usage**: Built-in metering and analytics for subscriber usage
+- **White-label sites**: Customizable subscriber portals for end-users
 
 [![Play Next.js](https://github.com/NextJSTemplates/play-nextjs/blob/main/nextjs-play.png)](https://play.nextjstemplates.com)
 
-## Free SaaS Boilerplate and Starter Kit for Next.js 🚀
+## SaaS for SaaS Platform - Enterprise-Grade Features 🚀
 
 Play Next.js SaaS Boilerplate and Starter Kit is a free, open-source solution ideal for startups, SaaS companies, and more. It offers essential UI components, authentication and database integration, and Stripe integration. Its superior design and functionality make it a go-to choice for launching a feature-rich SaaS website efficiently.
 
@@ -12,17 +18,21 @@ Play Next.js SaaS Boilerplate and Starter Kit is a free, open-source solution id
 
 ### All Essential Integrations - DB, Auth, Payment, MDX, and more ⚡
 
-Play Next.js SaaS Starter kit includes all the key integrations required to build a fully functional SaaS platform.
+Play Next.js SaaS Platform includes all the key integrations required to build a fully functional SaaS-for-SaaS enablement platform.
 
-- **PostgreSQL for Database**: Comes with PostgreSQL integration with Prisma which is a powerful and open-source relational database system ensures data integrity and reliability.
+- **PostgreSQL for Database**: Comprehensive data models for SaaS creators, products, tiers, subscriptions, usage tracking, and white-label configurations using Prisma ORM.
 
-- **NextAuth for Authentication**: Play Next.js utilizes NextAuth, a versatile solution that provides secure login and user management.
+- **NextAuth for Authentication**: Secure authentication with support for credentials, OAuth providers (Google, GitHub), and magic links.
 
-- **MDX for Blogs**: MDX uniquely combines Markdown and JSX, Play Next.js comes with complete blogging solution to create and maintain blog using MDX.
+- **Stripe Connect OAuth**: Deep integration with Stripe for payment processing, allowing SaaS creators to link their Stripe accounts and manage subscriptions seamlessly.
 
-- **Stripe for Subscription Payments**: Stripe, a globally trusted payment processing platform, offers robust security features and smooth checkout experiences.
+- **Product Management System**: Complete CRUD operations for products and pricing tiers with real-time statistics.
 
-These integrations work together to simplify development and enhance the user experience.
+- **Usage Metering & Analytics**: Built-in usage tracking and metering capabilities for consumption-based pricing models.
+
+- **White-Label Subscriber Portals**: Customizable portals for end-users to manage their accounts and subscriptions (coming soon).
+
+These integrations work together to provide a turnkey solution for SaaS creators to launch and manage their products.
 
 ### Essential SaaS Pages & Components and Styled Using Tailwind CSS 🎨
 
