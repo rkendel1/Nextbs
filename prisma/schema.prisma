@@ -39,16 +39,19 @@ model Session {
 }
 
 model User {
-  id                    String    @id @default(cuid())
+  id                    String         @id @default(cuid())
   name                  String?
-  email                 String?   @unique
+  email                 String?        @unique
   emailVerified         DateTime?
   image                 String?
   password              String?
-  passwordResetToken    String?   @unique
+  passwordResetToken    String?        @unique
   passwordResetTokenExp DateTime?
   accounts              Account[]
   sessions              Session[]
+  saasCreator           SaasCreator?
+  subscriptions         Subscription[]
+  usageRecords          UsageRecord[]
 }
 
 model VerificationToken {
@@ -57,4 +60,137 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// SaaS Creator model - represents a SaaS business using the platform
+model SaasCreator {
+  id                  String         @id @default(cuid())
+  userId              String         @unique
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName        String
+  businessDescription String?        @db.Text
+  website             String?
+  onboardingCompleted Boolean        @default(false)
+  onboardingStep      Int            @default(1)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  stripeAccount       StripeAccount?
+  products            Product[]
+  subscribers         Subscription[]
+}
+
+// Stripe OAuth connection for SaaS creators
+model StripeAccount {
+  id              String      @id @default(cuid())
+  saasCreatorId   String      @unique
+  saasCreator     SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  stripeAccountId String      @unique
+  accessToken     String?     @db.Text
+  refreshToken    String?     @db.Text
+  tokenType       String?
+  scope           String?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Products offered by SaaS creators
+model Product {
+  id               String      @id @default(cuid())
+  saasCreatorId    String
+  saasCreator      SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?     @db.Text
+  isActive         Boolean     @default(true)
+  stripePriceId    String?
+  stripeProductId  String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  tiers            Tier[]
+  subscriptions    Subscription[]
+  meteringConfig   MeteringConfig?
+}
+
+// Pricing tiers for products
+model Tier {
+  id            String         @id @default(cuid())
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?        @db.Text
+  priceAmount   Int            // Amount in cents
+  billingPeriod String         // monthly, yearly, etc.
+  features      String[]       // Array of feature descriptions
+  usageLimit    Int?           // Optional usage limit
+  stripePriceId String?        @unique
+  isActive      Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+}
+
+// Subscriptions - linking subscribers to products and tiers
+model Subscription {
+  id                   String       @id @default(cuid())
+  userId               String
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saasCreatorId        String
+  saasCreator          SaasCreator  @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  productId            String
+  product              Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tierId               String
+  tier                 Tier         @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String?      @unique
+  status               String       @default("active") // active, canceled, past_due, etc.
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  usageRecords         UsageRecord[]
+}
+
+// Metering configuration for products
+model MeteringConfig {
+  id               String   @id @default(cuid())
+  productId        String   @unique
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  meteringType     String   // requests, users, storage, compute, etc.
+  meteringUnit     String   // count, GB, hours, etc.
+  aggregationType  String   // sum, max, last_during_period
+  usageReportingUrl String? // Webhook URL for usage reporting
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Usage tracking records
+model UsageRecord {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quantity       Float
+  timestamp      DateTime     @default(now())
+  metadata       Json?        // Additional context about the usage
+  reportedAt     DateTime     @default(now())
+
+  @@index([subscriptionId, timestamp])
+  @@index([userId, timestamp])
+}
+
+// White-label site configuration for subscribers
+model WhiteLabelConfig {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  brandName     String?
+  primaryColor  String?
+  logoUrl       String?
+  customDomain  String?  @unique
+  subdomain     String?  @unique
+  customCss     String?  @db.Text
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
