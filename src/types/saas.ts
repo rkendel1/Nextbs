@@ -148,13 +148,10 @@ export enum OnboardingStep {
 // API Key Types
 export interface ApiKey {
   id: string;
-  userId: string;
+  saasCreatorId: string;
   name: string;
   key: string;
-  keyPrefix: string;
-  permissions: string[];
   lastUsedAt?: Date;
-  expiresAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

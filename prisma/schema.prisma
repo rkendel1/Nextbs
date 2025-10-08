@@ -82,6 +82,7 @@ model SaasCreator {
   subscribers         Subscription[]
   whiteLabelConfig    WhiteLabelConfig?
   analyticsSnapshots  AnalyticsSnapshot[]
+  apiKeys             ApiKey[]
 }
 
 // Stripe OAuth connection for SaaS creators
@@ -281,4 +282,20 @@ model AnalyticsSnapshot {
   @@unique([saasCreatorId, period, periodStart])
   @@index([saasCreatorId])
   @@index([periodStart])
+}
+
+// API Keys for programmatic access
+model ApiKey {
+  id            String      @id @default(cuid())
+  saasCreatorId String
+  saasCreator   SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  name          String
+  key           String      @unique
+  lastUsedAt    DateTime?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([saasCreatorId])
+  @@index([key])
 }
