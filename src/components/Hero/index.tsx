@@ -16,12 +16,12 @@ const Hero = () => {
                 data-wow-delay=".2s"
               >
                 <h1 className="mb-6 text-3xl font-bold leading-snug text-white sm:text-4xl sm:leading-snug lg:text-5xl lg:leading-[1.2]">
-                  SaaSinaSnap - Launch Your SaaS in a Snap
+                  Build & Scale Your SaaS in Minutes, Not Months
                 </h1>
                 <p className="mx-auto mb-9 max-w-[600px] text-base font-medium text-white sm:text-lg sm:leading-[1.44]">
-                  The ultimate platform for SaaS creators. Build, manage, and scale 
-                  your SaaS products with powerful tools for API management, analytics, 
-                  white-label configuration, and subscription handling - all in one place.
+                  Focus on building great products while we handle the infrastructure. 
+                  Get powerful API management, custom branding, analytics, and subscription 
+                  tools - everything you need to launch and grow your SaaS business.
                 </p>
                 <ul className="mb-10 flex flex-wrap items-center justify-center gap-5">
                   <li>
@@ -44,7 +44,7 @@ const Hero = () => {
 
                 <div>
                   <p className="mb-4 text-center text-base font-medium text-white/60">
-                    SaaSinaSnap - The complete platform for SaaS creators
+                    Join hundreds of SaaS creators who launched faster with SaaSinaSnap
                   </p>
                 </div>
               </div>
@@ -1207,6 +1207,13 @@ const Hero = () => {
               </div>
             </div>
           </div>
+        </div>
+        
+        {/* Animated gradient blobs for visual interest */}
+        <div className="absolute left-0 top-0 z-[-2] h-full w-full overflow-hidden">
+          <div className="absolute -left-4 top-0 h-72 w-72 animate-blob rounded-full bg-secondary opacity-20 mix-blend-multiply blur-xl filter"></div>
+          <div className="animation-delay-2000 absolute -right-4 top-0 h-72 w-72 animate-blob rounded-full bg-accent opacity-20 mix-blend-multiply blur-xl filter"></div>
+          <div className="animation-delay-4000 absolute -bottom-8 left-20 h-72 w-72 animate-blob rounded-full bg-primary-light opacity-20 mix-blend-multiply blur-xl filter"></div>
         </div>
       </section>
     </>

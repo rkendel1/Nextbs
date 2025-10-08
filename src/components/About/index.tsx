@@ -13,14 +13,15 @@ const About = () => {
             <div className="w-full px-4 lg:w-1/2">
               <div className="mb-12 max-w-[540px] lg:mb-0">
                 <h2 className="mb-5 text-3xl font-bold leading-tight text-dark dark:text-white sm:text-[40px] sm:leading-[1.2]">
-                  Launch Your SaaS in a Snap
+                  Everything SaaS Creators Need to Succeed
                 </h2>
                 <p className="mb-10 text-base leading-relaxed text-body-color dark:text-dark-6">
-                  Customize your platform with your own branding, colors, and domain.
+                  Skip months of development and launch your SaaS product today. SaaSinaSnap provides 
+                  all the essential infrastructure - from API management and custom branding to subscription 
+                  handling and analytics - so you can focus on what you do best: creating value for your customers.
                   <br /> <br />
-                  Our mission is to empower SaaS creators by removing technical barriers 
-                  and providing enterprise-grade tools that help you focus on what matters 
-                  most - building great products for your customers.
+                  Whether you&apos;re a solo founder or a growing team, our platform scales with your business, 
+                  giving you enterprise-grade capabilities without the enterprise complexity.
                 </p>
 
                 <Link

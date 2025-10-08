@@ -97,12 +97,12 @@ const Footer = () => {
           <div className="w-full px-4 sm:w-1/2 md:w-1/2 lg:w-2/12 xl:w-2/12">
             <div className="mb-10 w-full">
               <h4 className="mb-9 text-lg font-semibold text-white">
-                About Us
+                Platform
               </h4>
               <ul>
                 <li>
                   <Link
-                    href="#"
+                    href="/"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
                     Home
@@ -110,7 +110,7 @@ const Footer = () => {
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="/#features"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
                     Features
@@ -118,7 +118,7 @@ const Footer = () => {
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="/about"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
                     About
@@ -126,10 +126,10 @@ const Footer = () => {
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="/pricing"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
-                    Testimonial
+                    Pricing
                   </Link>
                 </li>
               </ul>
@@ -138,7 +138,48 @@ const Footer = () => {
           <div className="w-full px-4 sm:w-1/2 md:w-1/2 lg:w-3/12 xl:w-2/12">
             <div className="mb-10 w-full">
               <h4 className="mb-9 text-lg font-semibold text-white">
-                Features
+                Resources
+              </h4>
+              <ul>
+                <li>
+                  <Link
+                    href="/docs"
+                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
+                  >
+                    Documentation
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/blogs"
+                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
+                  >
+                    Blog
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/contact"
+                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
+                  >
+                    Support
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard"
+                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
+                  >
+                    Dashboard
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="w-full px-4 sm:w-1/2 md:w-1/2 lg:w-3/12 xl:w-2/12">
+            <div className="mb-10 w-full">
+              <h4 className="mb-9 text-lg font-semibold text-white">
+                Legal
               </h4>
               <ul>
                 <li>
@@ -146,15 +187,7 @@ const Footer = () => {
                     href="#"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
-                    How it works
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    Privacy policy
+                    Privacy Policy
                   </Link>
                 </li>
                 <li>
@@ -170,48 +203,7 @@ const Footer = () => {
                     href="#"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
-                    Refund policy
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="w-full px-4 sm:w-1/2 md:w-1/2 lg:w-3/12 xl:w-2/12">
-            <div className="mb-10 w-full">
-              <h4 className="mb-9 text-lg font-semibold text-white">
-                Our Products
-              </h4>
-              <ul>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    LineIcons
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    Next.js Templates
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    TailAdmin
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    PlainAdmin
+                    Cookie Policy
                   </Link>
                 </li>
               </ul>
@@ -220,39 +212,23 @@ const Footer = () => {
           <div className="w-full px-4 md:w-2/3 lg:w-6/12 xl:w-3/12">
             <div className="mb-10 w-full">
               <h4 className="mb-9 text-lg font-semibold text-white">
-                Useful Links
+                Connect
               </h4>
               <ul>
                 <li>
                   <Link
-                    href="#"
+                    href="/contact"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
-                    FAQ
+                    Contact Us
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="/about"
                     className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
                   >
-                    Blogs
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    Support
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="mb-3 inline-block text-base text-gray-7 hover:text-primary"
-                  >
-                    About
+                    About Us
                   </Link>
                 </li>
               </ul>

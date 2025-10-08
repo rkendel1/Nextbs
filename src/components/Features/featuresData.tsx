@@ -114,16 +114,15 @@ const featuresData: Feature[] = [
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
-          d="M28 4H8C5.79 4 4 5.79 4 8V28C4 30.21 5.79 32 8 32H28C30.21 32 32 30.21 32 28V8C32 5.79 30.21 4 28 4ZM18 26C14.69 26 12 23.31 12 20C12 16.69 14.69 14 18 14C21.31 14 24 16.69 24 20C24 23.31 21.31 26 18 26ZM26 12C25.45 12 25 11.55 25 11C25 10.45 25.45 10 26 10C26.55 10 27 10.45 27 11C27 11.55 26.55 12 26 12Z"
+          d="M18 2C9.16 2 2 9.16 2 18C2 26.84 9.16 34 18 34C26.84 34 34 26.84 34 18C34 9.16 26.84 2 18 2ZM18 6C20.21 6 22 7.79 22 10C22 12.21 20.21 14 18 14C15.79 14 14 12.21 14 10C14 7.79 15.79 6 18 6ZM18 30C14 30 10.58 27.84 9 24.72C9.05 21.5 15.33 19.74 18 19.74C20.67 19.74 26.95 21.5 27 24.72C25.42 27.84 22 30 18 30Z"
           fill="white"
         />
-        <circle cx="18" cy="20" r="4" fill="white" />
       </svg>
     ),
-    title: "Platform Owner Dashboard",
-    paragraph: "Monitor your entire SaaS ecosystem from a single dashboard. Platform-wide statistics, user management, and administrative controls at your fingertips.",
+    title: "User Management",
+    paragraph: "Efficiently manage your SaaS customers with built-in user administration tools. Handle user roles, permissions, and access control with ease.",
     btn: "Learn More",
-    btnLink: "/dashboard/platform",
+    btnLink: "/dashboard",
   },
   {
     id: 6,
