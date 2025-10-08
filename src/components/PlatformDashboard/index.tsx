@@ -72,61 +72,61 @@ const PlatformDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Platform KPIs */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 shadow-lg">
-          <div className="mb-2 text-sm font-medium text-white/80">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-4 shadow-lg">
+          <div className="mb-1 text-sm font-medium text-white/80">
             Total SaaS Creators
           </div>
-          <div className="text-3xl font-bold text-white">
+          <div className="text-2xl font-bold text-white">
             {stats.totalCreators}
           </div>
-          <div className="mt-2 text-xs text-white/70">
+          <div className="mt-1 text-xs text-white/70">
             +12 this month
           </div>
         </div>
 
-        <div className="rounded-xl bg-gradient-to-br from-green-500 to-green-600 p-6 shadow-lg">
-          <div className="mb-2 text-sm font-medium text-white/80">
+        <div className="rounded-xl bg-gradient-to-br from-green-500 to-green-600 p-4 shadow-lg">
+          <div className="mb-1 text-sm font-medium text-white/80">
             Total Subscribers
           </div>
-          <div className="text-3xl font-bold text-white">
+          <div className="text-2xl font-bold text-white">
             {stats.totalSubscribers}
           </div>
-          <div className="mt-2 text-xs text-white/70">
+          <div className="mt-1 text-xs text-white/70">
             +156 this month
           </div>
         </div>
 
-        <div className="rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 p-6 shadow-lg">
-          <div className="mb-2 text-sm font-medium text-white/80">
+        <div className="rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 p-4 shadow-lg">
+          <div className="mb-1 text-sm font-medium text-white/80">
             Platform Revenue
           </div>
-          <div className="text-3xl font-bold text-white">
+          <div className="text-2xl font-bold text-white">
             ${(stats.platformRevenue / 100).toLocaleString()}
           </div>
-          <div className="mt-2 text-xs text-white/70">
+          <div className="mt-1 text-xs text-white/70">
             +18.3% from last month
           </div>
         </div>
 
-        <div className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-6 shadow-lg">
-          <div className="mb-2 text-sm font-medium text-white/80">
+        <div className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 shadow-lg">
+          <div className="mb-1 text-sm font-medium text-white/80">
             Active Products
           </div>
-          <div className="text-3xl font-bold text-white">
+          <div className="text-2xl font-bold text-white">
             {stats.activeProducts}
           </div>
-          <div className="mt-2 text-xs text-white/70">
+          <div className="mt-1 text-xs text-white/70">
             +8 this month
           </div>
         </div>
       </div>
 
       {/* Growth Chart */}
-      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
-        <h2 className="mb-6 text-xl font-bold text-dark dark:text-white">
+      <div className="rounded-xl bg-white p-4 shadow-lg dark:bg-dark-2">
+        <h2 className="mb-4 text-lg font-bold text-dark dark:text-white">
           Platform Growth
         </h2>
         {growthData.length > 0 ? (
@@ -178,8 +178,8 @@ const PlatformDashboard = () => {
       </div>
 
       {/* Top SaaS Creators */}
-      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
-        <h2 className="mb-6 text-xl font-bold text-dark dark:text-white">
+      <div className="rounded-xl bg-white p-4 shadow-lg dark:bg-dark-2">
+        <h2 className="mb-4 text-lg font-bold text-dark dark:text-white">
           Top SaaS Creators
         </h2>
         {creators.length === 0 ? (
@@ -238,8 +238,8 @@ const PlatformDashboard = () => {
       </div>
 
       {/* Revenue by Creator */}
-      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
-        <h2 className="mb-6 text-xl font-bold text-dark dark:text-white">
+      <div className="rounded-xl bg-white p-4 shadow-lg dark:bg-dark-2">
+        <h2 className="mb-4 text-lg font-bold text-dark dark:text-white">
           Revenue Distribution
         </h2>
         {creators.length > 0 ? (
