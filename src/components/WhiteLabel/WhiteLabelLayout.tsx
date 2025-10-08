@@ -152,11 +152,13 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
     );
   }
 
-  const primaryColor = config.primaryColor || '#667eea';
+  const primaryColor = config.primaryColor || designTokens?.primaryColor || '#667eea';
+  const secondaryColor = config.secondaryColor || designTokens?.secondaryColor || '#f5f5f5';
   const brandName = config.brandName || creator.businessName;
+  const logoUrl = config.logoUrl || designTokens?.logoUrl;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white white-label-content">{/* Added white-label-content class for font inheritance */}
       {/* Header with creator branding */}
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
