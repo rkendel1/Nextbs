@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/utils/prismaDB";
+import { verifyApiKey, hasPermission } from "@/utils/middleware/apiKeyAuth";
 
 // POST track usage
 export async function POST(request: NextRequest) {
   try {
-    // Get API key from headers
-    const apiKey = request.headers.get("x-api-key");
+    // Verify API key
+    const apiKeyVerification = await verifyApiKey(request);
     
-    if (!apiKey) {
+    if (!apiKeyVerification.valid) {
       return NextResponse.json(
-        { error: "API key required" },
+        { error: apiKeyVerification.error || "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Check if API key has write permission
+    if (!hasPermission(apiKeyVerification.permissions || [], 'usage:write')) {
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 }
       );
     }
 
@@ -44,8 +53,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Verify API key belongs to the SaaS creator
-    // For now, we'll create the usage record
+    // Verify API key belongs to the SaaS creator
+    const user = await prisma.user.findUnique({
+      where: { id: apiKeyVerification.userId },
+      include: { saasCreator: true },
+    });
+
+    if (!user?.saasCreator || user.saasCreator.id !== subscription.saasCreatorId) {
+      return NextResponse.json(
+        { error: "Unauthorized - API key does not belong to this subscription's creator" },
+        { status: 403 }
+      );
+    }
 
     // Create usage record
     const usageRecord = await prisma.usageRecord.create({
@@ -99,6 +118,24 @@ export async function POST(request: NextRequest) {
 // GET usage statistics
 export async function GET(request: NextRequest) {
   try {
+    // Verify API key
+    const apiKeyVerification = await verifyApiKey(request);
+    
+    if (!apiKeyVerification.valid) {
+      return NextResponse.json(
+        { error: apiKeyVerification.error || "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Check if API key has read permission
+    if (!hasPermission(apiKeyVerification.permissions || [], 'usage:read')) {
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const subscriptionId = searchParams.get("subscriptionId");
     const userId = searchParams.get("userId");
@@ -131,6 +168,7 @@ export async function GET(request: NextRequest) {
         subscription: {
           select: {
             id: true,
+            saasCreatorId: true,
             product: {
               select: {
                 name: true,
@@ -141,6 +179,22 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Verify API key has access to these records
+    if (usageRecords.length > 0) {
+      const user = await prisma.user.findUnique({
+        where: { id: apiKeyVerification.userId },
+        include: { saasCreator: true },
+      });
+
+      const creatorId = usageRecords[0].subscription.saasCreatorId;
+      if (!user?.saasCreator || user.saasCreator.id !== creatorId) {
+        return NextResponse.json(
+          { error: "Unauthorized - API key does not have access to these records" },
+          { status: 403 }
+        );
+      }
+    }
 
     // Calculate total usage
     const totalUsage = usageRecords.reduce(

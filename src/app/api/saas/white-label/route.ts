@@ -17,24 +17,25 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: { saasCreator: true },
     });
 
-    if (!user) {
+    if (!user || !user.saasCreator) {
       return NextResponse.json(
-        { message: "User not found" },
+        { error: "SaaS creator profile not found" },
         { status: 404 }
       );
     }
 
     const config = await prisma.whiteLabelConfig.findUnique({
-      where: { userId: user.id },
+      where: { saasCreatorId: user.saasCreator.id },
     });
 
-    return NextResponse.json({ config }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching white-label config:", error);
+    return NextResponse.json({ config });
+  } catch (error: any) {
+    console.error("Fetch white-label config error:", error);
     return NextResponse.json(
-      { message: "Failed to fetch configuration" },
+      { error: error.message || "Failed to fetch white-label configuration" },
       { status: 500 }
     );
   }
@@ -53,15 +54,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandName, primaryColor, logoUrl, customDomain, subdomain, customCss } = body;
+    const {
+      brandName,
+      primaryColor,
+      secondaryColor,
+      logoUrl,
+      faviconUrl,
+      customDomain,
+      subdomain,
+      customCss,
+      isActive,
+    } = body;
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: { saasCreator: true },
     });
 
-    if (!user) {
+    if (!user || !user.saasCreator) {
       return NextResponse.json(
-        { message: "User not found" },
+        { error: "SaaS creator profile not found" },
         { status: 404 }
       );
     }

@@ -47,11 +47,14 @@ model User {
   password              String?
   passwordResetToken    String?        @unique
   passwordResetTokenExp DateTime?
+  role                  String         @default("creator") // creator, platform_owner
   accounts              Account[]
   sessions              Session[]
   saasCreator           SaasCreator?
   subscriptions         Subscription[]
   usageRecords          UsageRecord[]
+  apiKeys               ApiKey[]
+  emailNotifications    EmailNotification[]
 }
 
 model VerificationToken {
@@ -64,19 +67,21 @@ model VerificationToken {
 
 // SaaS Creator model - represents a SaaS business using the platform
 model SaasCreator {
-  id                  String         @id @default(cuid())
-  userId              String         @unique
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String              @id @default(cuid())
+  userId              String              @unique
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName        String
-  businessDescription String?        @db.Text
+  businessDescription String?             @db.Text
   website             String?
-  onboardingCompleted Boolean        @default(false)
-  onboardingStep      Int            @default(1)
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  onboardingCompleted Boolean             @default(false)
+  onboardingStep      Int                 @default(1)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   stripeAccount       StripeAccount?
   products            Product[]
   subscribers         Subscription[]
+  whiteLabelConfig    WhiteLabelConfig?
+  analyticsSnapshots  AnalyticsSnapshot[]
   apiKeys             ApiKey[]
 }
 
@@ -183,17 +188,100 @@ model UsageRecord {
 
 // White-label site configuration for subscribers
 model WhiteLabelConfig {
+  id              String      @id @default(cuid())
+  saasCreatorId   String      @unique
+  saasCreator     SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  brandName       String?
+  primaryColor    String?
+  secondaryColor  String?
+  logoUrl         String?
+  faviconUrl      String?
+  customDomain    String?     @unique
+  subdomain       String?     @unique
+  customCss       String?     @db.Text
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// API Keys for authentication
+model ApiKey {
   id            String   @id @default(cuid())
-  userId        String   @unique
-  brandName     String?
-  primaryColor  String?
-  logoUrl       String?
-  customDomain  String?  @unique
-  subdomain     String?  @unique
-  customCss     String?  @db.Text
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  key           String   @unique
+  keyPrefix     String   // First 8 chars for display
+  permissions   String[] // Array of permissions
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([key])
+}
+
+// Email notification tracking
+model EmailNotification {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String   // subscription_created, payment_failed, etc.
+  subject       String
+  body          String   @db.Text
+  recipient     String
+  status        String   @default("pending") // pending, sent, failed
+  sentAt        DateTime?
+  error         String?  @db.Text
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Webhook events from Stripe
+model WebhookEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @unique // Stripe event ID
+  eventType       String
+  status          String   @default("pending") // pending, processed, failed
+  payload         Json
+  processedAt     DateTime?
+  error           String?  @db.Text
+  retryCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Analytics snapshots for performance
+model AnalyticsSnapshot {
+  id              String   @id @default(cuid())
+  saasCreatorId   String?
+  saasCreator     SaasCreator? @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  period          String   // daily, weekly, monthly
+  periodStart     DateTime
+  periodEnd       DateTime
+  totalRevenue    Int      @default(0)
+  newSubscribers  Int      @default(0)
+  churnedSubscribers Int   @default(0)
+  activeSubscribers Int    @default(0)
+  totalUsage      Float    @default(0)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([saasCreatorId, period, periodStart])
+  @@index([saasCreatorId])
+  @@index([periodStart])
 }
 
 // API Keys for programmatic access
