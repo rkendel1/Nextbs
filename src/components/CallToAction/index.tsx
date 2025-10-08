@@ -12,12 +12,13 @@ const CallToAction = () => {
                   <span>Ready to Launch Your SaaS?</span>
                   <span className="text-3xl font-normal md:text-[40px]">
                     {" "}
-                    Get Started Today{" "}
+                    Start Building Today{" "}
                   </span>
                 </h2>
                 <p className="mx-auto mb-6 max-w-[515px] text-base leading-[1.5] text-white">
-                  Join hundreds of SaaS creators who trust SaaSinaSnap to power their platforms. 
-                  Start building your SaaS business with all the tools you need in one place.
+                  Join SaaS creators who chose SaaSinaSnap to accelerate their launch. 
+                  Get all the tools you need - API keys, analytics, subscriptions, and branding - 
+                  in one powerful platform.
                 </p>
                 <Link
                   href="/dashboard"

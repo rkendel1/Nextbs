@@ -12,21 +12,21 @@ const config: Config = {
     extend: {
       colors: {
         ...colors,
-        // SaaSinaSnap Brand Colors
+        // SaaSinaSnap Brand Colors - Vibrant & Modern
         primary: {
-          DEFAULT: "#6366f1", // Indigo - Modern, trustworthy
-          light: "#818cf8",
-          dark: "#4f46e5",
+          DEFAULT: "#0EA5E9", // Sky Blue - Trust, innovation, clarity
+          light: "#38BDF8",
+          dark: "#0284C7",
         },
         secondary: {
-          DEFAULT: "#8b5cf6", // Purple - Creative, innovative
-          light: "#a78bfa",
-          dark: "#7c3aed",
+          DEFAULT: "#10B981", // Emerald Green - Growth, success
+          light: "#34D399",
+          dark: "#059669",
         },
         accent: {
-          DEFAULT: "#06b6d4", // Cyan - Tech-forward, fresh
-          light: "#22d3ee",
-          dark: "#0891b2",
+          DEFAULT: "#F59E0B", // Amber - Energy, warmth, attention
+          light: "#FBBF24",
+          dark: "#D97706",
         },
       },
     },
