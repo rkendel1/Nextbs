@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
-import GoogleProvider from "next-auth/providers/google";
+// import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
@@ -17,6 +17,54 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.SECRET,
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    callbackUrl: {
+      name: process.env.NODE_ENV === 'production'
+        ? `__Secure-next-auth.callback-url`
+        : `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    csrfToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? `__Host-next-auth.csrf-token`
+        : `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    state: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-next-auth.state'
+        : 'next-auth.state',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 900, // 15 minutes in seconds
+      },
+    },
   },
 
   providers: [
@@ -68,10 +116,17 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
 
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    // GoogleProvider({
+    //   clientId: process.env.GOOGLE_CLIENT_ID!,
+    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    //   authorization: {
+    //     params: {
+    //       prompt: "select_account",
+    //       access_type: "online",
+    //       response_type: "code"
+    //     }
+    //   },
+    // }),
 
     EmailProvider({
       server: {
@@ -92,11 +147,19 @@ export const authOptions: NextAuthOptions = {
       const user = payload.user;
 
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role || 'creator',
-        };
+        // Get additional user data including onboarding status
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: { saasCreator: true }
+        });
+
+          return {
+            ...token,
+            id: user.id,
+            role: user.role,
+            onboardingCompleted: dbUser?.saasCreator?.onboardingCompleted || false,
+            onboardingStep: dbUser?.saasCreator?.onboardingStep || 1,
+          };
       }
       return token;
     },
@@ -108,11 +171,31 @@ export const authOptions: NextAuthOptions = {
           user: {
             ...session.user,
             id: token?.id,
-            role: token?.role || 'creator',
+            role: token?.role,
+            onboardingCompleted: token?.onboardingCompleted || false,
+            onboardingStep: token?.onboardingStep || 1,
           },
         };
       }
       return session;
+    },
+
+    redirect: async ({ url, baseUrl }) => {
+      // Allow relative URLs
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      
+      // Allow callback URLs for the same origin
+      if (new URL(url).origin === baseUrl) {
+        // Check if this is a sign-in callback that should go to onboarding
+        if (url.includes('/api/auth/callback/') || url.includes('callbackUrl')) {
+          return `${baseUrl}/saas/onboarding`;
+        }
+        return url;
+      }
+      
+      return baseUrl;
     },
   },
 

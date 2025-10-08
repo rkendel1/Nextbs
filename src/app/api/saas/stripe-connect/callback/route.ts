@@ -4,7 +4,7 @@ import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
 import Stripe from "stripe";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -15,19 +15,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { code, state } = body;
+    const searchParams = request.nextUrl.searchParams;
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
 
-    if (!code) {
+    if (!code || !state) {
       return NextResponse.json(
-        { error: "Missing authorization code" },
+        { error: "Missing authorization code or state parameter" },
         { status: 400 }
       );
     }
 
     // Verify state parameter
     try {
-      const stateData = JSON.parse(Buffer.from(state, "base64").toString());
+      const stateData = JSON.parse(Buffer.from(state, "base64").toString("utf-8"));
       if (stateData.email !== session.user.email) {
         return NextResponse.json(
           { error: "Invalid state parameter" },
@@ -46,12 +47,16 @@ export async function POST(request: NextRequest) {
       apiVersion: "2023-10-16",
     });
 
+    console.log("Initiating token exchange");
     const response = await stripe.oauth.token({
       grant_type: "authorization_code",
       code,
     });
 
+    console.log("Token response received:", JSON.stringify(response, null, 2));
+
     const stripeAccountId = response.stripe_user_id;
+    const livemode = response.livemode || false;
     
     if (!stripeAccountId) {
       return NextResponse.json(
@@ -66,10 +71,13 @@ export async function POST(request: NextRequest) {
     const scope = response.scope;
 
     // Find user and SaaS creator
+    console.log("Fetching user and saasCreator");
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { saasCreator: true },
     });
+
+    console.log("User and saasCreator found:", user ? { id: user.id, hasSaasCreator: !!user.saasCreator } : null);
 
     if (!user || !user.saasCreator) {
       return NextResponse.json(
@@ -83,6 +91,7 @@ export async function POST(request: NextRequest) {
       where: { saasCreatorId: user.saasCreator.id },
     });
 
+    console.log("StripeAccount upsert completed");
     if (existingStripeAccount) {
       // Update existing
       await prisma.stripeAccount.update({
@@ -93,6 +102,7 @@ export async function POST(request: NextRequest) {
           refreshToken,
           tokenType,
           scope,
+          livemode,
           isActive: true,
         },
       });
@@ -106,21 +116,34 @@ export async function POST(request: NextRequest) {
           refreshToken,
           tokenType,
           scope,
+          livemode,
           isActive: true,
         },
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      stripeAccountId,
-      message: "Stripe account connected successfully",
+    // Update onboarding step
+    await prisma.saasCreator.update({
+      where: { id: user.saasCreator.id },
+      data: {
+        onboardingStep: 3, // Move to product setup step
+      },
     });
+
+    // Redirect back to onboarding with success params
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const redirectUrl = new URL("/saas/onboarding", baseUrl);
+    redirectUrl.searchParams.set("stripeConnected", "true");
+    redirectUrl.searchParams.set("stripeAccountId", stripeAccountId);
+    
+    return NextResponse.redirect(redirectUrl);
   } catch (error: any) {
     console.error("Stripe callback error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to connect Stripe account" },
-      { status: 500 }
-    );
+    // Redirect back to onboarding with error params
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const redirectUrl = new URL("/saas/onboarding", baseUrl);
+    redirectUrl.searchParams.set("stripeError", error.message || "Failed to connect Stripe account");
+    
+    return NextResponse.redirect(redirectUrl);
   }
 }

@@ -16,18 +16,6 @@ function hashApiKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
-// GET - List all API keys for the current user
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-import { prisma } from "@/utils/prismaDB";
-import { authOptions } from "@/utils/auth";
-import crypto from "crypto";
-
 // GET /api/saas/api-keys - List all API keys for the authenticated user
 export async function GET(request: NextRequest) {
   try {
@@ -53,8 +41,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch all API keys for this user
     const apiKeys = await prisma.apiKey.findMany({
-      where: { userId: user.id },
+      where: { 
+        OR: [
+          { userId: user.id },
+          { saasCreatorId: user.saasCreator.id }
+        ]
+      },
       select: {
         id: true,
         name: true,
@@ -74,17 +68,6 @@ export async function GET(request: NextRequest) {
     console.error("List API keys error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to list API keys" },
-    // Fetch all API keys for this SaaS creator
-    const apiKeys = await prisma.apiKey.findMany({
-      where: { saasCreatorId: user.saasCreator.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ apiKeys }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching API keys:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch API keys" },
       { status: 500 }
     );
   }
@@ -131,6 +114,7 @@ export async function POST(request: NextRequest) {
     const apiKey = await prisma.apiKey.create({
       data: {
         userId: user.id,
+        saasCreatorId: user.saasCreator.id,
         name,
         key: hashedKey,
         keyPrefix,

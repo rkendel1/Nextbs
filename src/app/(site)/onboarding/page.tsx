@@ -1,13 +1,31 @@
-import OnboardingWizard from "@/components/SaasOnboarding";
+"use client";
+
+import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "SaaS Onboarding | SaaS for SaaS Platform",
-  description: "Complete your SaaS creator onboarding",
-};
+const OnboardingWizard = dynamic(
+  () => import("@/components/SaasOnboarding"),
+  {
+    loading: () => (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-primary"></div>
+      </div>
+    ),
+    ssr: false
+  }
+);
 
-const OnboardingPage = () => {
-  return <OnboardingWizard />;
-};
-
-export default OnboardingPage;
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <OnboardingWizard />
+    </Suspense>
+  );
+}

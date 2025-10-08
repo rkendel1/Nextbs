@@ -141,8 +141,9 @@ export interface DashboardStats {
 export enum OnboardingStep {
   BUSINESS_INFO = 1,
   STRIPE_CONNECT = 2,
-  PRODUCT_SETUP = 3,
-  COMPLETE = 4,
+  PLAN_SELECTION = 3,
+  PRODUCT_SETUP = 4,
+  COMPLETE = 5,
 }
 
 // API Key Types

@@ -8,6 +8,7 @@ interface StripeConnectStepProps {
   onComplete: (data: any) => void;
   onBack: () => void;
   loading: boolean;
+  onSkip?: () => void;
 }
 
 const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectStepProps) => {
@@ -15,36 +16,34 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
   const [stripeAccountId, setStripeAccountId] = useState(data.stripeAccountId || "");
 
   useEffect(() => {
-    // Check if returning from Stripe OAuth
+    // Check if we have a stripeAccountId from props or URL
     const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const state = params.get("state");
+    const urlStripeAccountId = params.get("stripeAccountId");
+    const stripeConnected = params.get("stripeConnected");
+    const stripeError = params.get("stripeError");
 
-    if (code && state) {
-      handleStripeCallback(code, state);
-    }
-  }, []);
-
-  const handleStripeCallback = async (code: string, state: string) => {
-    try {
-      const response = await fetch("/api/saas/stripe-connect/callback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, state }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to connect Stripe account");
-      }
-
-      const result = await response.json();
-      setStripeAccountId(result.stripeAccountId);
+    if (data.stripeAccountId || (stripeConnected === "true" && urlStripeAccountId)) {
+      setStripeAccountId(data.stripeAccountId || urlStripeAccountId!);
       setIsConnected(true);
-      toast.success("Stripe account connected successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to connect Stripe account");
+      if (stripeConnected === "true") {
+        toast.success("Stripe account connected successfully!");
+        // Clean up URL parameters
+        const url = new URL(window.location.href);
+        url.searchParams.delete("stripeConnected");
+        url.searchParams.delete("stripeAccountId");
+        window.history.replaceState({}, "", url.toString());
+      }
     }
-  };
+
+    // Handle error from redirect
+    if (stripeError) {
+      toast.error(stripeError);
+      // Clean up error parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete("stripeError");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [data.stripeAccountId]);
 
   const handleConnectStripe = async () => {
     try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import Stripe from "stripe";
 import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
 
@@ -74,16 +75,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeSecretKey) {
+      return NextResponse.json(
+        { error: "Stripe secret key is not configured" },
+        { status: 500 }
+      );
+    }
+
     // Find user and SaaS creator
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { saasCreator: true },
     });
 
-    if (!user || !user.saasCreator) {
+    if (!user) {
       return NextResponse.json(
-        { error: "SaaS creator profile not found" },
+        { error: "User not found" },
         { status: 404 }
+      );
+    }
+
+    // Auto-create saasCreator for platform owners if missing
+    if (!user.saasCreator) {
+      if (user.role !== 'platform_owner') {
+        return NextResponse.json(
+          { error: "SaaS creator profile required" },
+          { status: 404 }
+        );
+      }
+
+      // Create saasCreator for platform owner
+      user.saasCreator = await prisma.saasCreator.create({
+        data: {
+          userId: user.id,
+          businessName: `${user.name}'s Platform`,
+          businessDescription: 'Platform owner business',
+          onboardingCompleted: true,
+          onboardingStep: 4,
+        },
+      });
+    }
+
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2023-10-16",
+    });
+
+    let stripeProduct;
+    try {
+      stripeProduct = await stripe.products.create({
+        name,
+        description: description || undefined,
+        metadata: {
+          saasCreatorId: user.saasCreator.id,
+          platformOwner: user.role === 'platform_owner' ? 'true' : 'false',
+        },
+      });
+    } catch (stripeError: any) {
+      console.error("Stripe product creation error:", stripeError);
+      return NextResponse.json(
+        { error: "Failed to create product in Stripe: " + stripeError.message },
+        { status: 500 }
       );
     }
 
@@ -94,6 +147,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         isActive: isActive ?? true,
+        stripeProductId: stripeProduct.id,
       },
     });
 

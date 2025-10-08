@@ -4,81 +4,60 @@ import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
 
 interface RouteParams {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 }
 
-// DELETE - Revoke an API key
+// Helper function to verify API key ownership
+async function verifyApiKeyOwnership(id: string, userEmail: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: userEmail },
+    include: { saasCreator: true },
+  });
+
+  if (!user) {
+    return { error: "User not found", status: 404 };
+  }
+
+  const apiKey = await prisma.apiKey.findUnique({
+    where: { id },
+  });
+
+  if (!apiKey) {
+    return { error: "API key not found", status: 404 };
+  }
+
+  // Check if the API key belongs to either the user directly or their SaaS creator profile
+  if (apiKey.userId !== user.id && apiKey.saasCreatorId !== user.saasCreator?.id) {
+    return { error: "Unauthorized", status: 403 };
+  }
+
+  return { user, apiKey };
+}
+
+// DELETE /api/saas/api-keys/[id] - Revoke/delete an API key
 export async function DELETE(
   request: NextRequest,
   context: RouteParams
 ) {
   try {
-    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-import { prisma } from "@/utils/prismaDB";
-import { authOptions } from "@/utils/auth";
-
-// DELETE /api/saas/api-keys/[id] - Revoke/delete an API key
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-
     if (!session?.user?.email) {
       return NextResponse.json(
-        { message: "Unauthorized" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
+    const { id } = context.params;
+    const result = await verifyApiKeyOwnership(id, session.user.email);
 
-    if (!user) {
+    if ('error' in result) {
       return NextResponse.json(
-        { error: "User not found" },
-    const { id } = params;
-
-    // Get the user and their SaaS creator profile
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { saasCreator: true },
-    });
-
-    if (!user?.saasCreator) {
-      return NextResponse.json(
-        { message: "SaaS creator profile not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify that the API key belongs to this user
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { id },
-    });
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { message: "API key not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify ownership
-    if (apiKey.userId !== user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
+        { error: result.error },
+        { status: result.status }
       );
     }
 
@@ -87,7 +66,10 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(
+      { message: "API key revoked successfully" },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("Delete API key error:", error);
     return NextResponse.json(
@@ -97,54 +79,33 @@ export async function DELETE(
   }
 }
 
-// PATCH - Update API key (e.g., deactivate)
+// PATCH /api/saas/api-keys/[id] - Update API key (e.g., deactivate, rename)
 export async function PATCH(
   request: NextRequest,
   context: RouteParams
 ) {
   try {
-    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user?.email) {
+    if (!session?.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
+    const { id } = context.params;
+    const result = await verifyApiKeyOwnership(id, session.user.email);
+
+    if ('error' in result) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status }
+      );
+    }
+
     const body = await request.json();
     const { isActive, name } = body;
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { id },
-    });
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "API key not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify ownership
-    if (apiKey.userId !== user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
-    }
 
     // Update the API key
     const updatedKey = await prisma.apiKey.update({
@@ -171,14 +132,6 @@ export async function PATCH(
     console.error("Update API key error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to update API key" },
-    return NextResponse.json(
-      { message: "API key revoked successfully" },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error revoking API key:", error);
-    return NextResponse.json(
-      { message: "Failed to revoke API key" },
       { status: 500 }
     );
   }

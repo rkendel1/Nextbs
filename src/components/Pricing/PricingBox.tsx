@@ -1,24 +1,26 @@
-import axios from "axios";
 import React from "react";
 import OfferList from "./OfferList";
 import { Price } from "@/types/price";
 
 const PricingBox = ({ product }: { product: Price }) => {
-  // POST request
-  const handleSubscription = async (e: any) => {
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleSubscription = async (e: React.MouseEvent) => {
     e.preventDefault();
-    const { data } = await axios.post(
-      "/api/payment",
-      {
-        priceId: product.id,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-    window.location.assign(data);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Instead of creating a payment session, redirect to signup
+      // The selected product/tier will be handled during onboarding
+      window.location.href = '/auth/signup';
+    } catch (err: any) {
+      console.error("Navigation error:", err);
+      setError("Failed to navigate to signup");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -59,11 +61,27 @@ const PricingBox = ({ product }: { product: Price }) => {
           </div>
         </div>
         <div className="w-full">
+          {error && (
+            <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+          )}
           <button
             onClick={handleSubscription}
-            className="inline-block rounded-md bg-primary px-7 py-3 text-center text-base font-medium text-white transition duration-300 hover:bg-primary/90"
+            disabled={isLoading}
+            className={`inline-block rounded-md bg-primary px-7 py-3 text-center text-base font-medium text-white transition duration-300 ${
+              isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary/90'
+            } w-full`}
           >
-            Purchase Now
+            {isLoading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Redirecting...
+              </span>
+            ) : (
+              "Get Started"
+            )}
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ interface ProductSetupStepProps {
   onComplete: (data: any) => void;
   onBack: () => void;
   loading: boolean;
+  onSkip?: () => void;
 }
 
 const ProductSetupStep = ({ data, onComplete, onBack, loading }: ProductSetupStepProps) => {

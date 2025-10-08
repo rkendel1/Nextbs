@@ -48,6 +48,7 @@ model User {
   passwordResetToken    String?        @unique
   passwordResetTokenExp DateTime?
   role                  String         @default("creator") // creator, platform_owner
+  subscriptionStatus    SubscriptionStatus @default(FREE)
   accounts              Account[]
   sessions              Session[]
   saasCreator           SaasCreator?
@@ -55,6 +56,12 @@ model User {
   usageRecords          UsageRecord[]
   apiKeys               ApiKey[]
   emailNotifications    EmailNotification[]
+}
+
+enum SubscriptionStatus {
+  FREE
+  PAID
+  TRIAL
 }
 
 model VerificationToken {
@@ -95,6 +102,7 @@ model StripeAccount {
   refreshToken    String?     @db.Text
   tokenType       String?
   scope           String?
+  livemode        Boolean     @default(false)
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -206,20 +214,23 @@ model WhiteLabelConfig {
 
 // API Keys for authentication
 model ApiKey {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saasCreatorId String?
+  saasCreator   SaasCreator? @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
   name          String
-  key           String   @unique
-  keyPrefix     String   // First 8 chars for display
-  permissions   String[] // Array of permissions
+  key           String      @unique
+  keyPrefix     String?     // First 8 chars for display
+  permissions   String[]    // Array of permissions
   lastUsedAt    DateTime?
   expiresAt     DateTime?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([userId])
+  @@index([saasCreatorId])
   @@index([key])
 }
 
@@ -284,18 +295,3 @@ model AnalyticsSnapshot {
   @@index([periodStart])
 }
 
-// API Keys for programmatic access
-model ApiKey {
-  id            String      @id @default(cuid())
-  saasCreatorId String
-  saasCreator   SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  name          String
-  key           String      @unique
-  lastUsedAt    DateTime?
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@index([saasCreatorId])
-  @@index([key])
-}

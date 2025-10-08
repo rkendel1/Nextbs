@@ -38,6 +38,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle platform owners - auto-complete onboarding
+    if (user.role === 'platform_owner') {
+      let saasCreator = await prisma.saasCreator.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (!saasCreator) {
+        saasCreator = await prisma.saasCreator.create({
+          data: {
+            userId: user.id,
+            businessName: businessName || `${user.name || 'Platform'} Owner`,
+            businessDescription: businessDescription || 'Platform administration',
+            website: website || '',
+            onboardingCompleted: true,
+            onboardingStep: 4,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        saasCreator,
+        message: "Platform owner onboarding auto-completed",
+      });
+    }
+
     // Check if SaaS creator profile exists
     let saasCreator = await prisma.saasCreator.findUnique({
       where: { userId: user.id },
@@ -52,11 +78,12 @@ export async function POST(request: NextRequest) {
           businessDescription,
           website,
           onboardingStep: currentStep || 1,
-          onboardingCompleted: currentStep === 4,
+          onboardingCompleted: false, // Never mark as completed here
         },
       });
     } else if (saasCreator) {
-      // Update existing profile
+      // Update existing profile - only update onboardingCompleted if explicitly at step 3
+      const isCompleted = currentStep === 3;
       saasCreator = await prisma.saasCreator.update({
         where: { id: saasCreator.id },
         data: {
@@ -64,7 +91,7 @@ export async function POST(request: NextRequest) {
           ...(businessDescription !== undefined && { businessDescription }),
           ...(website !== undefined && { website }),
           onboardingStep: currentStep || saasCreator.onboardingStep,
-          onboardingCompleted: currentStep === 4,
+          onboardingCompleted: isCompleted,
         },
       });
     }
@@ -142,10 +169,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Handle platform owners - auto-complete onboarding
+    if (user.role === 'platform_owner') {
+      if (!user.saasCreator) {
+        const saasCreator = await prisma.saasCreator.create({
+          data: {
+            userId: user.id,
+            businessName: `${user.name || 'Platform'} Owner`,
+            businessDescription: 'Platform administration',
+            onboardingCompleted: true,
+            onboardingStep: 4,
+          },
+        });
+        
+        return NextResponse.json({
+          saasCreator,
+          onboardingCompleted: true,
+          currentStep: 4,
+        });
+      }
+      
+      return NextResponse.json({
+        saasCreator: user.saasCreator,
+        onboardingCompleted: true,
+        currentStep: user.saasCreator?.onboardingStep || 4,
+      });
+    }
+
+    // For regular users, return proper onboarding state
+    const onboardingCompleted = user.saasCreator?.onboardingCompleted || false;
+    const currentStep = user.saasCreator?.onboardingStep || 1;
+
     return NextResponse.json({
       saasCreator: user.saasCreator,
-      onboardingCompleted: user.saasCreator?.onboardingCompleted || false,
-      currentStep: user.saasCreator?.onboardingStep || 1,
+      onboardingCompleted,
+      currentStep,
     });
   } catch (error: any) {
     console.error("Get onboarding status error:", error);

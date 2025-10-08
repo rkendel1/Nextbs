@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
 
     // Get query params
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "";
+    const productId = searchParams.get("productId") || "";
 
     // Find user and SaaS creator
     const user = await prisma.user.findUnique({
@@ -31,9 +34,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get recent subscribers
+    // Build where clause
+    const whereClause: any = { 
+      saasCreatorId: user.role === 'platform_owner' ? undefined : user.saasCreator.id 
+    };
+
+    // Add status filter
+    if (status) {
+      whereClause.status = status;
+    }
+
+    // Add product filter
+    if (productId) {
+      whereClause.productId = productId;
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Get subscribers with full details
     const subscribers = await prisma.subscription.findMany({
-      where: { saasCreatorId: user.saasCreator.id },
+      where: whereClause,
       include: {
         user: {
           select: {

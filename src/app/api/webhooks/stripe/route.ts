@@ -60,6 +60,14 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       },
     });
 
+    // Update user subscription status to PAID
+    await prisma.user.update({
+      where: { id: dbSubscription.userId },
+      data: {
+        subscriptionStatus: 'PAID',
+      },
+    });
+
     // Send email notification
     await sendEmailNotification(
       dbSubscription.userId,
