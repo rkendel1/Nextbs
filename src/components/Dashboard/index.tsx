@@ -313,21 +313,48 @@ const Dashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks to manage your business</CardDescription>
+                <CardDescription>Get started with common tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Button variant="outline" className="justify-start" onClick={handleCreateProduct}>
-                    <Package className="mr-2 h-4 w-4" />
-                    Add New Product
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2" 
+                    onClick={handleCreateProduct}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Package className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">Add Product</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Create a new product with guided wizard
+                    </span>
                   </Button>
-                  <Button variant="outline" className="justify-start">
-                    <Users className="mr-2 h-4 w-4" />
-                    Invite Team Member
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2"
+                    onClick={() => router.push("/dashboard/subscribers")}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Users className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">View Subscribers</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Manage your subscriber base
+                    </span>
                   </Button>
-                  <Button variant="outline" className="justify-start">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    View Billing
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2"
+                    onClick={() => router.push("/dashboard/white-label")}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">White-Label Site</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Configure your branded portal
+                    </span>
                   </Button>
                 </div>
               </CardContent>
@@ -342,10 +369,16 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 {products.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No products yet</p>
-                    <Button className="mt-4 bg-primary hover:bg-primary/90" onClick={handleCreateProduct}>
+                  <div className="text-center py-12 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <Package className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No products yet</h3>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                      Products are the core of your SaaS business. Create your first product 
+                      to start accepting subscribers and generating revenue.
+                    </p>
+                    <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateProduct}>
                       <Package className="mr-2 h-4 w-4" />
                       Create First Product
                     </Button>
@@ -418,12 +451,32 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 {subscribers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No subscribers yet</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Subscribers will appear here when they sign up for your products
+                  <div className="text-center py-12 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <Users className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No subscribers yet</h3>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                      Subscribers will appear here when users sign up for your products. 
+                      Share your white-label site to start growing your subscriber base.
                     </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button 
+                        variant="outline"
+                        onClick={() => router.push("/dashboard/white-label")}
+                      >
+                        View White-Label Site
+                      </Button>
+                      {products.length === 0 && (
+                        <Button 
+                          className="bg-primary hover:bg-primary/90"
+                          onClick={handleCreateProduct}
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          Create Product
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
