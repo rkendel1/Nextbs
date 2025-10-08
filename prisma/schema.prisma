@@ -82,6 +82,20 @@ model SaasCreator {
   website             String?
   onboardingCompleted Boolean             @default(false)
   onboardingStep      Int                 @default(1)
+  // Brand data from crawler
+  logoUrl             String?
+  faviconUrl          String?
+  primaryColor        String?
+  secondaryColor      String?
+  fonts               String?             @db.Text // JSON array of fonts
+  companyAddress      String?
+  contactInfo         String?             @db.Text // JSON object with contact details
+  productsParsed      String?             @db.Text // JSON array of products
+  voiceAndTone        String?             @db.Text
+  crawlJobId          String?
+  crawlStatus         String?             @default("pending") // pending, processing, completed, failed
+  crawlConfidence     String?             @db.Text // JSON object with confidence scores
+  crawlCompletedAt    DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   stripeAccount       StripeAccount?

@@ -20,8 +20,15 @@ export async function POST(request: NextRequest) {
       businessDescription,
       website,
       stripeAccountId,
-      productName,
-      productDescription,
+      companyAddress,
+      contactEmail,
+      contactPhone,
+      primaryColor,
+      secondaryColor,
+      logoUrl,
+      faviconUrl,
+      fonts,
+      voiceAndTone,
       currentStep,
       skipForNow,
     } = body;
@@ -90,6 +97,13 @@ export async function POST(request: NextRequest) {
           ...(businessName && { businessName }),
           ...(businessDescription !== undefined && { businessDescription }),
           ...(website !== undefined && { website }),
+          ...(companyAddress !== undefined && { companyAddress }),
+          ...(primaryColor !== undefined && { primaryColor }),
+          ...(secondaryColor !== undefined && { secondaryColor }),
+          ...(logoUrl !== undefined && { logoUrl }),
+          ...(faviconUrl !== undefined && { faviconUrl }),
+          ...(fonts !== undefined && { fonts }),
+          ...(voiceAndTone !== undefined && { voiceAndTone }),
           onboardingStep: currentStep || saasCreator.onboardingStep,
           onboardingCompleted: isCompleted,
         },
@@ -114,16 +128,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle product creation
-    if (productName && !skipForNow && saasCreator) {
-      await prisma.product.create({
-        data: {
-          saasCreatorId: saasCreator.id,
-          name: productName,
-          description: productDescription,
-          isActive: true,
-        },
-      });
-    }
+    // Note: Product creation is no longer part of onboarding
+    // Users will create products from the dashboard after completing onboarding
 
     return NextResponse.json({
       success: true,
