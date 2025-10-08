@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prisma from "@/lib/prismadb";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/utils/prismaDB";
+import { authOptions } from "@/utils/auth";
 
 // DELETE /api/saas/api-keys/[id] - Revoke/delete an API key
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {

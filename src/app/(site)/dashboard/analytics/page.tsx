@@ -14,7 +14,7 @@ const AnalyticsPage = () => {
           Analytics & Insights
         </h1>
         <p className="mt-2 text-body-color dark:text-dark-6">
-          Track your platform's performance with detailed metrics and visualizations.
+          Track your platform&apos;s performance with detailed metrics and visualizations.
         </p>
       </div>
       <Analytics />

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prisma from "@/lib/prismadb";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/utils/prismaDB";
+import { authOptions } from "@/utils/auth";
 
 // GET /api/saas/platform-stats - Get platform-wide statistics
 export async function GET(request: NextRequest) {
