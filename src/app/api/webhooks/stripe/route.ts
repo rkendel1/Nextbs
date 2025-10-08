@@ -3,7 +3,7 @@ import { prisma } from "@/utils/prismaDB";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2023-10-16",
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -26,7 +26,7 @@ async function sendEmailNotification(
         body,
         recipient,
         status: 'pending',
-        metadata,
+        metadata: metadata as any,
       },
     });
   } catch (error) {

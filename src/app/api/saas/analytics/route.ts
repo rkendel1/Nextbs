@@ -141,18 +141,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Get usage data
-    const usageRecords = await prisma.usageRecord.findMany({
-      where: {
-        timestamp: {
-          gte: startOfMonth,
+    let usageRecords;
+    if (targetCreatorId) {
+      usageRecords = await prisma.usageRecord.findMany({
+        where: {
+          timestamp: {
+            gte: startOfMonth,
+          },
+          subscription: {
+            saasCreatorId: targetCreatorId,
+          },
         },
-      },
-      include: {
-        subscription: {
-          where: whereClause,
+      });
+    } else {
+      usageRecords = await prisma.usageRecord.findMany({
+        where: {
+          timestamp: {
+            gte: startOfMonth,
+          },
         },
-      },
-    });
+      });
+    }
 
     const totalUsage = usageRecords.reduce((sum, record) => sum + record.quantity, 0);
 

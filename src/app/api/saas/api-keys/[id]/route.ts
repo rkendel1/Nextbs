@@ -3,12 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
 
+interface RouteParams {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
 // DELETE - Revoke an API key
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -30,7 +37,7 @@ export async function DELETE(
     }
 
     const apiKey = await prisma.apiKey.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!apiKey) {
@@ -50,7 +57,7 @@ export async function DELETE(
 
     // Delete the API key
     await prisma.apiKey.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
@@ -66,9 +73,10 @@ export async function DELETE(
 // PATCH - Update API key (e.g., deactivate)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -93,7 +101,7 @@ export async function PATCH(
     }
 
     const apiKey = await prisma.apiKey.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!apiKey) {
@@ -113,7 +121,7 @@ export async function PATCH(
 
     // Update the API key
     const updatedKey = await prisma.apiKey.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(isActive !== undefined && { isActive }),
         ...(name && { name }),

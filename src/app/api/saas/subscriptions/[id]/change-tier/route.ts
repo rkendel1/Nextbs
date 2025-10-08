@@ -5,15 +5,22 @@ import { prisma } from "@/utils/prismaDB";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2023-10-16",
 });
+
+interface RouteParams {
+  params: Promise<{
+    id: string;
+  }>;
+}
 
 // POST - Upgrade or downgrade subscription
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
+    const { id } = await context.params;
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.email) {
@@ -46,7 +53,7 @@ export async function POST(
 
     // Get the subscription
     const subscription = await prisma.subscription.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: true,
         tier: true,
@@ -117,7 +124,7 @@ export async function POST(
 
     // Update the subscription in our database
     const updatedSubscription = await prisma.subscription.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         tierId: newTierId,
       },
@@ -141,7 +148,7 @@ export async function POST(
           subscriptionId: subscription.id,
           oldTierId: subscription.tierId,
           newTierId,
-        },
+        } as any,
       },
     });
 
