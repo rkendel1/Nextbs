@@ -15,6 +15,7 @@ interface CompanyInfoReviewStepProps {
 const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInfoReviewStepProps) => {
   const [brandData, setBrandData] = useState<BrandData | null>(null);
   const [crawlStatus, setCrawlStatus] = useState<string>("loading");
+  const [hasStripeData, setHasStripeData] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
   const [editedData, setEditedData] = useState<any>({
     businessName: "",
@@ -37,6 +38,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
       const result = await response.json();
 
       setCrawlStatus(result.crawlStatus || "not_started");
+      setHasStripeData(result.hasStripeData || false);
 
       if (result.success && result.data) {
         const data = result.data;
@@ -57,10 +59,23 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
         setShowAnimation(true);
         setTimeout(() => setShowAnimation(false), 3000);
 
-        toast.success("✨ We matched your brand automatically — ready to review?", {
-          duration: 5000,
-          icon: "🪄",
-        });
+        // Show appropriate success message based on data sources
+        if (result.hasStripeData && result.crawlStatus === "completed") {
+          toast.success("✨ We matched your brand from your website AND Stripe — ready to review?", {
+            duration: 5000,
+            icon: "🪄",
+          });
+        } else if (result.hasStripeData) {
+          toast.success("✨ We prefilled your info from Stripe — ready to review?", {
+            duration: 5000,
+            icon: "💳",
+          });
+        } else if (result.crawlStatus === "completed") {
+          toast.success("✨ We matched your brand automatically — ready to review?", {
+            duration: 5000,
+            icon: "🪄",
+          });
+        }
       } else if (result.crawlStatus === "processing" || result.crawlStatus === "pending") {
         // Still processing, show message
         toast("Still fetching your brand info...", {
@@ -116,8 +131,9 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
     required: boolean = false,
     multiline: boolean = false
   ) => {
+    const fieldName = String(field);
     const value = editedData[field] || "";
-    const isFieldEditing = isEditing[field];
+    const isFieldEditing = isEditing[fieldName];
     const confidence = brandData?.confidence_scores?.[field as keyof typeof brandData.confidence_scores];
 
     return (
@@ -135,7 +151,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
           <div className="flex gap-2">
             {value && !isFieldEditing && (
               <button
-                onClick={() => toggleEdit(field)}
+                onClick={() => toggleEdit(fieldName)}
                 className="text-blue-600 hover:text-blue-700 dark:text-blue-400"
                 title="Edit"
               >
@@ -144,7 +160,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
             )}
             {isFieldEditing && (
               <button
-                onClick={() => toggleEdit(field)}
+                onClick={() => toggleEdit(fieldName)}
                 className="text-green-600 hover:text-green-700 dark:text-green-400"
                 title="Save"
               >
@@ -156,7 +172,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
         {multiline ? (
           <textarea
             value={value}
-            onChange={(e) => handleFieldUpdate(field, e.target.value)}
+            onChange={(e) => handleFieldUpdate(fieldName, e.target.value)}
             placeholder={placeholder}
             disabled={!isFieldEditing && value !== ""}
             rows={3}
@@ -166,7 +182,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
           <input
             type="text"
             value={value}
-            onChange={(e) => handleFieldUpdate(field, e.target.value)}
+            onChange={(e) => handleFieldUpdate(fieldName, e.target.value)}
             placeholder={placeholder}
             disabled={!isFieldEditing && value !== ""}
             className="w-full rounded-md border border-stroke bg-white px-3 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary disabled:bg-gray-100 disabled:text-gray-700 dark:border-dark-3 dark:bg-dark-2 dark:text-white dark:disabled:bg-dark-3"
@@ -184,20 +200,24 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
           Review Your Company Info
         </h2>
         <p className="text-base text-body-color dark:text-dark-6">
-          {crawlStatus === "completed"
+          {(crawlStatus === "completed" || hasStripeData)
             ? "We've pre-filled your company information. Review and edit as needed."
             : "Please enter your company information below"}
         </p>
       </div>
 
       {/* Success Message */}
-      {crawlStatus === "completed" && brandData && (
+      {(crawlStatus === "completed" || hasStripeData) && brandData && (
         <div className="mb-6 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
           <div className="flex gap-2">
             <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                Nice! While you were connecting Stripe, we fetched your brand and company info.
+                {hasStripeData && crawlStatus === "completed"
+                  ? "Nice! While you were connecting Stripe, we fetched your brand info from your website AND your Stripe account."
+                  : hasStripeData
+                  ? "Nice! We prefilled your company information from your Stripe account."
+                  : "Nice! While you were connecting Stripe, we fetched your brand and company info."}
               </p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                 Click the edit icon to modify any field, or accept and continue.

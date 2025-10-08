@@ -71,6 +71,11 @@ export async function GET(request: NextRequest) {
       console.error("Error parsing JSON fields:", error);
     }
 
+    // Check if we have Stripe account data
+    const stripeAccount = await prisma.stripeAccount.findUnique({
+      where: { saasCreatorId: saasCreator.id },
+    });
+
     // Build BrandData response
     const brandData: BrandData = {
       logo_url: saasCreator.logoUrl || undefined,
@@ -90,8 +95,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      crawlStatus: "completed",
+      crawlStatus: saasCreator.crawlStatus || "completed",
       data: brandData,
+      hasStripeData: !!stripeAccount,
       message: "Brand data retrieved successfully",
     });
   } catch (error: any) {
