@@ -26,7 +26,10 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
       setStripeAccountId(data.stripeAccountId || urlStripeAccountId!);
       setIsConnected(true);
       if (stripeConnected === "true") {
-        toast.success("Stripe account connected successfully!");
+        toast.success("Nice! While you were connecting Stripe, we fetched your brand and company info.", {
+          duration: 5000,
+          icon: "✨",
+        });
         // Clean up URL parameters
         const url = new URL(window.location.href);
         url.searchParams.delete("stripeConnected");
