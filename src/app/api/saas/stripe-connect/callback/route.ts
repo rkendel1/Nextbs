@@ -122,12 +122,85 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Update onboarding step
+    // Fetch Stripe account details to prefill creator profile
+    console.log("Fetching Stripe account details");
+    let stripeAccountDetails: any = null;
+    try {
+      stripeAccountDetails = await stripe.accounts.retrieve(stripeAccountId);
+      console.log("Stripe account details retrieved:", JSON.stringify({
+        business_name: stripeAccountDetails.business_profile?.name,
+        has_business_profile: !!stripeAccountDetails.business_profile,
+        has_settings: !!stripeAccountDetails.settings,
+      }));
+    } catch (error: any) {
+      console.error("Failed to fetch Stripe account details:", error);
+      // Continue even if fetch fails - we don't want to block the onboarding
+    }
+
+    // Prepare updates to SaasCreator with Stripe data
+    const saasCreatorUpdates: any = {
+      onboardingStep: 3, // Move to product setup step
+    };
+
+    // Only update fields if we have Stripe data and the field is not already set
+    if (stripeAccountDetails) {
+      // Business name from Stripe
+      if (stripeAccountDetails.business_profile?.name && !user.saasCreator.businessName) {
+        saasCreatorUpdates.businessName = stripeAccountDetails.business_profile.name;
+      }
+
+      // Company address from Stripe (support address or business address)
+      if (!user.saasCreator.companyAddress) {
+        const address = stripeAccountDetails.business_profile?.support_address || 
+                       stripeAccountDetails.company?.address;
+        if (address) {
+          const addressParts = [
+            address.line1,
+            address.line2,
+            address.city,
+            address.state,
+            address.postal_code,
+            address.country
+          ].filter(Boolean);
+          if (addressParts.length > 0) {
+            saasCreatorUpdates.companyAddress = addressParts.join(', ');
+          }
+        }
+      }
+
+      // Contact info from Stripe
+      if (!user.saasCreator.contactInfo) {
+        const contactInfo: any = {};
+        
+        if (stripeAccountDetails.business_profile?.support_email) {
+          contactInfo.email = stripeAccountDetails.business_profile.support_email;
+        } else if (stripeAccountDetails.email) {
+          contactInfo.email = stripeAccountDetails.email;
+        }
+        
+        if (stripeAccountDetails.business_profile?.support_phone) {
+          contactInfo.phone = stripeAccountDetails.business_profile.support_phone;
+        }
+
+        if (stripeAccountDetails.business_profile?.support_url) {
+          contactInfo.website = stripeAccountDetails.business_profile.support_url;
+        }
+
+        if (Object.keys(contactInfo).length > 0) {
+          saasCreatorUpdates.contactInfo = JSON.stringify(contactInfo);
+        }
+      }
+
+      // Business website URL if not set
+      if (!user.saasCreator.website && stripeAccountDetails.business_profile?.url) {
+        saasCreatorUpdates.website = stripeAccountDetails.business_profile.url;
+      }
+    }
+
+    // Update onboarding step and Stripe-sourced data
     await prisma.saasCreator.update({
       where: { id: user.saasCreator.id },
-      data: {
-        onboardingStep: 3, // Move to product setup step
-      },
+      data: saasCreatorUpdates,
     });
 
     // Redirect back to onboarding with success params
