@@ -1,3 +1,6 @@
+// User Role Types
+export type UserRole = 'creator' | 'platform_owner';
+
 // SaaS Creator Types
 export interface SaasCreator {
   id: string;
@@ -112,10 +115,12 @@ export interface StripeAccount {
 // White Label Types
 export interface WhiteLabelConfig {
   id: string;
-  userId: string;
+  saasCreatorId: string;
   brandName?: string;
   primaryColor?: string;
+  secondaryColor?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   customDomain?: string;
   subdomain?: string;
   customCss?: string;
@@ -138,4 +143,99 @@ export enum OnboardingStep {
   STRIPE_CONNECT = 2,
   PRODUCT_SETUP = 3,
   COMPLETE = 4,
+}
+
+// API Key Types
+export interface ApiKey {
+  id: string;
+  userId: string;
+  name: string;
+  key: string;
+  keyPrefix: string;
+  permissions: string[];
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ApiKeyCreate {
+  name: string;
+  permissions?: string[];
+  expiresAt?: Date;
+}
+
+// Email Notification Types
+export interface EmailNotification {
+  id: string;
+  userId: string;
+  type: string;
+  subject: string;
+  body: string;
+  recipient: string;
+  status: string;
+  sentAt?: Date;
+  error?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type EmailNotificationType =
+  | 'subscription_created'
+  | 'subscription_updated'
+  | 'subscription_cancelled'
+  | 'payment_succeeded'
+  | 'payment_failed'
+  | 'trial_ending'
+  | 'usage_limit_warning';
+
+// Webhook Event Types
+export interface WebhookEvent {
+  id: string;
+  eventId: string;
+  eventType: string;
+  status: string;
+  payload: Record<string, unknown>;
+  processedAt?: Date;
+  error?: string;
+  retryCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Analytics Types
+export interface AnalyticsSnapshot {
+  id: string;
+  saasCreatorId?: string;
+  period: string;
+  periodStart: Date;
+  periodEnd: Date;
+  totalRevenue: number;
+  newSubscribers: number;
+  churnedSubscribers: number;
+  activeSubscribers: number;
+  totalUsage: number;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AnalyticsData {
+  revenue: {
+    total: number;
+    growth: number;
+    monthlyBreakdown: Array<{ month: string; amount: number }>;
+  };
+  subscribers: {
+    total: number;
+    active: number;
+    churned: number;
+    growth: number;
+  };
+  usage: {
+    total: number;
+    trend: Array<{ date: string; value: number }>;
+  };
 }
