@@ -10,6 +10,20 @@ export interface SaasCreator {
   website?: string;
   onboardingCompleted: boolean;
   onboardingStep: number;
+  // Brand data from crawler
+  logoUrl?: string;
+  faviconUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fonts?: string; // JSON array
+  companyAddress?: string;
+  contactInfo?: string; // JSON object
+  productsParsed?: string; // JSON array
+  voiceAndTone?: string;
+  crawlJobId?: string;
+  crawlStatus?: string;
+  crawlConfidence?: string; // JSON object
+  crawlCompletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -139,11 +153,42 @@ export interface DashboardStats {
 
 // Onboarding Step Types
 export enum OnboardingStep {
-  BUSINESS_INFO = 1,
+  URL_ENTRY = 1,
   STRIPE_CONNECT = 2,
-  PLAN_SELECTION = 3,
-  PRODUCT_SETUP = 4,
-  COMPLETE = 5,
+  COMPANY_INFO_REVIEW = 3,
+  COMPLETE = 4,
+}
+
+// Brand Data from Crawler
+export interface BrandData {
+  logo_url?: string;
+  favicon_url?: string;
+  colors?: {
+    primary?: string;
+    secondary?: string;
+  };
+  fonts?: string[];
+  company_name?: string;
+  company_address?: string;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+  };
+  products?: string[];
+  voice?: string;
+  confidence_scores?: {
+    logo?: number;
+    colors?: number;
+    fonts?: number;
+    company_info?: number;
+  };
+}
+
+export interface CrawlJobStatus {
+  jobId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  data?: BrandData;
+  error?: string;
 }
 
 // API Key Types

@@ -23,12 +23,7 @@ const StripeConnectStep = dynamic(() => import("./StripeConnectStep"), {
   ssr: false
 });
 
-const ProductSetupStep = dynamic(() => import("./ProductSetupStep"), {
-  loading: () => <LoadingPlaceholder />,
-  ssr: false
-});
-
-const PlanSelectionStep = dynamic(() => import("./PlanSelectionStep"), {
+const CompanyInfoReviewStep = dynamic(() => import("./CompanyInfoReviewStep"), {
   loading: () => <LoadingPlaceholder />,
   ssr: false
 });
@@ -42,22 +37,28 @@ import { OnboardingStep } from "@/types/saas";
 
 const OnboardingWizard = () => {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<number>(OnboardingStep.BUSINESS_INFO);
+  const [currentStep, setCurrentStep] = useState<number>(OnboardingStep.URL_ENTRY);
   const [loading, setLoading] = useState(true);
   const [onboardingData, setOnboardingData] = useState({
     businessName: "",
     businessDescription: "",
     website: "",
     stripeAccountId: "",
-    tierId: "",
-    productName: "",
-    productDescription: "",
+    companyAddress: "",
+    contactEmail: "",
+    contactPhone: "",
+    primaryColor: "",
+    secondaryColor: "",
+    logoUrl: "",
+    faviconUrl: "",
+    fonts: "",
+    voiceAndTone: "",
   });
 
   const steps = [
-    { id: OnboardingStep.BUSINESS_INFO, title: "Business Info", description: "Tell us about your business" },
+    { id: OnboardingStep.URL_ENTRY, title: "Enter URL", description: "Your website URL" },
     { id: OnboardingStep.STRIPE_CONNECT, title: "Connect Stripe", description: "Set up payments" },
-    { id: OnboardingStep.PLAN_SELECTION, title: "Select Plan", description: "Choose your pricing" },
+    { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review Info", description: "Confirm your details" },
     { id: OnboardingStep.COMPLETE, title: "Complete", description: "You're all set!" },
   ];
 
@@ -86,9 +87,15 @@ const OnboardingWizard = () => {
             businessDescription: data.saasCreator?.businessDescription || "",
             website: data.saasCreator?.website || "",
             stripeAccountId: data.saasCreator?.stripeAccountId || "",
-            tierId: data.tierId || "",
-            productName: data.productName || "",
-            productDescription: data.productDescription || "",
+            companyAddress: data.saasCreator?.companyAddress || "",
+            contactEmail: "",
+            contactPhone: "",
+            primaryColor: data.saasCreator?.primaryColor || "",
+            secondaryColor: data.saasCreator?.secondaryColor || "",
+            logoUrl: data.saasCreator?.logoUrl || "",
+            faviconUrl: data.saasCreator?.faviconUrl || "",
+            fonts: data.saasCreator?.fonts || "",
+            voiceAndTone: data.saasCreator?.voiceAndTone || "",
           });
         }
       } catch (error: any) {
@@ -127,7 +134,6 @@ const OnboardingWizard = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...newData,
-          tierId: newData.tierId || stepData.tierId || "",
           currentStep: currentStep + 1,
         }),
       });
@@ -158,7 +164,7 @@ const OnboardingWizard = () => {
   };
 
   const handleBack = () => {
-    if (currentStep > OnboardingStep.BUSINESS_INFO) {
+    if (currentStep > OnboardingStep.URL_ENTRY) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -196,7 +202,7 @@ const OnboardingWizard = () => {
 
   const renderStep = () => {
     switch (currentStep) {
-      case OnboardingStep.BUSINESS_INFO:
+      case OnboardingStep.URL_ENTRY:
         return (
           <BusinessInfoStep
             data={onboardingData}
@@ -214,9 +220,9 @@ const OnboardingWizard = () => {
             onSkip={handleSkip}
           />
         );
-      case OnboardingStep.PLAN_SELECTION:
+      case OnboardingStep.COMPANY_INFO_REVIEW:
         return (
-          <PlanSelectionStep
+          <CompanyInfoReviewStep
             data={onboardingData}
             onComplete={handleStepComplete}
             onBack={handleBack}
