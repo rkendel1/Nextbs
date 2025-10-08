@@ -12,7 +12,22 @@ const config: Config = {
     extend: {
       colors: {
         ...colors,
-        // primary: "#1A202C",
+        // SaaSinaSnap Brand Colors
+        primary: {
+          DEFAULT: "#6366f1", // Indigo - Modern, trustworthy
+          light: "#818cf8",
+          dark: "#4f46e5",
+        },
+        secondary: {
+          DEFAULT: "#8b5cf6", // Purple - Creative, innovative
+          light: "#a78bfa",
+          dark: "#7c3aed",
+        },
+        accent: {
+          DEFAULT: "#06b6d4", // Cyan - Tech-forward, fresh
+          light: "#22d3ee",
+          dark: "#0891b2",
+        },
       },
     },
   },
