@@ -27,7 +27,16 @@ interface CreatorData {
   whiteLabel: {
     brandName?: string;
     primaryColor?: string;
+    secondaryColor?: string;
     logoUrl?: string;
+  };
+  designTokens?: {
+    fonts?: string[];
+    primaryColor?: string;
+    secondaryColor?: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    voiceAndTone?: string;
   };
 }
 
@@ -81,14 +90,24 @@ const WhiteLabelHomepage = () => {
     );
   }
 
-  const primaryColor = creator.whiteLabel?.primaryColor || '#667eea';
+  const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
+  const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
   const brandName = creator.whiteLabel?.brandName || creator.businessName;
+
+  // Create a gradient color based on primary and secondary colors
+  const gradientFrom = secondaryColor;
+  const gradientTo = `${primaryColor}15`; // 15% opacity of primary color for subtle branding
 
   return (
     <WhiteLabelLayout domain={domain}>
       <div className="min-h-screen bg-white">
         {/* Hero Section */}
-        <section className="relative bg-gradient-to-r from-gray-50 to-blue-50 py-20">
+        <section 
+          className="relative py-20"
+          style={{
+            background: `linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%)`
+          }}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
@@ -97,6 +116,12 @@ const WhiteLabelHomepage = () => {
               {creator.businessDescription && (
                 <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
                   {creator.businessDescription}
+                </p>
+              )}
+              {/* Show voice and tone message if available */}
+              {!creator.businessDescription && creator.designTokens?.voiceAndTone && (
+                <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                  {creator.designTokens.voiceAndTone}
                 </p>
               )}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -124,7 +149,7 @@ const WhiteLabelHomepage = () => {
 
         {/* Products Section */}
         {creator.products && creator.products.length > 0 && (
-          <section className="py-20 bg-white">
+          <section className="py-20" style={{ backgroundColor: secondaryColor }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-16">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -137,7 +162,11 @@ const WhiteLabelHomepage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {creator.products.map((product) => (
-                  <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                  <div 
+                    key={product.id} 
+                    className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow border-t-4"
+                    style={{ borderTopColor: primaryColor }}
+                  >
                     <div className="p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-3">
                         {product.name}
@@ -187,7 +216,12 @@ const WhiteLabelHomepage = () => {
         )}
 
         {/* CTA Section */}
-        <section className="py-20" style={{ backgroundColor: primaryColor }}>
+        <section 
+          className="py-20" 
+          style={{ 
+            background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` 
+          }}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold text-white mb-4">
               Ready to Get Started?
@@ -197,7 +231,17 @@ const WhiteLabelHomepage = () => {
             </p>
             <Link
               href={`/whitelabel/${domain}/products`}
-              className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-gray-900 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-8 py-3 border-2 border-white text-base font-medium rounded-md hover:bg-white transition-colors"
+              style={{ 
+                color: primaryColor,
+                backgroundColor: 'white'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = secondaryColor;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+              }}
             >
               Explore Products
             </Link>

@@ -13,6 +13,15 @@ interface WhiteLabelConfig {
   customCss?: string;
 }
 
+interface DesignTokens {
+  fonts?: string[];
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  voiceAndTone?: string;
+}
+
 interface CreatorData {
   id: string;
   businessName: string;
@@ -34,6 +43,7 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
   const [creator, setCreator] = useState<CreatorData | null>(null);
+  const [designTokens, setDesignTokens] = useState<DesignTokens | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -51,6 +61,7 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
       const data = await response.json();
       setConfig(data.whiteLabel);
       setCreator(data.creator);
+      setDesignTokens(data.designTokens);
     } catch (error) {
       console.error('Failed to fetch creator data:', error);
       // Redirect to main site if creator not found - handle both dev and prod
@@ -75,6 +86,52 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
       };
     }
   }, [config?.customCss]);
+
+  // Apply dynamic fonts from design tokens
+  useEffect(() => {
+    if (designTokens?.fonts && designTokens.fonts.length > 0) {
+      // Load fonts from Google Fonts
+      const fontFamilies = designTokens.fonts
+        .filter(font => font && font.trim()) // Remove empty fonts
+        .map(font => font.replace(/\s+/g, '+'))
+        .join('&family=');
+      
+      if (fontFamilies) {
+        const linkElement = document.createElement('link');
+        linkElement.href = `https://fonts.googleapis.com/css2?family=${fontFamilies}&display=swap`;
+        linkElement.rel = 'stylesheet';
+        document.head.appendChild(linkElement);
+        
+        // Apply primary font to body
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+          body, .white-label-content {
+            font-family: '${designTokens.fonts[0]}', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+          }
+        `;
+        document.head.appendChild(styleElement);
+        
+        return () => {
+          document.head.removeChild(linkElement);
+          document.head.removeChild(styleElement);
+        };
+      }
+    }
+  }, [designTokens?.fonts]);
+
+  // Apply favicon from design tokens
+  useEffect(() => {
+    const faviconUrl = designTokens?.faviconUrl || config?.faviconUrl;
+    if (faviconUrl) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = faviconUrl;
+    }
+  }, [designTokens?.faviconUrl, config?.faviconUrl]);
 
   if (loading) {
     return (
@@ -106,9 +163,9 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
           <div className="flex justify-between items-center py-4">
             {/* Logo/Brand */}
             <div className="flex items-center">
-              {config.logoUrl ? (
+              {logoUrl ? (
                 <Image
-                  src={config.logoUrl}
+                  src={logoUrl}
                   alt={brandName}
                   width={150}
                   height={40}
@@ -168,7 +225,7 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
       </main>
 
       {/* Footer with creator branding */}
-      <footer className="bg-gray-50 border-t border-gray-200">
+      <footer className="border-t border-gray-200" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">

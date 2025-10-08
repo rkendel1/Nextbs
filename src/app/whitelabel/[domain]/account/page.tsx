@@ -31,7 +31,16 @@ interface CreatorData {
   whiteLabel: {
     brandName?: string;
     primaryColor?: string;
+    secondaryColor?: string;
     logoUrl?: string;
+  };
+  designTokens?: {
+    fonts?: string[];
+    primaryColor?: string;
+    secondaryColor?: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    voiceAndTone?: string;
   };
 }
 
@@ -161,11 +170,12 @@ const WhiteLabelAccount = () => {
     );
   }
 
-  const primaryColor = creator.whiteLabel?.primaryColor || '#667eea';
+  const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
+  const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
 
   return (
     <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">

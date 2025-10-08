@@ -42,7 +42,16 @@ interface CreatorData {
   whiteLabel: {
     brandName?: string;
     primaryColor?: string;
+    secondaryColor?: string;
     logoUrl?: string;
+  };
+  designTokens?: {
+    fonts?: string[];
+    primaryColor?: string;
+    secondaryColor?: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    voiceAndTone?: string;
   };
 }
 
@@ -97,12 +106,13 @@ const WhiteLabelProducts = () => {
     );
   }
 
-  const primaryColor = creator.whiteLabel?.primaryColor || '#667eea';
+  const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
+  const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
   const activeProducts = creator.products.filter(product => product.isActive && product.tiers.length > 0);
 
   return (
     <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">
@@ -118,7 +128,11 @@ const WhiteLabelProducts = () => {
           {activeProducts.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-12">
               {activeProducts.map((product) => (
-                <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div 
+                  key={product.id} 
+                  className="bg-white rounded-lg shadow-lg overflow-hidden border-t-4"
+                  style={{ borderTopColor: primaryColor }}
+                >
                   <div className="p-6">
                     <h3 className="text-2xl font-bold text-gray-900 mb-3">
                       {product.name}
