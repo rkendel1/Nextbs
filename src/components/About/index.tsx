@@ -16,10 +16,7 @@ const About = () => {
                   Launch Your SaaS in a Snap
                 </h2>
                 <p className="mb-10 text-base leading-relaxed text-body-color dark:text-dark-6">
-                  SaaSinaSnap is the complete platform for SaaS creators, providing 
-                  everything you need to build, manage, and scale your SaaS products. 
-                  From API key management to advanced analytics, white-label configuration 
-                  to subscription handling - we've got you covered.
+                  Customize your platform with your own branding, colors, and domain.
                   <br /> <br />
                   Our mission is to empower SaaS creators by removing technical barriers 
                   and providing enterprise-grade tools that help you focus on what matters 

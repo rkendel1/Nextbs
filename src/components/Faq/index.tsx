@@ -7,8 +7,8 @@ const Faq = () => {
       <div className="container">
         <SectionTitle
           subtitle="FAQ"
-          title="Any Questions? Answered"
-          paragraph="There are many variations of passages of Lorem Ipsum available but the majority have suffered alteration in some form."
+          title="Frequently Asked Questions"
+          paragraph="Get answers to common questions about SaaSinaSnap and how it can help you build and scale your SaaS business."
           width="640px"
           center
         />
@@ -16,31 +16,31 @@ const Faq = () => {
         <div className="-mx-4 mt-[60px] flex flex-wrap lg:mt-20">
           <div className="w-full px-4 lg:w-1/2">
             <SingleFaq
-              question="How to use TailGrids?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="What is SaaSinaSnap?"
+              answer="SaaSinaSnap is a comprehensive platform designed for SaaS creators. It provides all the essential tools you need including API key management, white-label configuration, analytics, subscription management, and more - all in one integrated platform."
             />
             <SingleFaq
-              question="How to download icons from LineIcons?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="How does API key management work?"
+              answer="Our API key management system allows you to generate, manage, and revoke API keys for your SaaS products. Each key is securely generated and can be configured with specific permissions and expiration dates to ensure maximum security."
             />
             <SingleFaq
-              question="Is GrayGrids part of UIdeck?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="Can I customize the platform with my branding?"
+              answer="Absolutely! With our white-label configuration feature, you can customize your platform with your own brand name, colors, logos, custom domains, and even custom CSS. Create a fully branded experience for your customers."
             />
           </div>
 
           <div className="w-full px-4 lg:w-1/2">
             <SingleFaq
-              question="Can I use this template for commercial project?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="What analytics and insights are available?"
+              answer="SaaSinaSnap provides comprehensive analytics including revenue tracking, user engagement metrics, subscription trends, and detailed visualizations. Track your platform&apos;s performance with beautiful charts and make data-driven decisions."
             />
             <SingleFaq
-              question="Do you have plan to releasing Play Pro?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="How does subscription management work?"
+              answer="Our subscription management system handles billing tiers, customer lifecycle tracking, and automated revenue management. You can easily manage different subscription plans, track active subscriptions, and monitor recurring revenue."
             />
             <SingleFaq
-              question="Where and how to host this template?"
-              answer="It takes 2-3 weeks to get your first blog post ready. That includes the in-depth research & creation of your monthly content marketing strategy that we do before writing your first blog post, Ipsum available ."
+              question="Is there a platform owner dashboard?"
+              answer="Yes! The platform owner dashboard gives you a bird&apos;s-eye view of your entire SaaS ecosystem. Monitor platform-wide statistics, manage users, access administrative controls, and oversee all your SaaS products from a single, intuitive interface."
             />
           </div>
         </div>

@@ -127,7 +127,7 @@ const WhiteLabelConfiguration = () => {
               />
             </div>
             <p className="mt-1 text-xs text-body-color dark:text-dark-6">
-              Choose your brand's primary color for buttons and accents.
+              Choose your brand&apos;s primary color for buttons and accents.
             </p>
           </div>
 
@@ -216,7 +216,7 @@ const WhiteLabelConfiguration = () => {
             className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 font-mono text-sm text-dark outline-none focus:border-primary dark:border-dark-3 dark:text-white"
           />
           <p className="mt-1 text-xs text-body-color dark:text-dark-6">
-            Add custom CSS to further customize your platform's appearance.
+            Add custom CSS to further customize your platform&apos;s appearance.
           </p>
         </div>
       </div>
