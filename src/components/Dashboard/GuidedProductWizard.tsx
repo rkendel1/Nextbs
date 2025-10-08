@@ -144,7 +144,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                     A great product name is specific, benefit-focused, and easy to remember. 
-                    Think about what problem you're solving for your customers.
+                    Think about what problem you&apos;re solving for your customers.
                   </p>
                 </div>
               </div>
@@ -329,8 +329,8 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     Quick Tip
                   </p>
                   <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                    Focus on value, not just features. Instead of "10 API calls", 
-                    try "10,000 API calls per month" to be more specific.
+                    Focus on value, not just features. Instead of &quot;10 API calls&quot;, 
+                    try &quot;10,000 API calls per month&quot; to be more specific.
                   </p>
                 </div>
               </div>
@@ -358,43 +358,67 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
 
       case 4:
         return (
-          <div className="space-y-6 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-              <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400" />
+          <div className="space-y-6 text-center animate-fade-in">
+            <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-green-400 to-green-600 mb-4 animate-bounce">
+              <CheckCircle2 className="h-12 w-12 text-white" />
+              <div className="absolute -top-2 -right-2">
+                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="text-xl">✨</span>
+                </div>
+              </div>
             </div>
             
             <div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
+              <h3 className="text-3xl font-bold text-dark dark:text-white mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Product Created! 🎉
               </h3>
               <p className="text-base text-body-color dark:text-dark-6 mb-6">
-                Your product <strong>{productData.name}</strong> is now live and ready to sell!
+                Your product <strong className="text-primary">{productData.name}</strong> is now live and ready to sell!
               </p>
             </div>
 
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-dashed border-primary/30">
               <h4 className="font-semibold text-dark dark:text-white mb-3">
-                What's Next?
+                What&apos;s Next?
               </h4>
               <div className="space-y-2 text-sm text-left">
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                   <p className="text-body-color dark:text-dark-6">
-                    Synced with Stripe - billing is ready to go
+                    <strong>Synced with Stripe</strong> - Billing is ready to go
                   </p>
                 </div>
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                   <p className="text-body-color dark:text-dark-6">
-                    Available on your white-label site
+                    <strong>Available instantly</strong> on your white-label site
                   </p>
                 </div>
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
                   <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                   <p className="text-body-color dark:text-dark-6">
-                    Ready to accept subscribers
+                    <strong>Ready to accept</strong> subscribers right now
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-4 rounded-lg">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 justify-center">
+                  <span className="text-2xl">🚀</span>
+                  <p className="text-sm font-medium text-dark dark:text-white">
+                    Your product is live and generating revenue-ready links!
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open("/dashboard/white-label", "_blank")}
+                  className="mx-auto"
+                >
+                  View White-Label Site →
+                </Button>
               </div>
             </div>
 
@@ -414,7 +438,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               </Button>
               <Button
                 onClick={() => onClose(true)}
-                className="flex-1 bg-primary hover:bg-primary/90"
+                className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
               >
                 Done
               </Button>
