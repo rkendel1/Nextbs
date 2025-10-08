@@ -4,9 +4,8 @@ import Team from "@/components/Team";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title:
-    "About Us | Play SaaS Starter Kit and Boilerplate for Next.js",
-  description: "This is About page description",
+  title: "About SaaSinaSnap | Complete SaaS Enablement Platform",
+  description: "SaaSinaSnap - The ultimate platform for SaaS creators to build, manage, and scale their products with powerful tools and analytics.",
 };
 
 const AboutPage = () => {
