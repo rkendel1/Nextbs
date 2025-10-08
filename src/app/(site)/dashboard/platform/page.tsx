@@ -9,11 +9,11 @@ export const metadata: Metadata = {
 const PlatformDashboardPage = () => {
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-dark dark:text-white">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-dark dark:text-white">
           Platform Overview
         </h1>
-        <p className="mt-2 text-body-color dark:text-dark-6">
+        <p className="mt-1 text-sm text-body-color dark:text-dark-6">
           Monitor platform-wide performance, manage SaaS creators, and oversee operations.
         </p>
       </div>

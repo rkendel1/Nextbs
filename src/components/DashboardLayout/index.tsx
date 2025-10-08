@@ -60,12 +60,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       )}>
         <div className="flex h-full flex-col">
           {/* Sidebar Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-4 border-b">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
                 <BarChart3 className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold">SaaS Manager</span>
+              <span className="text-lg font-bold">SaaS Manager</span>
             </Link>
             <Button
               variant="ghost"
@@ -78,7 +78,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2 p-4">
+          <nav className="flex-1 space-y-1 p-3">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -101,16 +101,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </nav>
 
           {/* User Section */}
-          <div className="border-t p-4">
-            <div className="flex items-center space-x-3 rounded-lg px-3 py-2 hover:bg-accent">
+          <div className="border-t p-3">
+            <Link 
+              href="/dashboard/settings"
+              className="flex items-center space-x-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
+            >
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <User className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">My Account</p>
-                <p className="text-xs text-muted-foreground">View Profile</p>
+                <p className="text-xs text-muted-foreground">Settings</p>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
@@ -119,7 +122,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <div className="lg:ml-64">
         {/* Header */}
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
@@ -129,12 +132,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h1 className="text-xl font-semibold">
+              <h1 className="text-lg font-semibold">
                 {navigation.find(item => isActive(item.href))?.name || "Dashboard"}
               </h1>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
               </Button>
@@ -146,7 +149,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </header>
 
         {/* Page Content */}
-        <main className="p-6">
+        <main className="p-4">
           {children}
         </main>
       </div>

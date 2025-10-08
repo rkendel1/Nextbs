@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
 import Loader from "@/components/Common/Loader";
-import ProductModal from "./ProductModal";
+import GuidedProductWizard from "./GuidedProductWizard";
 
 const Dashboard = () => {
   const router = useRouter();
@@ -45,6 +45,7 @@ const Dashboard = () => {
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [subscribers, setSubscribers] = useState<any[]>([]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -57,6 +58,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (saasCreator) {
       fetchProducts();
+      fetchSubscribers();
     }
   }, [saasCreator]);
 
@@ -115,6 +117,16 @@ const Dashboard = () => {
     }
   };
 
+  const fetchSubscribers = async () => {
+    try {
+      const response = await fetch("/api/saas/subscribers");
+      const data = await response.json();
+      setSubscribers(data.subscribers || []);
+    } catch (error) {
+      console.error("Failed to fetch subscribers:", error);
+    }
+  };
+
   const handleCreateProduct = () => {
     setShowProductModal(true);
   };
@@ -162,18 +174,21 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-4 animate-fade-in">
         {/* Welcome Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl font-bold">
               Welcome back, {saasCreator?.businessName || "Creator"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Here&apos;s what&apos;s happening with your SaaS business today
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button 
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => router.push("/dashboard/analytics")}
+          >
             <TrendingUp className="mr-2 h-4 w-4" />
             View Analytics
           </Button>
@@ -298,21 +313,48 @@ const Dashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks to manage your business</CardDescription>
+                <CardDescription>Get started with common tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Button variant="outline" className="justify-start" onClick={handleCreateProduct}>
-                    <Package className="mr-2 h-4 w-4" />
-                    Add New Product
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2" 
+                    onClick={handleCreateProduct}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Package className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">Add Product</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Create a new product with guided wizard
+                    </span>
                   </Button>
-                  <Button variant="outline" className="justify-start">
-                    <Users className="mr-2 h-4 w-4" />
-                    Invite Team Member
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2"
+                    onClick={() => router.push("/dashboard/subscribers")}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Users className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">View Subscribers</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Manage your subscriber base
+                    </span>
                   </Button>
-                  <Button variant="outline" className="justify-start">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    View Billing
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4 flex-col items-start gap-2"
+                    onClick={() => router.push("/dashboard/white-label")}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">White-Label Site</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground text-left">
+                      Configure your branded portal
+                    </span>
                   </Button>
                 </div>
               </CardContent>
@@ -327,10 +369,16 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 {products.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No products yet</p>
-                    <Button className="mt-4 bg-primary hover:bg-primary/90" onClick={handleCreateProduct}>
+                  <div className="text-center py-12 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <Package className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No products yet</h3>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                      Products are the core of your SaaS business. Create your first product 
+                      to start accepting subscribers and generating revenue.
+                    </p>
+                    <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateProduct}>
                       <Package className="mr-2 h-4 w-4" />
                       Create First Product
                     </Button>
@@ -402,14 +450,96 @@ const Dashboard = () => {
                 <CardDescription>View and manage your subscribers</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Subscriber management features coming soon</p>
-                  <Button className="mt-4 bg-primary hover:bg-primary/90">
-                    <Users className="mr-2 h-4 w-4" />
-                    View All Subscribers
-                  </Button>
-                </div>
+                {subscribers.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                      <Users className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No subscribers yet</h3>
+                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                      Subscribers will appear here when users sign up for your products. 
+                      Share your white-label site to start growing your subscriber base.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button 
+                        variant="outline"
+                        onClick={() => router.push("/dashboard/white-label")}
+                      >
+                        View White-Label Site
+                      </Button>
+                      {products.length === 0 && (
+                        <Button 
+                          className="bg-primary hover:bg-primary/90"
+                          onClick={handleCreateProduct}
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          Create Product
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {subscribers.slice(0, 10).map((subscription) => (
+                      <div
+                        key={subscription.id}
+                        className="rounded-lg border border-stroke p-4 transition hover:border-primary dark:border-dark-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="mb-2 flex items-center gap-3">
+                              <h3 className="text-base font-semibold text-dark dark:text-white">
+                                {subscription.user?.name || "Anonymous User"}
+                              </h3>
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  subscription.status === "active"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                                    : subscription.status === "canceled"
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
+                                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                                }`}
+                              >
+                                {subscription.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-body-color dark:text-dark-6 mb-2">
+                              {subscription.user?.email}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-body-color dark:text-dark-6">
+                              <span>{subscription.product?.name || "Unknown Product"}</span>
+                              <span>•</span>
+                              <span>{subscription.tier?.name || "Unknown Tier"}</span>
+                              <span>•</span>
+                              <span>
+                                Since {new Date(subscription.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4 flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/dashboard/subscribers/${subscription.id}`)}
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {subscribers.length > 10 && (
+                      <div className="pt-4 text-center">
+                        <Button 
+                          variant="outline"
+                          onClick={() => router.push("/dashboard/subscriptions")}
+                        >
+                          View All Subscribers ({subscribers.length})
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -435,9 +565,9 @@ const Dashboard = () => {
         </Tabs>
       </div>
 
-      {/* Product Modal */}
+      {/* Guided Product Wizard */}
       {showProductModal && (
-        <ProductModal
+        <GuidedProductWizard
           onClose={handleProductModalClose}
         />
       )}
