@@ -139,3 +139,15 @@ export enum OnboardingStep {
   PRODUCT_SETUP = 3,
   COMPLETE = 4,
 }
+
+// API Key Types
+export interface ApiKey {
+  id: string;
+  saasCreatorId: string;
+  name: string;
+  key: string;
+  lastUsedAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
