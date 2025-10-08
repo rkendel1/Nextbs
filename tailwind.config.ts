@@ -14,9 +14,9 @@ const config: Config = {
         ...colors,
         // SaaSinaSnap Brand Colors - Vibrant & Modern
         primary: {
-          DEFAULT: "#0EA5E9", // Sky Blue - Trust, innovation, clarity
-          light: "#38BDF8",
-          dark: "#0284C7",
+          DEFAULT: "#8B5CF6", // Purple - Creativity, innovation, premium
+          light: "#A78BFA",
+          dark: "#7C3AED",
         },
         secondary: {
           DEFAULT: "#10B981", // Emerald Green - Growth, success

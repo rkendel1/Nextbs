@@ -24,23 +24,10 @@ export async function GET(request: NextRequest) {
     if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
-import { prisma } from "@/utils/prismaDB";
-import { authOptions } from "@/utils/auth";
-import crypto from "crypto";
-
-// GET /api/saas/api-keys - List all API keys for the authenticated user
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    // Get the user and their SaaS creator profile
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { saasCreator: true },
@@ -71,33 +58,22 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ apiKeys });
   } catch (error: any) {
-    console.error("List API keys error:", error);
+    console.error("Get API keys error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to list API keys" },
-    // Fetch all API keys for this SaaS creator
-    const apiKeys = await prisma.apiKey.findMany({
-      where: { saasCreatorId: user.saasCreator.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ apiKeys }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching API keys:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch API keys" },
+      { error: error.message || "Failed to fetch API keys" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/saas/api-keys - Create a new API key
+// POST - Create a new API key
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
+    
+    if (!session || !session.user?.email) {
       return NextResponse.json(
-        { message: "Unauthorized" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -105,54 +81,56 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, permissions, expiresAt } = body;
 
-    if (!name) {
+    if (!name || !permissions) {
       return NextResponse.json(
-        { error: "API key name is required" },
+        { error: "Name and permissions are required" },
         { status: 400 }
       );
     }
 
-    // Get the user and their SaaS creator profile
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { saasCreator: true },
     });
 
-    if (!user?.saasCreator) {
+    if (!user) {
       return NextResponse.json(
-        { message: "SaaS creator profile not found" },
+        { error: "User not found" },
         { status: 404 }
       );
     }
 
+    // Generate API key
     const { key, keyPrefix } = generateApiKey();
     const hashedKey = hashApiKey(key);
 
+    // Create API key in database
     const apiKey = await prisma.apiKey.create({
       data: {
         userId: user.id,
         name,
         key: hashedKey,
         keyPrefix,
-        permissions: permissions || ['usage:read', 'usage:write'],
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        permissions,
+        ...(expiresAt && { expiresAt: new Date(expiresAt) }),
+      },
+      select: {
+        id: true,
+        name: true,
+        keyPrefix: true,
+        permissions: true,
+        lastUsedAt: true,
+        expiresAt: true,
         isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    // Return the plain key only once (on creation)
-    return NextResponse.json({
-      apiKey: {
-        id: apiKey.id,
-        name: apiKey.name,
-        keyPrefix: apiKey.keyPrefix,
-        permissions: apiKey.permissions,
-        expiresAt: apiKey.expiresAt,
-        isActive: apiKey.isActive,
-        createdAt: apiKey.createdAt,
-      },
-      key, // Only returned on creation
-    }, { status: 201 });
+    // Return the plain key only once (user needs to save it)
+    return NextResponse.json({ 
+      apiKey: { ...apiKey, key },
+      message: "API key created successfully. Save this key - it won't be shown again!"
+    });
   } catch (error: any) {
     console.error("Create API key error:", error);
     return NextResponse.json(

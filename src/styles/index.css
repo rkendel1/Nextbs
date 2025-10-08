@@ -31,6 +31,38 @@
   .animation-delay-4000 {
     animation-delay: 4s;
   }
+
+  /* Rabbit hole scroll effect */
+  @keyframes scrollDown {
+    0% {
+      transform: perspective(1000px) rotateX(0deg) scale(1);
+    }
+    100% {
+      transform: perspective(1000px) rotateX(2deg) scale(0.98);
+    }
+  }
+
+  @keyframes scrollUp {
+    0% {
+      transform: perspective(1000px) rotateX(2deg) scale(0.98);
+    }
+    100% {
+      transform: perspective(1000px) rotateX(0deg) scale(1);
+    }
+  }
+
+  .scroll-down-active {
+    animation: scrollDown 0.6s ease-out forwards;
+  }
+
+  .scroll-up-active {
+    animation: scrollUp 0.6s ease-out forwards;
+  }
+
+  .rabbit-hole-container {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
 }
 
 body {

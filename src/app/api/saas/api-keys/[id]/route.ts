@@ -21,35 +21,10 @@ export async function DELETE(
     if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
-import { prisma } from "@/utils/prismaDB";
-import { authOptions } from "@/utils/auth";
-
-// DELETE /api/saas/api-keys/[id] - Revoke/delete an API key
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-    const { id } = params;
-
-    // Get the user and their SaaS creator profile
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { saasCreator: true },
@@ -87,7 +62,10 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      message: "API key revoked successfully",
+      success: true 
+    });
   } catch (error: any) {
     console.error("Delete API key error:", error);
     return NextResponse.json(
@@ -171,14 +149,6 @@ export async function PATCH(
     console.error("Update API key error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to update API key" },
-    return NextResponse.json(
-      { message: "API key revoked successfully" },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error revoking API key:", error);
-    return NextResponse.json(
-      { message: "Failed to revoke API key" },
       { status: 500 }
     );
   }

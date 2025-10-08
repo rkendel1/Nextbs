@@ -203,30 +203,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-
-// GET /api/saas/analytics - Get analytics data
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Generate mock data for the last 30 days
-    const mockData = generateMockAnalytics();
-
-    return NextResponse.json(mockData, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching analytics:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch analytics" },
-      { status: 500 }
-    );
-  }
 }
 
 // Helper function to generate mock analytics data
