@@ -6,7 +6,10 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || ''
   
   // Skip if it's development environment or main production domain
-  const isDevelopment = hostname === 'localhost:3000' || hostname === '127.0.0.1:3000'
+  const isDevelopment = hostname.startsWith('localhost') || 
+                        hostname.startsWith('127.0.0.1') || 
+                        hostname.startsWith('0.0.0.0') ||
+                        hostname.startsWith('192.168.')
   const isMainDomain = hostname === 'saasinasnap.com' || hostname === 'www.saasinasnap.com'
   
   if (isDevelopment || isMainDomain) {

@@ -79,17 +79,41 @@ const OnboardingWizard = () => {
         const stepParam = urlParams.get('step');
 
         if (sessionId) {
-          // Verify payment and subscription creation
-          toast.success("Payment successful! Continuing onboarding...");
+          // Verify checkout session and create subscription
+          toast.loading("Verifying payment...");
           
-          // Clean up URL
-          window.history.replaceState({}, '', '/saas/onboarding');
-          
-          // Set step from URL param or default to URL_ENTRY (step 2)
-          const nextStep = stepParam ? parseInt(stepParam) : OnboardingStep.URL_ENTRY;
-          setCurrentStep(nextStep);
-          setLoading(false);
-          return;
+          try {
+            const verifyResponse = await fetch("/api/saas/verify-checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionId }),
+            });
+
+            toast.dismiss();
+
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              toast.success("Payment successful! Continuing onboarding...");
+              
+              // Clean up URL
+              window.history.replaceState({}, '', '/saas/onboarding');
+              
+              // Set step from URL param or default to URL_ENTRY (step 2)
+              const nextStep = stepParam ? parseInt(stepParam) : OnboardingStep.URL_ENTRY;
+              setCurrentStep(nextStep);
+              setLoading(false);
+              return;
+            } else {
+              const errorData = await verifyResponse.json();
+              throw new Error(errorData.error || "Payment verification failed");
+            }
+          } catch (error: any) {
+            console.error("Error verifying payment:", error);
+            toast.dismiss();
+            toast.error(error.message || "Payment verification failed. Please contact support.");
+            setLoading(false);
+            return;
+          }
         }
 
         const response = await fetch("/api/saas/onboarding");

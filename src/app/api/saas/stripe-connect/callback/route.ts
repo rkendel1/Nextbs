@@ -86,41 +86,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Store Stripe account details
-    const existingStripeAccount = await prisma.stripeAccount.findUnique({
+    // Store Stripe account details using upsert to handle duplicate test accounts
+    console.log("Upserting StripeAccount");
+    await prisma.stripeAccount.upsert({
       where: { saasCreatorId: user.saasCreator.id },
+      update: {
+        stripeAccountId,
+        accessToken,
+        refreshToken,
+        tokenType,
+        scope,
+        livemode,
+        isActive: true,
+      },
+      create: {
+        saasCreatorId: user.saasCreator.id,
+        stripeAccountId,
+        accessToken,
+        refreshToken,
+        tokenType,
+        scope,
+        livemode,
+        isActive: true,
+      },
     });
-
     console.log("StripeAccount upsert completed");
-    if (existingStripeAccount) {
-      // Update existing
-      await prisma.stripeAccount.update({
-        where: { id: existingStripeAccount.id },
-        data: {
-          stripeAccountId,
-          accessToken,
-          refreshToken,
-          tokenType,
-          scope,
-          livemode,
-          isActive: true,
-        },
-      });
-    } else {
-      // Create new
-      await prisma.stripeAccount.create({
-        data: {
-          saasCreatorId: user.saasCreator.id,
-          stripeAccountId,
-          accessToken,
-          refreshToken,
-          tokenType,
-          scope,
-          livemode,
-          isActive: true,
-        },
-      });
-    }
 
     // Fetch Stripe account details to prefill creator profile
     console.log("Fetching Stripe account details");

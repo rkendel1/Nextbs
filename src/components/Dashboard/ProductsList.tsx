@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Settings, CheckCircle2, DollarSign, Clock, TrendingUp, Zap } from "lucide-react";
+import GuidedProductWizard from "./GuidedProductWizard";
 import ProductModal from "./ProductModal";
 import Loader from "@/components/Common/Loader";
 
@@ -14,6 +15,7 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
   const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showWizard, setShowWizard] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
@@ -34,8 +36,7 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
   };
 
   const handleCreateProduct = () => {
-    setSelectedProduct(null);
-    setShowModal(true);
+    setShowWizard(true);
   };
 
   const handleEditProduct = (product: any) => {
@@ -82,6 +83,14 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
       onUpdate?.();
     } catch (error: any) {
       toast.error(error.message || "Failed to delete product");
+    }
+  };
+
+  const handleWizardClose = (updated: boolean) => {
+    setShowWizard(false);
+    if (updated) {
+      fetchProducts();
+      onUpdate?.();
     }
   };
 
@@ -384,7 +393,14 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
         </div>
       )}
 
-      {/* Product Modal */}
+      {/* Guided Product Wizard */}
+      {showWizard && (
+        <GuidedProductWizard
+          onClose={handleWizardClose}
+        />
+      )}
+
+      {/* Product Edit Modal */}
       {showModal && (
         <ProductModal
           product={selectedProduct}

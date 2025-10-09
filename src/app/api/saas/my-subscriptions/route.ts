@@ -164,7 +164,10 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const siteUrl = process.env.SITE_URL || 'http://localhost:3000';
+        // Get the host from the request to ensure we redirect back to the same port
+        const host = request.headers.get('host') || 'localhost:3000';
+        const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+        const siteUrl = process.env.SITE_URL || `${protocol}://${host}`;
         
         const checkoutSession = await stripe.checkout.sessions.create({
           customer_email: user.email!,

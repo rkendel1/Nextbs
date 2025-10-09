@@ -108,23 +108,50 @@ export async function POST(request: NextRequest) {
           onboardingCompleted: isCompleted,
         },
       });
+
+      // Auto-create white-label config when onboarding is completed
+      if (isCompleted) {
+        const existingWhiteLabel = await prisma.whiteLabelConfig.findUnique({
+          where: { saasCreatorId: saasCreator.id },
+        });
+
+        if (!existingWhiteLabel) {
+          // Generate a subdomain from business name
+          const subdomain = businessName 
+            ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
+            : `creator-${saasCreator.id.substring(0, 8)}`;
+
+          await prisma.whiteLabelConfig.create({
+            data: {
+              saasCreatorId: saasCreator.id,
+              brandName: businessName || saasCreator.businessName,
+              primaryColor: primaryColor || saasCreator.primaryColor || '#667eea',
+              secondaryColor: secondaryColor || saasCreator.secondaryColor || '#764ba2',
+              logoUrl: logoUrl || saasCreator.logoUrl,
+              faviconUrl: faviconUrl || saasCreator.faviconUrl,
+              subdomain: subdomain,
+              isActive: true,
+            },
+          });
+        }
+      }
     }
 
     // Handle Stripe account connection
     if (stripeAccountId && saasCreator) {
-      const existingStripeAccount = await prisma.stripeAccount.findUnique({
+      // Use upsert to handle duplicate Stripe account IDs in development
+      await prisma.stripeAccount.upsert({
         where: { saasCreatorId: saasCreator.id },
+        update: {
+          stripeAccountId,
+          isActive: true,
+        },
+        create: {
+          saasCreatorId: saasCreator.id,
+          stripeAccountId,
+          isActive: true,
+        },
       });
-
-      if (!existingStripeAccount) {
-        await prisma.stripeAccount.create({
-          data: {
-            saasCreatorId: saasCreator.id,
-            stripeAccountId,
-            isActive: true,
-          },
-        });
-      }
     }
 
     // Handle product creation

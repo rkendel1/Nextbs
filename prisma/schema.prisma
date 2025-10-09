@@ -111,7 +111,7 @@ model StripeAccount {
   id              String      @id @default(cuid())
   saasCreatorId   String      @unique
   saasCreator     SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  stripeAccountId String      @unique
+  stripeAccountId String
   accessToken     String?     @db.Text
   refreshToken    String?     @db.Text
   tokenType       String?
@@ -120,6 +120,8 @@ model StripeAccount {
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  @@index([stripeAccountId])
 }
 
 // Products offered by SaaS creators
