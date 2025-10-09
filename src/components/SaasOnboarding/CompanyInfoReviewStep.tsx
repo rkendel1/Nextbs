@@ -61,29 +61,29 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
 
         // Show appropriate success message based on data sources
         if (result.hasStripeData && result.crawlStatus === "completed") {
-          toast.success("✨ We matched your brand from your website AND Stripe — check it out below", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "🪄",
+            icon: "✨",
           });
         } else if (result.hasStripeData) {
-          toast.success("✨ Got your info from Stripe — take a quick look", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "💳",
+            icon: "✨",
           });
         } else if (result.crawlStatus === "completed") {
-          toast.success("✨ Your brand is already here — we pulled it from your site", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "🪄",
+            icon: "✨",
           });
         }
       } else if (result.crawlStatus === "processing" || result.crawlStatus === "pending") {
         // Still processing, show message
-        toast("Still reading your site — this won't take long", {
+        toast("Still working on it", {
           icon: "⏳",
         });
       } else {
         // Failed or not started
-        toast("No worries — just fill in the basics below and you're set", {
+        toast("No problem — fill in what we need", {
           icon: "ℹ️",
         });
       }
@@ -198,12 +198,12 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
       <div className={`text-center mb-8 ${showAnimation ? 'animate-fade-in' : ''}`}>
         <h2 className="mb-3 text-3xl font-bold text-dark dark:text-white">
           {(crawlStatus === "completed" || hasStripeData)
-            ? "We already got this ready for you"
+            ? "Look at this"
             : "Your Company Details"}
         </h2>
         <p className="text-base text-body-color dark:text-dark-6">
           {(crawlStatus === "completed" || hasStripeData)
-            ? "Found your logo, colors, and company info. Everything's ready — just review and you're set."
+            ? "Check what we found"
             : "Please enter your company information below"}
         </p>
       </div>
@@ -216,13 +216,13 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
             <div>
               <p className="text-sm font-medium text-green-900 dark:text-green-100">
                 {hasStripeData && crawlStatus === "completed"
-                  ? "Whoa — we found your logo, colors, AND company info. This platform actually gets it."
+                  ? "Your brand. Your colors. Your logo. All here."
                   : hasStripeData
-                  ? "Nice! Your Stripe details are already here. One less thing to set up."
-                  : "This tool just knew. Brand detected, details filled in — you're already 90% there."}
+                  ? "From your Stripe account"
+                  : "From your website"}
               </p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Take a look and edit anything that needs tweaking. Otherwise, you&apos;re good to go.
+                Change what you need. Keep what works.
               </p>
             </div>
           </div>
