@@ -163,7 +163,8 @@ export enum OnboardingStep {
   COMPLETE = 5,
 }
 
-// Brand Data from Crawler
+// Brand Data from Crawler - ONLY design/brand elements
+// Account/profile data is handled separately by Stripe
 export interface BrandData {
   logo_url?: string;
   favicon_url?: string;
@@ -172,19 +173,13 @@ export interface BrandData {
     secondary?: string;
   };
   fonts?: string[];
-  company_name?: string;
-  company_address?: string;
-  contact_info?: {
-    email?: string;
-    phone?: string;
-  };
-  products?: string[];
   voice?: string;
+  spacingValues?: string[];
   confidence_scores?: {
     logo?: number;
     colors?: number;
     fonts?: number;
-    company_info?: number;
+    voice?: number;
   };
   images?: { src: string; alt: string }[];
 }

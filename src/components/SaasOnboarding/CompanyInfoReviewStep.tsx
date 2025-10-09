@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import Loader from "@/components/Common/Loader";
 import toast from "react-hot-toast";
-import { CheckCircle, Edit2, X, Sparkles } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle, Edit2, Sparkles } from "lucide-react";
 import { BrandData } from "@/types/saas";
 
 interface CompanyInfoReviewStepProps {
@@ -19,26 +18,11 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
   const [hasStripeData, setHasStripeData] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
   const [editedData, setEditedData] = useState<any>({
-    businessName: "",
-    businessType: "",
-    businessDescription: "",
-    website: "",
-    industryCategory: "",
-    companyAddress: "",
-    contactEmail: "",
-    contactPhone: "",
-    businessTaxId: "",
-    ownerName: "",
+    // Design/brand fields only - from scrapes
     primaryColor: "",
     secondaryColor: "",
     fonts: "",
     voiceAndTone: "",
-    bankLast4: "",
-    bankType: "",
-    currency: "",
-    payoutSchedule: "",
-    verificationStatus: "",
-    billingEmail: "",
     spacingValues: "",
   });
   const [showAnimation, setShowAnimation] = useState(false);
@@ -59,51 +43,34 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
         const data = result.data;
         setBrandData(data);
         
-        // Set initial edited data from comprehensive prefill (scrape + Stripe)
+        // Set initial edited data from design scrape ONLY
         setEditedData({
-          businessName: data.company_name || data.business_name || "",
-          businessType: data.business_type || "",
-          businessDescription: data.meta_description || data.business_description || "",
-          website: data.website || "",
-          industryCategory: data.industry_category || data.meta_keywords || "",
-          companyAddress: data.company_address || data.address?.full || "",
-          contactEmail: data.contact_info?.email || data.email || "",
-          contactPhone: data.contact_info?.phone || data.phone || "",
-          businessTaxId: data.business_tax_id || "",
-          ownerName: data.owner_name || "",
           primaryColor: data.colors?.primary || "",
           secondaryColor: data.colors?.secondary || "",
           fonts: data.fonts ? JSON.stringify(data.fonts) : "",
           voiceAndTone: data.voice || "",
-          bankLast4: data.bank_last4 || "",
-          bankType: data.bank_type || "",
-          currency: data.currency || "",
-          payoutSchedule: data.payout_schedule || "",
-          verificationStatus: data.verification_status || "pending",
-          billingEmail: data.billing_email || "",
+          spacingValues: data.spacingValues ? JSON.stringify(data.spacingValues) : "",
         });
 
         // Show magic animation
         setShowAnimation(true);
         setTimeout(() => setShowAnimation(false), 3000);
 
-        // Enhanced success message showing sources
-        let message = "Ready to review your full profile";
-        if (result.hasStripeData && result.crawlStatus === "completed") {
-          message += " — from your site and Stripe";
-          toast.success("Profile ready from Stripe 💳", { duration: 3000, icon: "💳" });
-          toast.success("Brand captured from site 🎨", { duration: 3000, icon: "🎨" });
-        } else if (result.hasStripeData) {
-          message += " — from your Stripe account";
-          toast.success("Profile prepopulated from Stripe 💳", { duration: 4000, icon: "💳" });
-        } else if (result.crawlStatus === "completed") {
-          message += " — from your website";
-          toast.success("Brand analyzed from your site 🎨", { duration: 4000, icon: "🎨" });
+        // Enhanced success message emphasizing design capture
+        if (result.crawlStatus === "completed") {
+          toast.success("✨ Your brand design captured perfectly!", { 
+            duration: 4000,
+            icon: "🎨" 
+          });
+          toast.success("We've got your colors, fonts, and style locked in", {
+            duration: 4000,
+            icon: "🔒",
+          });
+        } else if (result.crawlStatus === "processing" || result.crawlStatus === "pending") {
+          toast("⏳ Still analyzing your brand — we'll have everything ready soon", {
+            icon: "⏳",
+          });
         }
-        toast.success(message, {
-          duration: 5000,
-          icon: "✨",
-        });
       } else if (result.crawlStatus === "processing" || result.crawlStatus === "pending") {
         // Still processing, show message
         toast("Still analyzing your site — we'll have everything ready soon", {
@@ -111,7 +78,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
         });
       } else {
         // Failed or not started
-        toast("No problem — we'll prepopulate what we can and you can fill in the rest", {
+        toast("No problem — you can customize your brand settings manually", {
           icon: "ℹ️",
         });
       }
@@ -131,33 +98,14 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
   };
 
   const handleSubmit = () => {
-    if (!editedData.businessName.trim()) {
-      toast.error("Business name is required");
-      return;
-    }
-
-    // Pass full edited profile data to complete onboarding
+    // Pass design data to complete onboarding
+    // Account/profile data comes from Stripe, not here
     onComplete({
-      businessName: editedData.businessName,
-      businessType: editedData.businessType,
-      businessDescription: editedData.businessDescription,
-      website: editedData.website,
-      industryCategory: editedData.industryCategory,
-      companyAddress: editedData.companyAddress,
-      contactEmail: editedData.contactEmail,
-      contactPhone: editedData.contactPhone,
-      businessTaxId: editedData.businessTaxId,
-      ownerName: editedData.ownerName,
       primaryColor: editedData.primaryColor,
       secondaryColor: editedData.secondaryColor,
       fonts: editedData.fonts,
       voiceAndTone: editedData.voiceAndTone,
-      bankLast4: editedData.bankLast4,
-      bankType: editedData.bankType,
-      currency: editedData.currency,
-      payoutSchedule: editedData.payoutSchedule,
-      verificationStatus: editedData.verificationStatus,
-      billingEmail: editedData.billingEmail,
+      spacingValues: editedData.spacingValues,
       logoUrl: brandData?.logo_url,
       faviconUrl: brandData?.favicon_url,
     });
@@ -245,232 +193,142 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
       {/* Header with Animation */}
       <div className={`text-center mb-8 ${showAnimation ? 'animate-fade-in' : ''}`}>
         <h2 className="mb-3 text-3xl font-bold text-dark dark:text-white">
-          We've got you covered
+          🎨 We captured your brand!
         </h2>
         <p className="text-base text-body-color dark:text-dark-6">
-          Your profile and brand are ready – review and edit as needed
+          Your colors, fonts, and style are ready — we&apos;ve got all the context from your site
         </p>
       </div>
 
       {/* Success Message */}
-      {(crawlStatus === "completed" || hasStripeData) && brandData && (
-        <div className="mb-6 rounded-lg bg-gradient-to-r from-green-50 to-blue-50 p-4 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800">
+      {crawlStatus === "completed" && brandData && (
+        <div className="mb-6 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 p-4 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800">
           <div className="flex gap-2">
-            <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+            <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                {hasStripeData && crawlStatus === "completed"
-                  ? "Account ready + brand recognized"
-                  : hasStripeData
-                  ? "Your business details from Stripe"
-                  : "Your brand from your website"}
+              <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                Your brand identity is locked in
               </p>
-              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Switch tabs to see everything we've prepared
+              <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                We analyzed your website and captured your unique design language — no need to repeat yourself!
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Brand Preview - Global */}
-      {brandData && (brandData.logo_url || brandData.colors) && (
-        <div className="mb-8 rounded-lg border border-stroke p-6 dark:border-dark-3">
-          <h3 className="mb-4 text-sm font-semibold text-dark dark:text-white">Quick Brand Snapshot</h3>
-          <div className="flex items-center gap-6">
-            {brandData.logo_url && (
-              <div className="flex-shrink-0">
-                <img
-                  src={brandData.logo_url}
-                  alt="Company Logo"
-                  className="h-16 w-16 rounded-md object-contain border border-stroke dark:border-dark-3"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-            {brandData.colors && (
-              <div className="flex gap-3">
-                {brandData.colors.primary && (
-                  <div className="text-center">
-                    <div
-                      className="h-12 w-12 rounded-md border border-stroke dark:border-dark-3"
-                      style={{ backgroundColor: brandData.colors.primary }}
-                    ></div>
-                    <p className="mt-1 text-xs text-body-color dark:text-dark-6">Primary</p>
-                  </div>
-                )}
-                {brandData.colors.secondary && (
-                  <div className="text-center">
-                    <div
-                      className="h-12 w-12 rounded-md border border-stroke dark:border-dark-3"
-                      style={{ backgroundColor: brandData.colors.secondary }}
-                    ></div>
-                    <p className="mt-1 text-xs text-body-color dark:text-dark-6">Secondary</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tabs for Profile and Brand */}
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="brand">Brand</TabsTrigger>
-        </TabsList>
-
-        {/* Profile Tab - Stripe Data */}
-        <TabsContent value="profile" className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Your account is fully set up and ready to transact. Edit any details below.
-          </p>
-          <div className="space-y-4">
-            {renderEditableField("Business Name", "businessName", "Enter your business name", true)}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderEditableField("Business Type", "businessType", "Individual / Company / Nonprofit")}
-              {renderEditableField("Verification Status", "verificationStatus", "Verified / Pending")}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderEditableField("Account Email", "contactEmail", "contact@example.com", false)}
-              {renderEditableField("Billing Email", "billingEmail", "billing@example.com", false)}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderEditableField("Currency", "currency", "USD", false)}
-              {renderEditableField("Payout Schedule", "payoutSchedule", "Daily / Weekly / Monthly", false)}
-            </div>
-            {hasStripeData && (
-              <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Stripe Status: {editedData.verificationStatus === 'verified' ? '✅ Verified & Ready' : '⚠️ Pending Verification'}
-                </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  Your account is {editedData.verificationStatus}. Payouts in {editedData.currency} on {editedData.payoutSchedule} schedule.
-                </p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Brand Tab - Scrape Data */}
-        <TabsContent value="brand" className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            We've analyzed your site to capture your unique brand identity. See the snapshot and edit as needed.
-          </p>
-          {/* Visual Brand Snapshot */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Colors Palette */}
-            {editedData.primaryColor || editedData.secondaryColor ? (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-dark dark:text-white">Color Palette</h4>
-                <div className="flex gap-2">
-                  {editedData.primaryColor && (
-                    <div className="flex flex-col items-center">
-                      <div
-                        className="h-16 w-16 rounded-md border border-stroke dark:border-dark-3"
-                        style={{ backgroundColor: editedData.primaryColor }}
-                      ></div>
-                      <p className="mt-1 text-xs text-muted-foreground">{editedData.primaryColor}</p>
-                    </div>
-                  )}
-                  {editedData.secondaryColor && (
-                    <div className="flex flex-col items-center">
-                      <div
-                        className="h-16 w-16 rounded-md border border-stroke dark:border-dark-3"
-                        style={{ backgroundColor: editedData.secondaryColor }}
-                      ></div>
-                      <p className="mt-1 text-xs text-muted-foreground">{editedData.secondaryColor}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {renderEditableField("Primary Color", "primaryColor", "#3B82F6", false, false, true)}
-                  {renderEditableField("Secondary Color", "secondaryColor", "#1D4ED8", false, false, true)}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Fonts Preview */}
-            {editedData.fonts && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-dark dark:text-white">Typography</h4>
-                <div className="space-y-2">
-                  {JSON.parse(editedData.fonts || '[]').slice(0, 3).map((font: string, i: number) => (
-                    <div key={i} className="p-2 bg-gray-50 rounded dark:bg-dark">
-                      <p style={{ fontFamily: font }} className="text-sm">
-                        Sample text in {font}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                {renderEditableField("Fonts", "fonts", "JSON array of font families", false, true)}
-              </div>
-            )}
-          </div>
-
-          {/* Spacing Tokens Preview */}
-          {editedData.spacingValues && editedData.spacingValues.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-dark dark:text-white">Spacing Tokens</h4>
-              <div className="grid grid-cols-4 gap-2">
-                {editedData.spacingValues.slice(0, 8).map((spacing: string, i: number) => (
-                  <div
-                    key={i}
-                    className="h-8 border border-stroke rounded dark:border-dark-3 flex items-center justify-center"
-                    style={{ padding: spacing }}
-                  >
-                    <span className="text-xs">{spacing}</span>
-                  </div>
-                ))}
-              </div>
-              {renderEditableField("Spacing Values", "spacingValues", "JSON array of spacing tokens", false, true)}
-            </div>
-          )}
-
-          {/* Logo & Images */}
-          {brandData?.logo_url && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-dark dark:text-white">Logo</h4>
-              <img
-                src={brandData.logo_url}
-                alt="Detected Logo"
-                className="max-h-32 object-contain border border-stroke rounded dark:border-dark-3"
-              />
-              {renderEditableField("Logo URL", "logoUrl", "Your logo URL", false)}
-            </div>
-          )}
-
-          {brandData?.images && brandData.images.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-dark dark:text-white">Site Images</h4>
-              <div className="grid grid-cols-3 gap-2">
-                {brandData.images.slice(0, 6).map((img: any, i: number) => (
+      {/* Brand Showcase - Main attraction */}
+      {brandData && (
+        <div className="space-y-8">
+          {/* Logo & Visual Identity */}
+          {brandData.logo_url && (
+            <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    key={i}
-                    src={img.src}
-                    alt={img.alt}
-                    className="h-20 w-20 object-cover rounded border border-stroke dark:border-dark-3"
+                    src={brandData.logo_url}
+                    alt="Your Logo"
+                    className="h-24 w-24 rounded-lg object-contain border border-stroke dark:border-dark-3 bg-white dark:bg-dark-2 p-2"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-dark dark:text-white">Your Logo</h3>
+                  <p className="text-sm text-body-color dark:text-dark-6">Automatically detected from your site</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Color Palette Showcase */}
+          {(editedData.primaryColor || editedData.secondaryColor) && (
+            <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+              <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">🎨 Your Color Palette</h3>
+              <div className="flex gap-6 mb-4">
+                {editedData.primaryColor && (
+                  <div className="flex-1">
+                    <div
+                      className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2"
+                      style={{ backgroundColor: editedData.primaryColor }}
+                    ></div>
+                    <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Primary Color</p>
+                    <p className="text-center text-xs text-body-color dark:text-dark-6 font-mono">{editedData.primaryColor}</p>
+                  </div>
+                )}
+                {editedData.secondaryColor && (
+                  <div className="flex-1">
+                    <div
+                      className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2"
+                      style={{ backgroundColor: editedData.secondaryColor }}
+                    ></div>
+                    <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Secondary Color</p>
+                    <p className="text-center text-xs text-body-color dark:text-dark-6 font-mono">{editedData.secondaryColor}</p>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {renderEditableField("Primary Color", "primaryColor", "#3B82F6", false, false, true)}
+                {renderEditableField("Secondary Color", "secondaryColor", "#1D4ED8", false, false, true)}
+              </div>
+            </div>
+          )}
+
+          {/* Typography Showcase */}
+          {editedData.fonts && (
+            <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+              <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">✍️ Your Typography</h3>
+              <div className="space-y-3 mb-4">
+                {JSON.parse(editedData.fonts || '[]').slice(0, 3).map((font: string, i: number) => (
+                  <div key={i} className="p-4 bg-white rounded-lg shadow-sm dark:bg-dark-2 border border-stroke dark:border-dark-3">
+                    <p className="text-xs text-body-color dark:text-dark-6 mb-1">Font {i + 1}</p>
+                    <p style={{ fontFamily: font }} className="text-2xl font-medium text-dark dark:text-white">
+                      The quick brown fox jumps
+                    </p>
+                    <p className="text-xs text-body-color dark:text-dark-6 mt-1 font-mono">{font}</p>
+                  </div>
                 ))}
               </div>
+              {renderEditableField("Font Stack (JSON)", "fonts", '["Font Name 1", "Font Name 2"]', false, true)}
             </div>
           )}
 
           {/* Voice & Tone */}
           {editedData.voiceAndTone && (
-            <div className="mb-6 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
-              <h4 className="mb-2 text-sm font-medium text-purple-900 dark:text-purple-100">
-                🎯 Detected Brand Voice & Tone
-              </h4>
-              <p className="text-sm text-purple-700 dark:text-purple-300">{editedData.voiceAndTone}</p>
+            <div className="rounded-lg border-2 border-dashed border-purple-200 p-6 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-dark">
+              <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
+                🎯 Brand Voice &amp; Tone
+              </h3>
+              <p className="text-base text-purple-700 dark:text-purple-300 mb-4 italic">&quot;{editedData.voiceAndTone}&quot;</p>
               {renderEditableField("Voice & Tone", "voiceAndTone", "Your brand's voice description", false, true)}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+
+          {/* Spacing Tokens */}
+          {editedData.spacingValues && JSON.parse(editedData.spacingValues || '[]').length > 0 && (
+            <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+              <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">📏 Spacing System</h3>
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {JSON.parse(editedData.spacingValues || '[]').slice(0, 8).map((spacing: string, i: number) => (
+                  <div
+                    key={i}
+                    className="p-3 border-2 border-stroke rounded-lg dark:border-dark-3 bg-white dark:bg-dark-2 flex flex-col items-center justify-center"
+                  >
+                    <div
+                      className="bg-primary/20 rounded"
+                      style={{ width: spacing, height: spacing, minWidth: '20px', minHeight: '20px' }}
+                    ></div>
+                    <span className="text-xs mt-2 font-mono text-body-color dark:text-dark-6">{spacing}</span>
+                  </div>
+                ))}
+              </div>
+              {renderEditableField("Spacing Values (JSON)", "spacingValues", '["8px", "16px", "24px"]', false, true)}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="mt-8 flex gap-4">
@@ -491,7 +349,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
               Saving... <Loader />
             </>
           ) : (
-            "Complete Setup"
+            "Complete Setup ✨"
           )}
         </button>
       </div>
