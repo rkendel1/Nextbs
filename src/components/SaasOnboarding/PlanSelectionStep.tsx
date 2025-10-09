@@ -64,7 +64,7 @@ const PlanSelectionStep = ({ data, onComplete, onBack, loading }: PlanSelectionS
 
     setSubmitting(true);
     try {
-      // Create subscription
+      // Create subscription or get checkout URL
       const subResponse = await fetch("/api/saas/my-subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,16 +77,24 @@ const PlanSelectionStep = ({ data, onComplete, onBack, loading }: PlanSelectionS
       }
 
       const subResult = await subResponse.json();
-      toast.success("Plan selected successfully!");
 
-      // Advance to next step
-      onComplete({ tierId: selectedTierId });
+      if (subResult.requiresPayment && subResult.checkoutUrl) {
+        // Paid plan: Redirect to Stripe Checkout
+        toast.success("Redirecting to payment...");
+        window.location.href = subResult.checkoutUrl;
+      } else if (subResult.success) {
+        // Free plan: Proceed to next step
+        toast.success("Plan selected successfully!");
+        onComplete({ tierId: selectedTierId });
+      } else {
+        throw new Error("Unexpected response from server");
+      }
     } catch (error: any) {
       console.error("Error selecting plan:", error);
       toast.error(error.message || "Failed to select plan");
-    } finally {
       setSubmitting(false);
     }
+    // Don't reset submitting for paid plans as we're redirecting
   };
 
   if (isLoading) {
@@ -122,10 +130,10 @@ const PlanSelectionStep = ({ data, onComplete, onBack, loading }: PlanSelectionS
   return (
     <div className="rounded-xl bg-white px-8 py-10 shadow-lg dark:bg-dark-2 sm:px-12 md:px-16">
       <h2 className="mb-3 text-center text-3xl font-bold text-dark dark:text-white">
-        Select Your Platform Plan
+        Choose Your Platform Plan
       </h2>
       <p className="mb-10 text-center text-base text-body-color dark:text-dark-6">
-        Choose a plan to access platform features like product creation and usage metering. This is required to continue.
+        Select a plan to get started. You must complete this step before setting up your business.
       </p>
 
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -196,20 +204,19 @@ const PlanSelectionStep = ({ data, onComplete, onBack, loading }: PlanSelectionS
         })}
       </div>
 
-      <div className="flex gap-4">
-        <button
-          onClick={onBack}
-          disabled={loading || submitting}
-          className="flex flex-1 items-center justify-center rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white disabled:opacity-50"
-        >
-          Back
-        </button>
+      <div className="flex justify-center">
         <button
           onClick={handleContinue}
           disabled={loading || submitting || !selectedTierId}
-          className="flex flex-1 items-center justify-center rounded-md border border-primary bg-primary px-5 py-3 text-base text-white transition duration-300 ease-in-out hover:bg-blue-dark disabled:opacity-50"
+          className="flex w-full items-center justify-center rounded-md border border-primary bg-primary px-5 py-3 text-base text-white transition duration-300 ease-in-out hover:bg-blue-dark disabled:opacity-50 md:w-auto md:min-w-[200px]"
         >
-          Continue {submitting && <Loader />}
+          {submitting ? (
+            <>
+              Processing... <Loader />
+            </>
+          ) : (
+            "Continue to Payment"
+          )}
         </button>
       </div>
     </div>

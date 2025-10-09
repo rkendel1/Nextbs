@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Bell,
   User,
-  LogOut
+  LogOut,
+  Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Products", href: "/dashboard/products", icon: Package },
     { name: "Subscribers", href: "/dashboard/subscribers", icon: Users },
     { name: "Revenue", href: "/dashboard/revenue", icon: TrendingUp },
+    { name: "Account", href: "/dashboard/account", icon: Wallet },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
@@ -105,15 +107,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           {/* User Section */}
           <div className="border-t p-3 space-y-2">
             <Link 
-              href="/dashboard/settings"
+              href="/dashboard/account"
               className="flex items-center space-x-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
             >
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-4 w-4 text-primary" />
+                <Wallet className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">My Account</p>
-                <p className="text-xs text-muted-foreground">Settings</p>
+                <p className="text-sm font-medium">My Subscription</p>
+                <p className="text-xs text-muted-foreground">Manage billing</p>
               </div>
             </Link>
             

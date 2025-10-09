@@ -13,6 +13,11 @@ const LoadingPlaceholder = () => (
   <div className="animate-pulse h-96 bg-gradient-subtle rounded-xl"></div>
 );
 
+const PlanSelectionStep = dynamic(() => import("./PlanSelectionStep"), {
+  loading: () => <LoadingPlaceholder />,
+  ssr: false
+});
+
 const BusinessInfoStep = dynamic(() => import("./BusinessInfoStep"), {
   loading: () => <LoadingPlaceholder />,
   ssr: false
@@ -37,9 +42,10 @@ import { OnboardingStep } from "@/types/saas";
 
 const OnboardingWizard = () => {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<number>(OnboardingStep.URL_ENTRY);
+  const [currentStep, setCurrentStep] = useState<number>(OnboardingStep.PLAN_SELECTION);
   const [loading, setLoading] = useState(true);
   const [onboardingData, setOnboardingData] = useState({
+    tierId: "",
     businessName: "",
     businessDescription: "",
     website: "",
@@ -56,16 +62,36 @@ const OnboardingWizard = () => {
   });
 
   const steps = [
+    { id: OnboardingStep.PLAN_SELECTION, title: "Select Plan", description: "Choose your plan" },
     { id: OnboardingStep.URL_ENTRY, title: "Enter URL", description: "Your website URL" },
     { id: OnboardingStep.STRIPE_CONNECT, title: "Connect Stripe", description: "Set up payments" },
     { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review Info", description: "Confirm your details" },
     { id: OnboardingStep.COMPLETE, title: "Complete", description: "You're all set!" },
   ];
 
-  // Load saved progress on mount
+  // Load saved progress on mount and handle Stripe Checkout return
   useEffect(() => {
     const loadSavedProgress = async () => {
       try {
+        // Check for Stripe Checkout return
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+        const stepParam = urlParams.get('step');
+
+        if (sessionId) {
+          // Verify payment and subscription creation
+          toast.success("Payment successful! Continuing onboarding...");
+          
+          // Clean up URL
+          window.history.replaceState({}, '', '/saas/onboarding');
+          
+          // Set step from URL param or default to URL_ENTRY (step 2)
+          const nextStep = stepParam ? parseInt(stepParam) : OnboardingStep.URL_ENTRY;
+          setCurrentStep(nextStep);
+          setLoading(false);
+          return;
+        }
+
         const response = await fetch("/api/saas/onboarding");
         if (!response.ok) {
           throw new Error("Failed to load onboarding progress");
@@ -83,6 +109,7 @@ const OnboardingWizard = () => {
         if (data && data.currentStep !== undefined) {
           setCurrentStep(data.currentStep);
           setOnboardingData({
+            tierId: "",
             businessName: data.saasCreator?.businessName || "",
             businessDescription: data.saasCreator?.businessDescription || "",
             website: data.saasCreator?.website || "",
@@ -202,6 +229,15 @@ const OnboardingWizard = () => {
 
   const renderStep = () => {
     switch (currentStep) {
+      case OnboardingStep.PLAN_SELECTION:
+        return (
+          <PlanSelectionStep
+            data={onboardingData}
+            onComplete={handleStepComplete}
+            onBack={handleBack}
+            loading={loading}
+          />
+        );
       case OnboardingStep.URL_ENTRY:
         return (
           <BusinessInfoStep
@@ -311,7 +347,7 @@ const OnboardingWizard = () => {
           {/* Navigation Buttons */}
           <div className="flex justify-between items-center mt-8 animate-slide-up [animation-delay:0.6s]">
             <div>
-              {currentStep > OnboardingStep.BUSINESS_INFO && (
+              {currentStep > OnboardingStep.PLAN_SELECTION && (
                 <Button
                   variant="outline"
                   onClick={handleBack}

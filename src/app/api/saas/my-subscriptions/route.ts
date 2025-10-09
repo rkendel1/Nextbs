@@ -154,77 +154,95 @@ export async function POST(request: NextRequest) {
     const productId = tier.product.id;
     const priceAmount = tier.priceAmount;
 
-    let stripeSubscriptionId = null;
-
     if (priceAmount > 0) {
-      // Paid plan: Create Stripe subscription
-      // Create or get customer
-      let customer;
+      // Paid plan: Create Stripe Checkout session
+      if (!tier.stripePriceId) {
+        return NextResponse.json(
+          { error: "Stripe price ID not configured for this tier" },
+          { status: 400 }
+        );
+      }
+
       try {
-        customer = await stripe.customers.create({
-          email: user.email!,
+        const siteUrl = process.env.SITE_URL || 'http://localhost:3000';
+        
+        const checkoutSession = await stripe.checkout.sessions.create({
+          customer_email: user.email!,
+          line_items: [
+            {
+              price: tier.stripePriceId,
+              quantity: 1,
+            },
+          ],
+          mode: 'subscription',
+          success_url: `${siteUrl}/saas/onboarding?session_id={CHECKOUT_SESSION_ID}&step=2`,
+          cancel_url: `${siteUrl}/saas/onboarding?step=1`,
           metadata: {
             userId: user.id,
+            tierId: tier.id,
+            productId: productId,
             saasCreatorId: platformSaasCreatorId,
+            onboarding: 'true',
+          },
+          subscription_data: {
+            metadata: {
+              userId: user.id,
+              tierId: tier.id,
+              productId: productId,
+              saasCreatorId: platformSaasCreatorId,
+            },
           },
         });
-      } catch (error: any) {
+
         return NextResponse.json(
-          { error: "Failed to create Stripe customer: " + error.message },
+          { 
+            requiresPayment: true,
+            checkoutUrl: checkoutSession.url,
+            sessionId: checkoutSession.id,
+          },
+          { status: 200 }
+        );
+      } catch (error: any) {
+        console.error("Stripe checkout session error:", error);
+        return NextResponse.json(
+          { error: "Failed to create checkout session: " + error.message },
           { status: 500 }
         );
       }
-
-      // Create subscription
-      try {
-        const subscription = await stripe.subscriptions.create({
-          customer: customer.id,
-          items: [{ price: tier.stripePriceId! }],
-          payment_behavior: 'default_incomplete',
-          expand: ['latest_invoice.payment_intent'],
-        });
-
-        stripeSubscriptionId = subscription.id;
-      } catch (error: any) {
-        return NextResponse.json(
-          { error: "Failed to create Stripe subscription: " + error.message },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Create subscription in DB
-    const subscription = await prisma.subscription.create({
-      data: {
-        userId: user.id,
-        saasCreatorId: platformSaasCreatorId,
-        productId,
-        tierId,
-        stripeSubscriptionId,
-        status: 'active',
-        cancelAtPeriodEnd: false,
-      },
-    });
-
-    // Update user subscription status
-    const newStatus = priceAmount > 0 ? 'PAID' : 'FREE';
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { subscriptionStatus: newStatus },
-    });
-
-    return NextResponse.json(
-      { 
-        success: true, 
-        subscription: {
-          id: subscription.id,
-          tierName: tier.name,
+    } else {
+      // Free plan: Create subscription directly
+      const subscription = await prisma.subscription.create({
+        data: {
+          userId: user.id,
+          saasCreatorId: platformSaasCreatorId,
+          productId,
+          tierId,
+          stripeSubscriptionId: null,
           status: 'active',
-          subscriptionStatus: newStatus,
-        } 
-      },
-      { status: 201 }
-    );
+          cancelAtPeriodEnd: false,
+        },
+      });
+
+      // Update user subscription status
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { subscriptionStatus: 'FREE' },
+      });
+
+      return NextResponse.json(
+        { 
+          success: true,
+          requiresPayment: false,
+          subscription: {
+            id: subscription.id,
+            tierName: tier.name,
+            status: 'active',
+            subscriptionStatus: 'FREE',
+          } 
+        },
+        { status: 201 }
+      );
+    }
   } catch (error: any) {
     console.error("Error creating subscription:", error);
     return NextResponse.json(

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             businessDescription: businessDescription || 'Platform administration',
             website: website || '',
             onboardingCompleted: true,
-            onboardingStep: 4,
+            onboardingStep: 5,
           },
         });
       }
@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
         },
       });
     } else if (saasCreator) {
-      // Update existing profile - mark as completed when reaching step 4 (COMPLETE)
-      const isCompleted = currentStep >= 4;
+      // Update existing profile - mark as completed when reaching step 5 (COMPLETE)
+      const isCompleted = currentStep >= 5;
       saasCreator = await prisma.saasCreator.update({
         where: { id: saasCreator.id },
         data: {
@@ -184,21 +184,21 @@ export async function GET(request: NextRequest) {
             businessName: `${user.name || 'Platform'} Owner`,
             businessDescription: 'Platform administration',
             onboardingCompleted: true,
-            onboardingStep: 4,
+            onboardingStep: 5,
           },
         });
         
         return NextResponse.json({
           saasCreator,
           onboardingCompleted: true,
-          currentStep: 4,
+          currentStep: 5,
         });
       }
       
       return NextResponse.json({
         saasCreator: user.saasCreator,
         onboardingCompleted: true,
-        currentStep: user.saasCreator?.onboardingStep || 4,
+        currentStep: user.saasCreator?.onboardingStep || 5,
       });
     }
 

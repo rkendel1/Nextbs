@@ -153,10 +153,11 @@ export interface DashboardStats {
 
 // Onboarding Step Types
 export enum OnboardingStep {
-  URL_ENTRY = 1,
-  STRIPE_CONNECT = 2,
-  COMPANY_INFO_REVIEW = 3,
-  COMPLETE = 4,
+  PLAN_SELECTION = 1,
+  URL_ENTRY = 2,
+  STRIPE_CONNECT = 3,
+  COMPANY_INFO_REVIEW = 4,
+  COMPLETE = 5,
 }
 
 // Brand Data from Crawler

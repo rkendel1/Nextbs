@@ -22,14 +22,15 @@ export async function GET() {
       include: {
         saasCreator: {
           include: {
-            products: {
-              where: { isActive: true },
-              include: {
+          products: {
+            where: { isActive: true },
+            include: {
               tiers: {
+                where: { isActive: true },
                 orderBy: { sortOrder: 'asc' }
               }
-              }
             }
+          }
           }
         }
       }

@@ -1,28 +1,53 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
-import Link from "next/link";
+import toast from "react-hot-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  CreditCard, 
+  Download, 
+  Calendar, 
+  TrendingUp, 
+  AlertCircle,
+  CheckCircle,
+  XCircle
+} from "lucide-react";
 
 interface Subscription {
   id: string;
-  product: {
-    id: string;
-    name: string;
-  };
-  tier: {
-    id: string;
-    name: string;
-    priceAmount: number;
-    billingPeriod: string;
-  };
+  productName: string;
+  tierName: string;
+  tierDescription?: string;
+  priceAmount: number;
+  billingPeriod: string;
+  features: string[];
   status: string;
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
   cancelAtPeriodEnd: boolean;
+  usageLimit?: number;
+}
+
+interface Usage {
+  total: number;
+  limit?: number;
+  records: any[];
+}
+
+interface Invoice {
+  id: string;
+  number: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created: Date;
+  hostedInvoiceUrl?: string;
+  invoicePdf?: string;
 }
 
 interface CreatorData {
@@ -34,34 +59,27 @@ interface CreatorData {
     secondaryColor?: string;
     logoUrl?: string;
   };
-  designTokens?: {
-    fonts?: string[];
-    primaryColor?: string;
-    secondaryColor?: string;
-    logoUrl?: string;
-    faviconUrl?: string;
-    voiceAndTone?: string;
-  };
 }
 
 const WhiteLabelAccount = () => {
   const params = useParams();
   const domain = params.domain as string;
+  const { data: session, status } = useSession();
   const [creator, setCreator] = useState<CreatorData | null>(null);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    checkAuth();
     fetchCreatorData();
   }, [domain]);
 
-  const checkAuth = () => {
-    // Simple auth check - in a real app, you'd validate the session/token
-    const hasSession = localStorage.getItem('whitelabel_session');
-    setIsAuthenticated(!!hasSession);
-  };
+  useEffect(() => {
+    if (status === "authenticated" && creator) {
+      fetchAccountData();
+    }
+  }, [status, creator]);
 
   const fetchCreatorData = async () => {
     try {
@@ -72,86 +90,99 @@ const WhiteLabelAccount = () => {
       }
       
       const data = await response.json();
-      setCreator(data);
-      
-      // Fetch user subscriptions if authenticated
-      if (isAuthenticated) {
-        await fetchSubscriptions(data.creator.id);
-      }
+      setCreator(data.creator);
     } catch (error) {
       console.error('Failed to fetch creator data:', error);
+      toast.error("Failed to load creator information");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSubscriptions = async (creatorId: string) => {
+  const fetchAccountData = async () => {
     try {
-      // This would be a real API call in production
-      // For now, we'll simulate some data
-      const mockSubscriptions: Subscription[] = [
-        {
-          id: 'sub_123',
-          product: {
-            id: 'prod_123',
-            name: 'Premium Analytics'
-          },
-          tier: {
-            id: 'tier_123',
-            name: 'Professional',
-            priceAmount: 9900,
-            billingPeriod: 'monthly'
-          },
-          status: 'active',
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          cancelAtPeriodEnd: false
+      setLoading(true);
+
+      // Fetch subscription and usage for this creator's products
+      const accountRes = await fetch(`/api/saas/my-subscriptions`);
+      if (accountRes.ok) {
+        const accountData = await accountRes.json();
+        
+        // Find subscription to this creator's products
+        const creatorSubscription = accountData.subscriptions?.find((sub: any) => 
+          sub.saasCreatorId === creator?.id
+        );
+        
+        if (creatorSubscription) {
+          setSubscription(creatorSubscription);
+          
+          // Fetch usage for this subscription
+          // This would be a separate API call in production
+          setUsage({
+            total: 0,
+            limit: creatorSubscription.usageLimit,
+            records: []
+          });
         }
-      ];
-      setSubscriptions(mockSubscriptions);
-    } catch (error) {
-      console.error('Failed to fetch subscriptions:', error);
+      }
+
+      // Fetch invoices
+      const invoicesRes = await fetch("/api/saas/invoices");
+      if (invoicesRes.ok) {
+        const invoicesData = await invoicesRes.json();
+        setInvoices(invoicesData.invoices || []);
+      }
+    } catch (error: any) {
+      console.error("Error fetching account data:", error);
+      toast.error("Failed to load account data");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogin = () => {
-    // Simulate login - in a real app, you'd redirect to auth flow
-    localStorage.setItem('whitelabel_session', 'mock_session_token');
-    setIsAuthenticated(true);
-    window.location.reload();
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('whitelabel_session');
-    setIsAuthenticated(false);
-    setSubscriptions([]);
-  };
-
-  const handleManageSubscription = (subscriptionId: string) => {
-    // Redirect to subscription management
-    window.location.href = `/whitelabel/${domain}/account/subscriptions/${subscriptionId}`;
-  };
-
   const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'bg-green-100 text-green-800',
-      canceled: 'bg-red-100 text-red-800',
-      past_due: 'bg-yellow-100 text-yellow-800',
-      incomplete: 'bg-gray-100 text-gray-800'
+    const statusConfig: Record<string, { variant: any; icon: any }> = {
+      active: { variant: "default", icon: CheckCircle },
+      canceled: { variant: "destructive", icon: XCircle },
+      past_due: { variant: "destructive", icon: AlertCircle },
+      trialing: { variant: "secondary", icon: Calendar },
     };
-    
+
+    const config = statusConfig[status] || { variant: "secondary", icon: AlertCircle };
+    const Icon = config.icon;
+
     return (
-      <Badge className={variants[status as keyof typeof variants] || variants.incomplete}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <Badge variant={config.variant} className="flex items-center gap-1">
+        <Icon className="h-3 w-3" />
+        {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
       </Badge>
     );
   };
 
+  const formatCurrency = (amount: number, currency: string = 'usd') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  };
+
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const primaryColor = creator?.whiteLabel?.primaryColor || '#667eea';
+  const brandName = creator?.whiteLabel?.brandName || creator?.businessName || 'Service';
+
   if (loading) {
     return (
       <WhiteLabelLayout domain={domain}>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: primaryColor }}></div>
         </div>
       </WhiteLabelLayout>
     );
@@ -161,183 +192,269 @@ const WhiteLabelAccount = () => {
     return (
       <WhiteLabelLayout domain={domain}>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Creator Not Found</h1>
-            <p className="text-gray-600">This domain is not associated with any creator.</p>
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Creator Not Found</h3>
+                <p className="text-muted-foreground">
+                  This domain is not associated with any creator.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </WhiteLabelLayout>
     );
   }
 
-  const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
-  const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
+  if (status === "unauthenticated") {
+    return (
+      <WhiteLabelLayout domain={domain}>
+        <div className="container mx-auto px-4 py-16">
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <CardTitle>Sign In Required</CardTitle>
+              <CardDescription>
+                Please sign in to view your account and manage your subscription
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => window.location.href = '/auth/signin'}
+                className="w-full"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Sign In
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </WhiteLabelLayout>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <WhiteLabelLayout domain={domain}>
+        <div className="container mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Subscription Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  You don't have an active subscription to {brandName}.
+                </p>
+                <Button 
+                  onClick={() => window.location.href = `/whitelabel/${domain}/products`}
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  View Plans
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </WhiteLabelLayout>
+    );
+  }
+
+  const usagePercentage = usage?.limit 
+    ? Math.min((usage.total / usage.limit) * 100, 100) 
+    : 0;
 
   return (
     <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              My Account
-            </h1>
-            <p className="text-xl text-gray-600">
-              Manage your subscriptions and account settings
-            </p>
-          </div>
-
-          {/* Authentication Section */}
-          {!isAuthenticated ? (
-            <div className="max-w-md mx-auto">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sign In</CardTitle>
-                  <CardDescription>
-                    Sign in to manage your account and subscriptions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={handleLogin}
-                    className="w-full"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    Sign In
-                  </Button>
-                  <p className="text-sm text-gray-600 mt-4 text-center">
-                    Don&apos;t have an account?{' '}
-                    <Link href={`/whitelabel/${domain}/signup`} className="text-blue-600 hover:text-blue-800">
-                      Sign up here
-                    </Link>
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {/* Account Overview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Overview</CardTitle>
-                  <CardDescription>
-                    Your account information and quick actions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-600">Account Status</p>
-                      <p className="text-lg font-medium">Active</p>
-                    </div>
-                    <Button
-                      onClick={handleLogout}
-                      variant="outline"
-                    >
-                      Sign Out
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Active Subscriptions */}
-              {subscriptions.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Active Subscriptions</CardTitle>
-                    <CardDescription>
-                      Manage your current subscriptions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {subscriptions.map((subscription) => (
-                        <div key={subscription.id} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className="font-semibold text-gray-900">
-                                {subscription.product.name}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {subscription.tier.name} Plan
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              {getStatusBadge(subscription.status)}
-                              <p className="text-sm text-gray-600 mt-1">
-                                ${(subscription.tier.priceAmount / 100).toFixed(0)}/{subscription.tier.billingPeriod}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {subscription.currentPeriodEnd && (
-                            <p className="text-sm text-gray-600 mb-3">
-                              Renews on {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                            </p>
-                          )}
-                          
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => handleManageSubscription(subscription.id)}
-                              size="sm"
-                              variant="outline"
-                            >
-                              Manage
-                            </Button>
-                            {!subscription.cancelAtPeriodEnd && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Quick Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Billing</CardTitle>
-                    <CardDescription>
-                      Manage your payment methods and billing history
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Link href={`/whitelabel/${domain}/account/billing`}>
-                      <Button variant="outline" className="w-full">
-                        Manage Billing
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Profile</CardTitle>
-                    <CardDescription>
-                      Update your profile information and preferences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Link href={`/whitelabel/${domain}/account/profile`}>
-                      <Button variant="outline" className="w-full">
-                        Edit Profile
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">My Account</h1>
+          <p className="text-muted-foreground">
+            Manage your subscription to {brandName}
+          </p>
         </div>
+
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
+          {/* Subscription Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Current Plan</CardTitle>
+                {getStatusBadge(subscription.status)}
+              </div>
+              <CardDescription>{subscription.productName}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-2xl font-bold">{subscription.tierName}</h3>
+                  {subscription.tierDescription && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {subscription.tierDescription}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold">
+                    {formatCurrency(subscription.priceAmount)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    / {subscription.billingPeriod}
+                  </span>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Features</h4>
+                  <ul className="space-y-1">
+                    {subscription.features.map((feature, index) => (
+                      <li key={index} className="flex items-center text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {subscription.currentPeriodEnd && (
+                  <div className="pt-4">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {subscription.cancelAtPeriodEnd ? (
+                        <span>Cancels on {formatDate(subscription.currentPeriodEnd)}</span>
+                      ) : (
+                        <span>Renews on {formatDate(subscription.currentPeriodEnd)}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Usage Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Usage
+              </CardTitle>
+              <CardDescription>Your usage this billing period</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Total Usage</span>
+                    <span className="text-2xl font-bold">{usage?.total || 0}</span>
+                  </div>
+                  {usage?.limit && (
+                    <>
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{ 
+                            width: `${usagePercentage}%`,
+                            backgroundColor: primaryColor 
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {usage.total} of {usage.limit} used ({usagePercentage.toFixed(1)}%)
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {usage?.records && usage.records.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold text-sm mb-2">Recent Activity</h4>
+                      <div className="space-y-2">
+                        {usage.records.slice(0, 5).map((record: any, index: number) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {new Date(record.timestamp).toLocaleDateString()}
+                            </span>
+                            <span className="font-medium">{record.quantity} units</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Invoices Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Billing History
+            </CardTitle>
+            <CardDescription>View and download your invoices</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invoices.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No invoices found
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {invoices.map((invoice) => (
+                  <div
+                    key={invoice.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h4 className="font-semibold">
+                          {invoice.number || `Invoice ${invoice.id.slice(-8)}`}
+                        </h4>
+                        <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                          {invoice.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {formatDate(invoice.created)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-semibold">
+                        {formatCurrency(invoice.amount, invoice.currency)}
+                      </span>
+                      {invoice.invoicePdf && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(invoice.invoicePdf, '_blank')}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          PDF
+                        </Button>
+                      )}
+                      {invoice.hostedInvoiceUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(invoice.hostedInvoiceUrl, '_blank')}
+                        >
+                          View
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </WhiteLabelLayout>
   );

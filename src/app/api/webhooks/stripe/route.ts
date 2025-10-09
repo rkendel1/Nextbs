@@ -238,6 +238,71 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
+// Handle checkout session completed (for onboarding subscriptions)
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  console.log("Handling checkout session completed:", session.id);
+  
+  try {
+    const metadata = session.metadata;
+    
+    if (!metadata || !metadata.userId || !metadata.tierId || !metadata.onboarding) {
+      console.log("Not an onboarding checkout session, skipping");
+      return;
+    }
+
+    const { userId, tierId, productId, saasCreatorId } = metadata;
+    const subscriptionId = session.subscription as string;
+
+    if (!subscriptionId) {
+      console.error("No subscription ID in checkout session");
+      return;
+    }
+
+    // Check if subscription already exists
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: {
+        userId: userId,
+        tierId: tierId,
+      },
+    });
+
+    if (existingSubscription) {
+      console.log("Subscription already exists, updating with Stripe ID");
+      await prisma.subscription.update({
+        where: { id: existingSubscription.id },
+        data: {
+          stripeSubscriptionId: subscriptionId,
+          status: 'active',
+        },
+      });
+    } else {
+      // Create new subscription
+      await prisma.subscription.create({
+        data: {
+          userId: userId,
+          saasCreatorId: saasCreatorId,
+          productId: productId,
+          tierId: tierId,
+          stripeSubscriptionId: subscriptionId,
+          status: 'active',
+          cancelAtPeriodEnd: false,
+        },
+      });
+    }
+
+    // Update user subscription status
+    await prisma.user.update({
+      where: { id: userId },
+      data: { subscriptionStatus: 'PAID' },
+    });
+
+    console.log("Successfully created/updated subscription for user:", userId);
+  } catch (error) {
+    console.error("Error handling checkout session completed:", error);
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -278,6 +343,9 @@ export async function POST(request: NextRequest) {
   // Handle the event
   try {
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
       case 'customer.subscription.created':
         await handleSubscriptionCreated(event.data.object as Stripe.Subscription);
         break;
