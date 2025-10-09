@@ -52,24 +52,22 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
     }
 
     try {
-      // Trigger concurrent background scrapes for lightweight and deep
-      const [lightweightPromise, deepPromise] = await Promise.allSettled([
-        fetch("/api/scrape", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: normalizedUrl, type: "lightweight" }),
-        }),
-        fetch("/api/scrape", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: normalizedUrl, type: "deep" }),
-        }),
-      ]);
+      // Trigger scrape (both lightweight and deep scraping happen in one call)
+      const response = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: normalizedUrl }),
+      });
 
-      // Check for immediate errors (background jobs should still start)
-      if (lightweightPromise.status === "rejected" || deepPromise.status === "rejected") {
-        console.error("Scrape initiation failed:", lightweightPromise, deepPromise);
-        // Still proceed, as background might recover
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || `Failed to start scraping: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Failed to start scraping");
       }
 
       toast.success("Scraping started in the background! Moving to next step...", {
@@ -82,8 +80,9 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
 
     } catch (err) {
       console.error("Error triggering scrapes:", err);
-      setError("Failed to start scraping. Please try again.");
-      toast.error("Failed to start scraping");
+      const errorMessage = err instanceof Error ? err.message : "Failed to start scraping. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -97,7 +96,7 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
           Enter Your Site URL
         </CardTitle>
         <CardDescription>
-          We'll automatically analyze your website in the background to prepopulate your profile and branding details.
+          We&apos;ll automatically analyze your website in the background to prepopulate your profile and branding details.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -132,7 +131,7 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
           </Button>
         </form>
         <p className="text-xs text-muted-foreground">
-          Both lightweight (basic info) and deep (design tokens) scrapes will run automatically.
+          We&apos;ll analyze your site for branding details and design tokens automatically.
         </p>
       </CardContent>
     </Card>

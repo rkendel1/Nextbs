@@ -363,7 +363,7 @@ Tone:`,
     await prisma.saasCreator.update({
       where: { id: saasCreator.id },
       data: {
-        lightweightScrape: JSON.stringify(feelData),
+        lightweightScrape: feelData as any,
         crawlStatus: "lightweight_completed",
       },
     });
@@ -404,11 +404,11 @@ Tone:`,
         where: { id: saasCreator.id },
         data: {
           deepDesignTokens: deepData,
-          mergedScrapeData: JSON.stringify({
+          mergedScrapeData: {
             lightweight: feelData,
             deep: deepData,
             merged,
-          }),
+          } as any,
           primaryColor,
           secondaryColor,
           fonts: JSON.stringify(mergedFonts),
