@@ -196,7 +196,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
           🎨 We captured your brand!
         </h2>
         <p className="text-base text-body-color dark:text-dark-6">
-          Your colors, fonts, and style are ready — we've got all the context from your site
+          Your colors, fonts, and style are ready — we&apos;ve got all the context from your site
         </p>
       </div>
 
@@ -225,6 +225,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
             <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={brandData.logo_url}
                     alt="Your Logo"
@@ -298,9 +299,9 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
           {editedData.voiceAndTone && (
             <div className="rounded-lg border-2 border-dashed border-purple-200 p-6 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-dark">
               <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
-                🎯 Brand Voice & Tone
+                🎯 Brand Voice &amp; Tone
               </h3>
-              <p className="text-base text-purple-700 dark:text-purple-300 mb-4 italic">"{editedData.voiceAndTone}"</p>
+              <p className="text-base text-purple-700 dark:text-purple-300 mb-4 italic">&quot;{editedData.voiceAndTone}&quot;</p>
               {renderEditableField("Voice & Tone", "voiceAndTone", "Your brand's voice description", false, true)}
             </div>
           )}
