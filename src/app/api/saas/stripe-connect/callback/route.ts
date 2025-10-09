@@ -133,6 +133,12 @@ export async function GET(request: NextRequest) {
         business_name: stripeAccountDetails.business_profile?.name,
         has_business_profile: !!stripeAccountDetails.business_profile,
         has_settings: !!stripeAccountDetails.settings,
+        has_branding: !!stripeAccountDetails.settings?.branding,
+        branding_icon: stripeAccountDetails.settings?.branding?.icon,
+        branding_logo: stripeAccountDetails.settings?.branding?.logo,
+        primary_color: stripeAccountDetails.settings?.branding?.primary_color,
+        secondary_color: stripeAccountDetails.settings?.branding?.secondary_color,
+        product_description: stripeAccountDetails.business_profile?.product_description,
       }));
     } catch (error: any) {
       console.error("Failed to fetch Stripe account details:", error);
@@ -196,6 +202,30 @@ export async function GET(request: NextRequest) {
       // Business website URL if not set
       if (!user.saasCreator.website && stripeAccountDetails.business_profile?.url) {
         saasCreatorUpdates.website = stripeAccountDetails.business_profile.url;
+      }
+
+      // Logo URL from Stripe branding settings
+      if (!user.saasCreator.logoUrl) {
+        // Prefer branding.logo over branding.icon as it's typically higher quality
+        const logoUrl = stripeAccountDetails.settings?.branding?.logo || 
+                       stripeAccountDetails.settings?.branding?.icon;
+        if (logoUrl) {
+          saasCreatorUpdates.logoUrl = logoUrl;
+        }
+      }
+
+      // Brand colors from Stripe branding settings
+      if (!user.saasCreator.primaryColor && stripeAccountDetails.settings?.branding?.primary_color) {
+        saasCreatorUpdates.primaryColor = stripeAccountDetails.settings.branding.primary_color;
+      }
+
+      if (!user.saasCreator.secondaryColor && stripeAccountDetails.settings?.branding?.secondary_color) {
+        saasCreatorUpdates.secondaryColor = stripeAccountDetails.settings.branding.secondary_color;
+      }
+
+      // Business description from Stripe business profile
+      if (!user.saasCreator.businessDescription && stripeAccountDetails.business_profile?.product_description) {
+        saasCreatorUpdates.businessDescription = stripeAccountDetails.business_profile.product_description;
       }
     }
 
