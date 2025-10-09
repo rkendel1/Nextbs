@@ -6,7 +6,101 @@ import * as cheerio from "cheerio";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import * as csstree from "css-tree";
-import type { Declaration } from "css-tree";
+import type { Declaration, CssNode } from "css-tree";
+import { generateText } from "ai";
+import { openai } from '@ai-sdk/openai';
+import type { FeelData } from "@/types/saas";
+
+// Helper to fetch CSS content
+async function fetchCss(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Failed to fetch CSS from ${url}: ${response.statusText}`);
+      return null;
+    }
+    return response.text();
+  } catch (error) {
+    console.error(`Error fetching CSS from ${url}:`, error);
+    return null;
+  }
+}
+
+// Helper to validate and clean color strings
+function isValidColor(color: string): boolean {
+  const trimmed = color.trim().toLowerCase();
+  // Exclude CSS keywords that are not actual colors
+  const excludedKeywords = ["inherit", "initial", "unset", "revert", "revert-layer", "currentcolor", "transparent"];
+  if (excludedKeywords.includes(trimmed)) {
+    return false;
+  }
+  // Basic check for hex, rgb, rgba, hsl, hsla, or common named colors
+  return (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("rgb(") ||
+    trimmed.startsWith("rgba(") ||
+    trimmed.startsWith("hsl(") ||
+    trimmed.startsWith("hsla(") ||
+    ["red", "blue", "green", "black", "white", "gray", "cyan", "amber", "orange", "purple", "pink", "yellow", "teal", "indigo", "violet", "lime", "emerald", "rose"].includes(trimmed)
+  );
+}
+
+// Helper to validate and clean font strings
+function isValidFont(font: string): boolean {
+  const trimmed = font.trim().toLowerCase();
+  // Exclude CSS keywords and generic font families
+  const excludedKeywordsAndGenerics = [
+    "inherit", "initial", "unset", "revert", "revert-layer",
+    "serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui",
+    "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "ubuntu", "cantarell", "fira sans", "droid sans", "helvetica neue" // Common system fonts
+  ];
+  if (excludedKeywordsAndGenerics.includes(trimmed)) {
+    return false;
+  }
+  // Check if it contains at least one letter or a quote, indicating a specific font name
+  return /[a-z]/.test(trimmed) || trimmed.includes("'") || trimmed.includes('"');
+}
+
+// Helper to validate and clean spacing values
+function isValidSpacingValue(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  // Exclude CSS keywords and common non-token values
+  const excluded = ["inherit", "initial", "unset", "revert", "revert-layer", "auto", "0", "0px", "0em", "0rem"];
+  if (excluded.includes(trimmed)) {
+    return false;
+  }
+  // Check if it looks like a numerical value with a unit, or a variable
+  return /^-?(\d*\.?\d+)(px|em|rem|%|vh|vw|ch|ex|cap|ic|lh|rlh|svw|svh|lvw|lvh|dvw|dvh|vmin|vmax|fr|pt|pc|in|cm|mm)?$|^var\(--[\w-]+\)$/.test(trimmed);
+}
+
+// Function to process declarations
+function processDeclaration(node: Declaration, extractedColors: Set<string>, extractedFonts: Set<string>, extractedSpacing: Set<string>) {
+  const rawValue = csstree.generate(node.value);
+  const trimmedLowerValue = rawValue.trim().toLowerCase();
+
+  if (node.property === "color" || node.property === "background-color") {
+    if (isValidColor(rawValue)) {
+      extractedColors.add(rawValue);
+    }
+  } else if (node.property === "font-family") {
+    const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
+    fontNames.forEach((fontName: string) => {
+      if (isValidFont(fontName)) {
+        extractedFonts.add(fontName);
+      }
+    });
+  } else if (
+    node.property.startsWith("padding") ||
+    node.property.startsWith("margin") ||
+    node.property === "gap" ||
+    node.property === "line-height" ||
+    node.property.startsWith("border-width")
+  ) {
+    if (isValidSpacingValue(rawValue)) {
+      extractedSpacing.add(rawValue);
+    }
+  }
+}
 
 /**
  * POST /api/scrape
@@ -83,16 +177,259 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Trigger crawler job (async)
-    // This now performs actual web scraping to extract design tokens
-    triggerCrawlerJob(jobId, url, saasCreator.id).catch((error) => {
-      console.error("Crawler job error:", error);
+    // Lightweight extraction
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URL: ${response.statusText}`);
+    }
+    const html = await response.text();
+
+    // Parse HTML with JSDOM for Readability
+    const dom = new JSDOM(html, { url });
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+
+    // Extract main text using Readability
+    const mainText = article?.textContent?.substring(0, 1000) || "";
+
+    // Parse HTML with Cheerio for structural elements
+    const $ = cheerio.load(html);
+
+    const headings: string[] = [];
+    $("h1, h2, h3, h4, h5, h6").each((index: number, element) => {
+      const text = $(element).text().trim();
+      if (text) headings.push(text);
+    });
+
+    const links: { href: string; text: string }[] = [];
+    $("a").each((index: number, element) => {
+      const href = $(element).attr("href") || "";
+      const text = $(element).text().trim();
+      if (href && text) links.push({ href, text });
+    });
+
+    const images: { src: string; alt: string }[] = [];
+    $("img").each((index: number, element) => {
+      const src = $(element).attr("src") || "";
+      const alt = $(element).attr("alt") || "";
+      if (src) images.push({ src, alt });
+    });
+
+    // Extract colors, fonts, and spacing using css-tree
+    const extractedColors = new Set<string>();
+    const extractedFonts = new Set<string>();
+    const extractedSpacing = new Set<string>();
+
+    // Process inline styles
+    $("[style]").each((index: number, element) => {
+      const style = $(element).attr("style");
+      if (style) {
+        try {
+          const ast = csstree.parse(style, { context: "declarationList" });
+          csstree.walk(ast, {
+            visit: "Declaration",
+            enter: (node: CssNode) => {
+              if (node.type === 'Declaration') {
+                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+              }
+            },
+          });
+        } catch (e) {
+          console.warn("Error parsing inline style:", style, e);
+        }
+      }
+    });
+
+    // Process <style> tags
+    $("style").each((index: number, element) => {
+      const styleContent = $(element).html() || "";
+      if (styleContent) {
+        try {
+          const ast = csstree.parse(styleContent);
+          csstree.walk(ast, {
+            visit: "Declaration",
+            enter: (node: CssNode) => {
+              if (node.type === 'Declaration') {
+                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+              }
+            },
+          });
+        } catch (e) {
+          console.warn("Error parsing <style> content:", e);
+        }
+      }
+    });
+
+    // Process <link rel="stylesheet"> tags
+    const cssUrls: string[] = [];
+    $('link[rel="stylesheet"]').each((index: number, element) => {
+      const href = $(element).attr("href") || "";
+      if (href) {
+        try {
+          const absoluteUrl = new URL(href, url).href;
+          cssUrls.push(absoluteUrl);
+        } catch (e) {
+          console.warn(`Invalid CSS link href: ${href}`, e);
+        }
+      }
+    });
+
+    const allCssContents = await Promise.all(cssUrls.map(fetchCss));
+    for (const cssContent of allCssContents) {
+      if (cssContent) {
+        try {
+          const ast = csstree.parse(cssContent);
+          csstree.walk(ast, {
+            visit: "Declaration",
+            enter: (node: CssNode) => {
+              if (node.type === 'Declaration') {
+                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+              }
+            },
+          });
+        } catch (e) {
+          console.warn("Error parsing linked CSS content:", e);
+        }
+      }
+    }
+
+    // Deduplicate and limit
+    const uniqueColors = Array.from(extractedColors).slice(0, 5);
+    const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
+    const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
+
+    // Infer tone using AI
+    let tone = "neutral";
+    if (mainText.length > 50) {
+      const { text: aiTone } = await generateText({
+        model: openai("gpt-4o-mini"),
+        messages: [
+          {
+            role: "system",
+            content: `Analyze the following text and determine its overall tone. Respond with a single word: casual, formal, friendly, professional, playful, serious, urgent, calm. If unsure, default to 'neutral'.
+
+Example:
+Text: "Hey there! Hope you're having a fantastic day. Just wanted to quickly check in."
+Tone: friendly
+
+Text: "We are pleased to announce the release of our Q3 earnings report, demonstrating robust growth."
+Tone: formal
+
+Text: "Don't miss out! Limited time offer ends tonight!"
+Tone: urgent
+
+Text: "The serene landscape offered a moment of quiet reflection."
+Tone: calm
+
+Text: "Our new product is super cool and will make your life awesome!"
+Tone: playful
+
+Text: "Please provide a detailed analysis of the market trends for the upcoming fiscal year."
+Tone: professional
+
+Text: "Just wanted to see how things are going."
+Tone: casual
+
+Text: "The situation requires immediate attention and a comprehensive strategy."
+Tone: serious
+
+Text: "This is a generic piece of text."
+Tone: neutral
+
+Text: "${mainText}"
+Tone:`,
+          },
+        ],
+      });
+      tone = aiTone.trim().toLowerCase();
+      const validTones = ["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"];
+      if (!validTones.includes(tone)) {
+        tone = "neutral";
+      }
+    }
+
+    const feelData: FeelData = {
+      url,
+      headings,
+      mainText,
+      links,
+      images,
+      colors: uniqueColors,
+      fonts: uniqueFonts,
+      tone,
+      spacingValues: uniqueSpacing,
+    };
+
+    await prisma.saasCreator.update({
+      where: { id: saasCreator.id },
+      data: {
+        lightweightScrape: JSON.stringify(feelData),
+        crawlStatus: "lightweight_completed",
+      },
+    });
+
+    // Parallel deep trigger
+    const deepPromise = fetch("http://localhost:3030/api/crawl", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, depth: 1 }),
+    }).then((res) => {
+      if (!res.ok) throw new Error("Deep scrape failed");
+      return res.json();
+    }).then(async (deepData) => {
+      // Merge logic
+      const mergedColors = deepData.designTokens
+        ?.filter((t: any) => t.tokenType === "color")
+        .map((t: any) => t.tokenValue)
+        .slice(0, 5) || feelData.colors;
+      const mergedFonts = deepData.designTokens
+        ?.filter((t: any) => t.tokenType === "typography")
+        .map((t: any) => t.tokenValue)
+        .slice(0, 3) || feelData.fonts;
+      const mergedSpacing = deepData.designTokens
+        ?.filter((t: any) => t.tokenType === "spacing")
+        .map((t: any) => t.tokenValue)
+        .slice(0, 5) || feelData.spacingValues;
+      const mergedTone = deepData.brandVoice?.tone || feelData.tone;
+      const primaryColor = mergedColors[0] || "#1A73E8";
+      const secondaryColor = mergedColors[1] || "#F5F5F5";
+      const merged = {
+        colors: mergedColors,
+        fonts: mergedFonts,
+        tone: mergedTone,
+        spacingValues: mergedSpacing,
+      };
+      const voiceAndToneString = Array.isArray(mergedTone) ? JSON.stringify(mergedTone) : mergedTone;
+      await prisma.saasCreator.update({
+        where: { id: saasCreator.id },
+        data: {
+          deepDesignTokens: deepData,
+          mergedScrapeData: JSON.stringify({
+            lightweight: feelData,
+            deep: deepData,
+            merged,
+          }),
+          primaryColor,
+          secondaryColor,
+          fonts: JSON.stringify(mergedFonts),
+          voiceAndTone: voiceAndToneString,
+          crawlStatus: "completed",
+          crawlCompletedAt: new Date(),
+        },
+      });
+      console.log(`Deep job ${jobId} completed`);
+    }).catch(async (err) => {
+      console.error("Deep scrape error:", err);
+      await prisma.saasCreator.update({
+        where: { id: saasCreator.id },
+        data: { crawlStatus: "deep_failed" },
+      });
     });
 
     return NextResponse.json({
       success: true,
       jobId,
-      message: "Crawler job started",
+      feelData,
     });
   } catch (error: any) {
     console.error("Scrape API error:", error);
@@ -100,390 +437,5 @@ export async function POST(request: NextRequest) {
       { error: error.message || "Failed to start crawler" },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Helper to fetch CSS content from a URL
- */
-async function fetchCss(url: string): Promise<string> {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    if (!response.ok) return "";
-    return await response.text();
-  } catch (error) {
-    console.error(`Failed to fetch CSS from ${url}:`, error);
-    return "";
-  }
-}
-
-/**
- * Extract colors from CSS using css-tree
- */
-function extractColorsFromCss(cssContent: string): string[] {
-  const colors = new Set<string>();
-  
-  try {
-    const ast = csstree.parse(cssContent);
-    
-    csstree.walk(ast, {
-      visit: 'Declaration',
-      enter(node) {
-        const decl = node as Declaration;
-        const value = csstree.generate(decl.value);
-        
-        // Match hex colors
-        const hexMatches = value.match(/#[0-9a-fA-F]{3,8}/g);
-        if (hexMatches) {
-          hexMatches.forEach(color => colors.add(color.toUpperCase()));
-        }
-        
-        // Match rgb/rgba colors
-        const rgbMatches = value.match(/rgba?\([^)]+\)/g);
-        if (rgbMatches) {
-          rgbMatches.forEach(color => colors.add(color));
-        }
-      }
-    });
-  } catch (error) {
-    console.error("Error parsing CSS:", error);
-  }
-  
-  return Array.from(colors);
-}
-
-/**
- * Extract fonts from CSS and HTML
- */
-function extractFonts($: cheerio.CheerioAPI, cssContents: string[]): string[] {
-  const fonts = new Set<string>();
-  
-  // Extract from CSS
-  cssContents.forEach(css => {
-    try {
-      const ast = csstree.parse(css);
-      csstree.walk(ast, {
-        visit: 'Declaration',
-        enter(node) {
-          const decl = node as Declaration;
-          if (decl.property === 'font-family') {
-            const value = csstree.generate(decl.value);
-            // Extract font names, removing quotes and generic families
-            const fontNames = value.split(',').map(f => f.trim().replace(/['"]/g, ''));
-            fontNames.forEach(font => {
-              if (!['sans-serif', 'serif', 'monospace', 'cursive', 'fantasy', 'system-ui'].includes(font.toLowerCase())) {
-                fonts.add(font);
-              }
-            });
-          }
-        }
-      });
-    } catch (error) {
-      console.error("Error parsing CSS for fonts:", error);
-    }
-  });
-  
-  // Extract from Google Fonts links
-  $('link[href*="fonts.googleapis.com"]').each((_, elem) => {
-    const href = $(elem).attr('href');
-    if (href) {
-      const familyMatch = href.match(/family=([^&:]+)/);
-      if (familyMatch) {
-        const fontName = familyMatch[1].replace(/\+/g, ' ');
-        fonts.add(fontName);
-      }
-    }
-  });
-  
-  return Array.from(fonts).slice(0, 5); // Limit to top 5 fonts
-}
-
-/**
- * Find logo from the page
- */
-function findLogo($: cheerio.CheerioAPI, baseUrl: string): string | null {
-  // Try common logo selectors
-  const logoSelectors = [
-    'img[alt*="logo" i]',
-    'img[class*="logo" i]',
-    'img[id*="logo" i]',
-    '.logo img',
-    '#logo img',
-    'header img:first',
-    '.header img:first',
-    'nav img:first'
-  ];
-  
-  for (const selector of logoSelectors) {
-    const img = $(selector).first();
-    if (img.length) {
-      const src = img.attr('src');
-      if (src) {
-        try {
-          return new URL(src, baseUrl).href;
-        } catch {
-          return src;
-        }
-      }
-    }
-  }
-  
-  // Fallback to clearbit
-  try {
-    const hostname = new URL(baseUrl).hostname;
-    return `https://logo.clearbit.com/${hostname}`;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Find favicon from the page
- */
-function findFavicon($: cheerio.CheerioAPI, baseUrl: string): string {
-  const faviconSelectors = [
-    'link[rel="icon"]',
-    'link[rel="shortcut icon"]',
-    'link[rel="apple-touch-icon"]'
-  ];
-  
-  for (const selector of faviconSelectors) {
-    const link = $(selector).first();
-    if (link.length) {
-      const href = link.attr('href');
-      if (href) {
-        try {
-          return new URL(href, baseUrl).href;
-        } catch {
-          return href;
-        }
-      }
-    }
-  }
-  
-  // Fallback to Google favicon service
-  return `https://www.google.com/s2/favicons?domain=${baseUrl}&sz=128`;
-}
-
-/**
- * Actual crawler job that scrapes design tokens from a URL
- */
-async function triggerCrawlerJob(jobId: string, url: string, saasCreatorId: string) {
-  // Set a timeout of 20 seconds
-  const TIMEOUT_MS = 20000;
-  const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject(new Error("Crawler timeout")), TIMEOUT_MS)
-  );
-
-  const crawlPromise = (async () => {
-    try {
-      // Fetch the webpage
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch URL: ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      
-      // Extract CSS files
-      const cssUrls: string[] = [];
-      $('link[rel="stylesheet"]').each((_, elem) => {
-        const href = $(elem).attr('href');
-        if (href) {
-          try {
-            cssUrls.push(new URL(href, url).href);
-          } catch (error) {
-            console.error(`Invalid CSS URL: ${href}`);
-          }
-        }
-      });
-      
-      // Also extract inline styles
-      const inlineStyles: string[] = [];
-      $('style').each((_, elem) => {
-        inlineStyles.push($(elem).html() || '');
-      });
-      
-      // Fetch external CSS files (limit to first 5 to avoid timeout)
-      const cssContents = await Promise.all(
-        cssUrls.slice(0, 5).map(cssUrl => fetchCss(cssUrl))
-      );
-      cssContents.push(...inlineStyles);
-      
-      // Extract colors from all CSS
-      const allColors: string[] = [];
-      cssContents.forEach(css => {
-        allColors.push(...extractColorsFromCss(css));
-      });
-      
-      // Find primary and secondary colors (use most common ones)
-      const colorFrequency = new Map<string, number>();
-      allColors.forEach(color => {
-        colorFrequency.set(color, (colorFrequency.get(color) || 0) + 1);
-      });
-      
-      const sortedColors = Array.from(colorFrequency.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(entry => entry[0])
-        .filter(color => {
-          // Filter out white, black, and very light grays
-          const hex = color.replace('#', '');
-          if (hex.length === 6 || hex.length === 8) {
-            const r = parseInt(hex.substr(0, 2), 16);
-            const g = parseInt(hex.substr(2, 2), 16);
-            const b = parseInt(hex.substr(4, 2), 16);
-            const brightness = (r + g + b) / 3;
-            return brightness > 30 && brightness < 240;
-          }
-          return true;
-        });
-      
-      const primaryColor = sortedColors[0] || "#1A73E8";
-      const secondaryColor = sortedColors[1] || "#F5F5F5";
-      
-      // Extract fonts
-      const fonts = extractFonts($, cssContents);
-      
-      // Find logo and favicon
-      const logoUrl = findLogo($, url);
-      const faviconUrl = findFavicon($, url);
-      
-      // Extract company information using Readability
-      let companyName = extractCompanyName(url);
-      let companyDescription = "";
-      
-      try {
-        const dom = new JSDOM(html, { url });
-        const reader = new Readability(dom.window.document);
-        const article = reader.parse();
-        
-        if (article) {
-          // Try to find company name from title or meta tags
-          const titleMatch = $('title').text();
-          if (titleMatch) {
-            companyName = titleMatch.split('|')[0].split('-')[0].trim();
-          }
-          
-          companyDescription = article.excerpt || "";
-        }
-      } catch (error) {
-        console.error("Error parsing with Readability:", error);
-      }
-      
-      // Extract meta information
-      const metaDescription = $('meta[name="description"]').attr('content') || "";
-      const ogTitle = $('meta[property="og:title"]').attr('content') || "";
-      
-      if (ogTitle) {
-        companyName = ogTitle.split('|')[0].split('-')[0].trim();
-      }
-      
-      // Extract contact info
-      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-      const phoneRegex = /(\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
-      
-      const bodyText = $('body').text();
-      const emails = bodyText.match(emailRegex) || [];
-      const phones = bodyText.match(phoneRegex) || [];
-      
-      const contactEmail = emails.find(e => e.includes('contact') || e.includes('info') || e.includes('hello')) 
-        || emails[0] 
-        || `contact@${new URL(url).hostname}`;
-      
-      const contactPhone = phones[0] || "+1 (555) 123-4567";
-      
-      // Try to extract address
-      const addressRegex = /\d+\s+[\w\s]+,\s+[\w\s]+,\s+[A-Z]{2}\s+\d{5}/;
-      const addressMatch = bodyText.match(addressRegex);
-      const companyAddress = addressMatch ? addressMatch[0] : "";
-      
-      // Create crawler response
-      const crawlerResponse = {
-        logo_url: logoUrl,
-        favicon_url: faviconUrl,
-        colors: {
-          primary: primaryColor,
-          secondary: secondaryColor,
-        },
-        fonts: fonts.length > 0 ? fonts : ["Inter", "Roboto", "Arial"],
-        company_name: companyName,
-        company_address: companyAddress,
-        contact_info: {
-          email: contactEmail,
-          phone: contactPhone,
-        },
-        products: [] as string[],
-        voice: metaDescription || companyDescription || "Professional and customer-focused",
-        confidence_scores: {
-          logo: logoUrl && !logoUrl.includes('clearbit') ? 0.85 : 0.5,
-          colors: sortedColors.length > 2 ? 0.8 : 0.5,
-          fonts: fonts.length > 0 ? 0.75 : 0.4,
-          company_info: companyAddress ? 0.7 : 0.4,
-        },
-      };
-
-      // Store the crawl results
-      await prisma.saasCreator.update({
-        where: { id: saasCreatorId },
-        data: {
-          crawlStatus: "completed",
-          crawlCompletedAt: new Date(),
-          logoUrl: crawlerResponse.logo_url,
-          faviconUrl: crawlerResponse.favicon_url,
-          primaryColor: crawlerResponse.colors.primary,
-          secondaryColor: crawlerResponse.colors.secondary,
-          fonts: JSON.stringify(crawlerResponse.fonts),
-          businessName: crawlerResponse.company_name || "Your Company",
-          companyAddress: crawlerResponse.company_address,
-          contactInfo: JSON.stringify(crawlerResponse.contact_info),
-          productsParsed: JSON.stringify(crawlerResponse.products),
-          voiceAndTone: crawlerResponse.voice,
-          crawlConfidence: JSON.stringify(crawlerResponse.confidence_scores),
-        },
-      });
-
-      console.log(`Crawler job ${jobId} completed successfully`);
-    } catch (error) {
-      throw error;
-    }
-  })();
-
-  try {
-    // Race between crawl and timeout
-    await Promise.race([crawlPromise, timeoutPromise]);
-  } catch (error: any) {
-    console.error(`Crawler job ${jobId} failed:`, error);
-    
-    // Update status to failed
-    await prisma.saasCreator.update({
-      where: { id: saasCreatorId },
-      data: {
-        crawlStatus: "failed",
-      },
-    }).catch(err => console.error("Failed to update crawl status:", err));
-  }
-}
-
-/**
- * Extract company name from URL
- */
-function extractCompanyName(url: string): string {
-  try {
-    const hostname = new URL(url).hostname;
-    const parts = hostname.split(".");
-    const domain = parts.length > 2 ? parts[parts.length - 2] : parts[0];
-    return domain.charAt(0).toUpperCase() + domain.slice(1);
-  } catch {
-    return "Your Company";
   }
 }

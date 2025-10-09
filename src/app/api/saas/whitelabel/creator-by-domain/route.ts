@@ -20,76 +20,7 @@ export async function GET(request: NextRequest) {
                           domain.includes('0.0.0.0') ||
                           domain.startsWith('192.168.');
 
-    // For local development, use the first available creator or a test creator
-    if (isLocalDomain && process.env.NODE_ENV === 'development') {
-      // Try to find a creator with a configured white label
-      const devWhiteLabelConfig = await prisma.whiteLabelConfig.findFirst({
-        where: { isActive: true },
-        include: {
-          saasCreator: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                }
-              },
-              products: {
-                where: { isActive: true },
-                include: {
-                  tiers: {
-                    where: { isActive: true },
-                    orderBy: { sortOrder: 'asc' }
-                  },
-                  meteringConfig: true,
-                },
-                orderBy: { createdAt: 'desc' }
-              },
-              stripeAccount: {
-                select: {
-                  stripeAccountId: true,
-                  isActive: true,
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (devWhiteLabelConfig) {
-        const fonts = devWhiteLabelConfig.saasCreator.fonts 
-          ? JSON.parse(devWhiteLabelConfig.saasCreator.fonts) 
-          : null;
-
-        return NextResponse.json({
-          creator: {
-            ...devWhiteLabelConfig.saasCreator,
-            user: devWhiteLabelConfig.saasCreator.user
-          },
-          whiteLabel: {
-            brandName: devWhiteLabelConfig.brandName,
-            primaryColor: devWhiteLabelConfig.primaryColor,
-            secondaryColor: devWhiteLabelConfig.secondaryColor,
-            logoUrl: devWhiteLabelConfig.logoUrl,
-            faviconUrl: devWhiteLabelConfig.faviconUrl,
-            customDomain: devWhiteLabelConfig.customDomain,
-            subdomain: devWhiteLabelConfig.subdomain,
-            customCss: devWhiteLabelConfig.customCss,
-            isActive: devWhiteLabelConfig.isActive,
-          },
-          designTokens: {
-            fonts: fonts,
-            primaryColor: devWhiteLabelConfig.saasCreator.primaryColor,
-            secondaryColor: devWhiteLabelConfig.saasCreator.secondaryColor,
-            logoUrl: devWhiteLabelConfig.saasCreator.logoUrl,
-            faviconUrl: devWhiteLabelConfig.saasCreator.faviconUrl,
-            voiceAndTone: devWhiteLabelConfig.saasCreator.voiceAndTone,
-          }
-        });
-      }
-    }
-
+    // Always query by domain, even in local dev for test subdomains
     // Try to find creator by custom domain first
     let whiteLabelConfig = await prisma.whiteLabelConfig.findFirst({
       where: {

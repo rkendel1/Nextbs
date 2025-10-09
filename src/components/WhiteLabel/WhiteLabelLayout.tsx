@@ -181,37 +181,43 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
               )}
             </div>
 
-            {/* Navigation */}
+            
             <nav className="hidden md:flex space-x-8">
-              <Link 
-                href={`/whitelabel/${domain}/`}
+              {/* Home link */}
+              <Link
+                href={`/${domain}`}
                 className={`text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium ${
-                  pathname === `/whitelabel/${domain}/` ? 'text-gray-900' : ''
+                  pathname === `/${domain}` || pathname === `/${domain}/` ? 'text-gray-900' : ''
                 }`}
               >
                 Home
               </Link>
-              <Link 
-                href={`/whitelabel/${domain}/products`}
+
+              {/* Products link */}
+              <Link
+                href={`/${domain}/products`}
                 className={`text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium ${
-                  pathname?.includes('/products') ? 'text-gray-900' : ''
+                  pathname?.startsWith(`/${domain}/products`) ? 'text-gray-900' : ''
                 }`}
               >
                 Products
               </Link>
-              <Link 
-                href={`/whitelabel/${domain}/account`}
+
+              {/* My Account link */}
+              <Link
+                href={`/${domain}/account`}
                 className={`text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium ${
-                  pathname?.includes('/account') ? 'text-gray-900' : ''
+                  pathname?.startsWith(`/${domain}/account`) ? 'text-gray-900' : ''
                 }`}
               >
                 My Account
               </Link>
             </nav>
+            
 
             {/* CTA Button */}
             <Link
-              href={`/whitelabel/${domain}/products`}
+              href="/pricing"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white hover:opacity-90 transition-opacity"
               style={{ backgroundColor: primaryColor }}
             >
@@ -247,13 +253,13 @@ const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
                 </a>
               )}
               <Link
-                href={`/whitelabel/${domain}/privacy`}
+                href="/privacy"
                 className="text-gray-600 hover:text-gray-900 text-sm"
               >
                 Privacy Policy
               </Link>
               <Link
-                href={`/whitelabel/${domain}/terms`}
+                href="/terms"
                 className="text-gray-600 hover:text-gray-900 text-sm"
               >
                 Terms of Service

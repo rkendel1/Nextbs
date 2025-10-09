@@ -108,7 +108,7 @@ const WhiteLabelProducts = () => {
 
   const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
   const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
-  const activeProducts = creator.products.filter(product => product.isActive && product.tiers.length > 0);
+  const activeProducts = creator?.products?.filter(product => product.isActive && product.tiers.length > 0) || [];
 
   return (
     <WhiteLabelLayout domain={domain}>
@@ -188,6 +188,28 @@ const WhiteLabelProducts = () => {
                     >
                       View Details & Subscribe
                     </Link>
+
+                    {/* Embed Section */}
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Embed this product</h4>
+                      <p className="text-sm text-gray-600 mb-3">Copy the embed code to add this product to your site.</p>
+                      <textarea
+                        readOnly
+                        value={`<iframe src="/embed/product/${product.id}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`}
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm mb-3 resize-none bg-gray-50"
+                        rows={3}
+                      />
+                      <div className="border rounded-md overflow-hidden">
+                        <iframe
+                          src={`/embed/product/${product.id}`}
+                          width="100%"
+                          height="600"
+                          style={{ border: 'none' }}
+                          loading="lazy"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

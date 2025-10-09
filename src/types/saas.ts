@@ -24,6 +24,9 @@ export interface SaasCreator {
   crawlStatus?: string;
   crawlConfidence?: string; // JSON object
   crawlCompletedAt?: Date;
+  lightweightScrape?: Record<string, unknown>;
+  deepDesignTokens?: Record<string, unknown>;
+  mergedScrapeData?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -183,6 +186,7 @@ export interface BrandData {
     fonts?: number;
     company_info?: number;
   };
+  images?: { src: string; alt: string }[];
 }
 
 export interface CrawlJobStatus {
@@ -282,4 +286,17 @@ export interface AnalyticsData {
     total: number;
     trend: Array<{ date: string; value: number }>;
   };
+}
+
+export interface FeelData {
+  [key: string]: unknown;
+  url: string;
+  headings: string[];
+  mainText: string;
+  links: { href: string; text: string }[];
+  images: { src: string; alt: string }[];
+  colors: string[];
+  fonts: string[];
+  tone: string;
+  spacingValues: string[];
 }

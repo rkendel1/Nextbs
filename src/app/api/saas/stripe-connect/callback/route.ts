@@ -70,6 +70,15 @@ export async function GET(request: NextRequest) {
     const tokenType = response.token_type;
     const scope = response.scope;
 
+    if (!accessToken) {
+      console.error("No access token received from Stripe OAuth");
+      // Continue without fetching details, but store what we have
+      return NextResponse.json(
+        { error: "OAuth token exchange incomplete" },
+        { status: 500 }
+      );
+    }
+
     // Find user and SaaS creator
     console.log("Fetching user and saasCreator");
     const user = await prisma.user.findUnique({
@@ -116,7 +125,10 @@ export async function GET(request: NextRequest) {
     console.log("Fetching Stripe account details");
     let stripeAccountDetails: any = null;
     try {
-      stripeAccountDetails = await stripe.accounts.retrieve(stripeAccountId);
+      const connectedStripe = new Stripe(accessToken, {
+        apiVersion: "2023-10-16",
+      });
+      stripeAccountDetails = await connectedStripe.accounts.retrieve();
       console.log("Stripe account details retrieved:", JSON.stringify({
         business_name: stripeAccountDetails.business_profile?.name,
         has_business_profile: !!stripeAccountDetails.business_profile,

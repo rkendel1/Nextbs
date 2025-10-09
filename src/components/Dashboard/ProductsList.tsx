@@ -2,10 +2,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Settings, CheckCircle2, DollarSign, Clock, TrendingUp, Zap } from "lucide-react";
+import { Eye, EyeOff, Settings, CheckCircle2, DollarSign, Clock, TrendingUp, Zap, Copy, CopyCheck } from "lucide-react";
 import GuidedProductWizard from "./GuidedProductWizard";
 import ProductModal from "./ProductModal";
 import Loader from "@/components/Common/Loader";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface ProductsListProps {
   onUpdate?: () => void;
@@ -18,6 +20,9 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showEmbed, setShowEmbed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [embedProductId, setEmbedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -83,6 +88,20 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
       onUpdate?.();
     } catch (error: any) {
       toast.error(error.message || "Failed to delete product");
+    }
+  };
+
+  const handleEmbedProduct = (productId: string) => {
+    setEmbedProductId(productId);
+    setShowEmbed(true);
+  };
+
+  const handleCopyEmbedCode = () => {
+    if (embedProductId) {
+      navigator.clipboard.writeText(`<iframe src="/embed/product/${embedProductId}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Embed code copied!");
     }
   };
 
@@ -377,14 +396,51 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
                   >
                     {product.isActive ? "Deactivate" : "Activate"}
                   </button>
-                  <button
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:border-red-600 hover:bg-red-50 dark:border-red-900/20 dark:text-red-400 dark:hover:border-red-600 dark:hover:bg-red-900/10"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEmbedProduct(product.id)}
+                    className="border-blue-200 text-blue-600 hover:border-blue-600 hover:bg-blue-50 dark:border-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/10"
                   >
-                    Delete
-                  </button>
+                    Embed
+                  </Button>
                 </div>
               </div>
+
+              {/* Embed Sheet */}
+              <Sheet open={showEmbed} onOpenChange={setShowEmbed}>
+                <SheetTrigger asChild>
+                  <div />
+                </SheetTrigger>
+                <SheetContent className="max-w-md">
+                  <SheetHeader>
+                    <SheetTitle>Embed {embedProductId ? products.find(p => p.id === embedProductId)?.name : ''} Product</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Copy this code to embed the product card on your site:
+                    </p>
+                    <div className="relative">
+                      <textarea
+                        readOnly
+                        value={embedProductId ? `<iframe src="/embed/product/${embedProductId}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>` : ''}
+                        className="w-full h-20 p-2 border rounded resize-none font-mono text-sm"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-6 w-6"
+                        onClick={handleCopyEmbedCode}
+                      >
+                        {copied ? <CopyCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Customize width/height as needed. The card shows pricing tiers and subscribe button.
+                    </p>
+                  </div>
+                </SheetContent>
+              </Sheet>
 
               {/* Hover Effect Overlay */}
               <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" />

@@ -144,6 +144,14 @@ export async function PUT(
       },
     });
 
+    // If making product live, ensure all tiers are active
+    if (isActive === true) {
+      await prisma.tier.updateMany({
+        where: { productId: id },
+        data: { isActive: true },
+      });
+    }
+
     return NextResponse.json({ product: updatedProduct });
   } catch (error: any) {
     console.error("Update product error:", error);

@@ -18,7 +18,7 @@ const PlanSelectionStep = dynamic(() => import("./PlanSelectionStep"), {
   ssr: false
 });
 
-const BusinessInfoStep = dynamic(() => import("./BusinessInfoStep"), {
+const URLScrapeStep = dynamic(() => import("./URLScrapeStep"), {
   loading: () => <LoadingPlaceholder />,
   ssr: false
 });
@@ -63,10 +63,10 @@ const OnboardingWizard = () => {
 
   const steps = [
     { id: OnboardingStep.PLAN_SELECTION, title: "Select Plan", description: "Choose your plan" },
-    { id: OnboardingStep.URL_ENTRY, title: "Enter URL", description: "Your website URL" },
+    { id: OnboardingStep.URL_ENTRY, title: "Enter Your Site URL", description: "We'll analyze it automatically" },
     { id: OnboardingStep.STRIPE_CONNECT, title: "Connect Stripe", description: "Set up payments" },
-    { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review Info", description: "Confirm your details" },
-    { id: OnboardingStep.COMPLETE, title: "Complete", description: "You're all set!" },
+    { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review & Confirm", description: "Check your profile details" },
+    { id: OnboardingStep.COMPLETE, title: "Complete", description: "You're ready!" },
   ];
 
   // Load saved progress on mount and handle Stripe Checkout return
@@ -98,7 +98,7 @@ const OnboardingWizard = () => {
               // Clean up URL
               window.history.replaceState({}, '', '/saas/onboarding');
               
-              // Set step from URL param or default to URL_ENTRY (step 2)
+              // Set step from URL param or default to URL_ENTRY (step 1 after plan/pay)
               const nextStep = stepParam ? parseInt(stepParam) : OnboardingStep.URL_ENTRY;
               setCurrentStep(nextStep);
               setLoading(false);
@@ -131,7 +131,8 @@ const OnboardingWizard = () => {
         }
         
         if (data && data.currentStep !== undefined) {
-          setCurrentStep(data.currentStep);
+          // Cap at COMPLETE
+          setCurrentStep(Math.min(data.currentStep, OnboardingStep.COMPLETE));
           setOnboardingData({
             tierId: "",
             businessName: data.saasCreator?.businessName || "",
@@ -148,10 +149,14 @@ const OnboardingWizard = () => {
             fonts: data.saasCreator?.fonts || "",
             voiceAndTone: data.saasCreator?.voiceAndTone || "",
           });
+        } else {
+          // Default to PLAN_SELECTION if no progress
+          setCurrentStep(OnboardingStep.PLAN_SELECTION);
         }
       } catch (error: any) {
         console.error("Error loading onboarding progress:", error);
         toast.error("Failed to load saved progress");
+        setCurrentStep(OnboardingStep.PLAN_SELECTION);
       } finally {
         setLoading(false);
       }
@@ -215,7 +220,7 @@ const OnboardingWizard = () => {
   };
 
   const handleBack = () => {
-    if (currentStep > OnboardingStep.URL_ENTRY) {
+    if (currentStep > OnboardingStep.PLAN_SELECTION) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -264,7 +269,7 @@ const OnboardingWizard = () => {
         );
       case OnboardingStep.URL_ENTRY:
         return (
-          <BusinessInfoStep
+          <URLScrapeStep
             data={onboardingData}
             onComplete={handleStepComplete}
             loading={loading}
@@ -296,7 +301,7 @@ const OnboardingWizard = () => {
     }
   };
 
-  const progress = ((currentStep - 1) / (steps.length - 1)) * 100;
+  const progress = ((currentStep - 1) / 4) * 100;
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-14 lg:py-20">

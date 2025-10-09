@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings, Copy, CopyCheck, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
@@ -34,6 +34,10 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
     aggregationType: "sum",
   });
   const [createdProductId, setCreatedProductId] = useState<string>("");
+  const [whiteLabelConfig, setWhiteLabelConfig] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+  const [embedCode, setEmbedCode] = useState("");
+  const [showEmbedPreview, setShowEmbedPreview] = useState(false);
 
   const addFeature = () => {
     setTierData({
@@ -112,6 +116,13 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
         if (!meteringResponse.ok) {
           console.warn("Failed to create metering config, but product was created");
         }
+      }
+
+      // Fetch white-label config for the creator
+      const creatorResponse = await fetch("/api/saas/white-label");
+      if (creatorResponse.ok) {
+        const creatorData = await creatorResponse.json();
+        setWhiteLabelConfig(creatorData.whiteLabel);
       }
 
       setStep(6); // Move to success step
@@ -257,10 +268,10 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 <Package className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
-                Product Details
+                Product Information
               </h3>
               <p className="text-sm text-body-color dark:text-dark-6">
-                Give your {productTypeOptions.find(p => p.type === productType)?.title.toLowerCase()} a name and description
+                Enter the name and description for your {productTypeOptions.find(p => p.type === productType)?.title.toLowerCase()}
               </p>
             </div>
 
@@ -1010,17 +1021,94 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               </div>
             </div>
 
-            {productData.isActive && (
+            {productData.isActive && whiteLabelConfig && (
               <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-6 rounded-lg">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2 justify-center">
                     <span className="text-3xl">💰</span>
                     <p className="text-lg font-semibold text-dark dark:text-white">
-                      Start Earning Revenue Now!
+                      Your Product is Live!
                     </p>
                   </div>
-                  <p className="text-sm text-body-color dark:text-dark-6">
-                    Your product is live on your white-label site. Share the link and start getting subscribers!
+                  <p className="text-sm text-body-color dark:text-dark-6 mb-4">
+                    Share this link with your customers:
+                  </p>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${window.location.origin}/whitelabel/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain + '.platform.com'}/products/${createdProductId}`}
+                      className="w-full p-3 border rounded-lg text-sm font-mono bg-gray-100 dark:bg-dark-3"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-2"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/whitelabel/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain + '.platform.com'}/products/${createdProductId}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? <CopyCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    Your product is now available at this URL. Share it with your customers!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {productData.isActive && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-6 rounded-lg">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 justify-center">
+                    <span className="text-3xl">🔗</span>
+                    <p className="text-lg font-semibold text-dark dark:text-white">
+                      Embed Code for Your Site
+                    </p>
+                  </div>
+                  <p className="text-sm text-body-color dark:text-dark-6 mb-4">
+                    Add this embed code to your website to let visitors subscribe directly:
+                  </p>
+                  <div className="relative">
+                    <textarea
+                      readOnly
+                      value={`<iframe src="${window.location.origin}/embed/product/${createdProductId}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`}
+                      className="w-full h-20 p-3 border rounded-lg text-sm font-mono bg-gray-100 dark:bg-dark-3 resize-none"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-2"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`<iframe src="${window.location.origin}/embed/product/${createdProductId}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? <CopyCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    Customize width/height as needed. The card shows pricing and subscribe button.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!whiteLabelConfig && productData.isActive && (
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg border-2 border-dashed border-orange-200 dark:border-orange-900/30">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 justify-center">
+                    <span className="text-3xl">⚠️</span>
+                    <p className="text-lg font-semibold text-dark dark:text-white">
+                      Complete White-Label Setup
+                    </p>
+                  </div>
+                  <p className="text-sm text-body-color dark:text-dark-6 mb-4">
+                    Set up your custom domain or subdomain to get your public product page.
                   </p>
                   <Button
                     variant="outline"
@@ -1028,71 +1116,64 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     onClick={() => window.open("/dashboard/white-label", "_blank")}
                     className="mx-auto"
                   >
-                    View White-Label Site →
+                    Set Up White-Label →
                   </Button>
                 </div>
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setStep(0);
-                  setProductType("subscription");
-                  setProductData({ name: "", description: "", isActive: true });
-                  setTierData({ name: "", priceAmount: "", billingPeriod: "monthly", features: [""], usageLimit: "" });
-                  setMeteringConfig({ meteringType: "requests", meteringUnit: "count", aggregationType: "sum" });
-                  setLoading(false);
-                }}
-                className="flex-1"
-              >
-                Create Another Product
-              </Button>
+            {/* Embed Code Viewer */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-6 rounded-lg mt-6"></div>
+
+            <div className="flex justify-center pt-8">
               <Button
                 onClick={() => onClose(true)}
-                className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white px-8 py-3 rounded-lg font-semibold transition-all"
+                disabled={loading}
               >
-                Done
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                {productData.isActive ? "Done & View Product" : "Done & Edit Later"}
               </Button>
             </div>
           </div>
         );
 
       default:
-        return null;
+        return (
+          <div className="text-center p-8">
+            <p className="text-body-color dark:text-dark-6">Invalid step. Please restart the wizard.</p>
+          </div>
+        );
     }
   };
 
-  const totalSteps = (productType === "metered" || productType === "usage-based") ? 6 : 5;
-  const currentStepForProgress = step > totalSteps ? totalSteps : step;
+  if (loading && step < 6) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white dark:bg-dark-2 p-6 rounded-lg shadow-xl">
+          <Loader />
+          <p className="mt-4 text-center text-dark dark:text-white">Creating your product...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl rounded-xl bg-white p-8 shadow-xl dark:bg-dark-2 my-8">
-        {/* Progress Indicator */}
-        {step < totalSteps && (
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {Array.from({ length: totalSteps }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`flex-1 h-2 rounded-full mx-1 transition-all ${
-                    idx < currentStepForProgress
-                      ? "bg-primary"
-                      : "bg-gray-200 dark:bg-gray-700"
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-center text-body-color dark:text-dark-6">
-              Step {currentStepForProgress + 1} of {totalSteps}
-            </p>
-          </div>
-        )}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        {/* Background overlay */}
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={() => onClose(false)}
+          aria-hidden="true"
+        />
 
-        {renderStep()}
+        {/* Modal panel */}
+        <div className="inline-block transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6 sm:align-middle dark:bg-dark-2 max-h-[90vh] overflow-y-auto">
+          <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+            {renderStep()}
+          </div>
+        </div>
       </div>
     </div>
   );

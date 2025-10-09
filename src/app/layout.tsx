@@ -14,15 +14,16 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isDashboardPage = pathname?.startsWith('/dashboard');
+  const isWhitelabelPath = pathname && pathname.split('/').length > 1 && /^[a-z][a-z0-9-]*$/.test(pathname.split('/')[1]);
   
   return (
     <html suppressHydrationWarning className="!scroll-smooth" lang="en">
       <body>
         <Providers>
           <div className="isolate">
-            {!isDashboardPage && <Header />}
+            {!isDashboardPage && !isWhitelabelPath && <Header />}
             {children}
-            <Footer />
+            {!isWhitelabelPath && <Footer />}
             <ScrollToTop />
           </div>
         </Providers>

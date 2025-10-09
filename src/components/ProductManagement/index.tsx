@@ -5,6 +5,9 @@ import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
 import TiersList from "./TiersList";
 import MeteringConfig from "./MeteringConfig";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Copy, CopyCheck } from "lucide-react";
 
 const ProductManagement = () => {
   const params = useParams();
@@ -14,6 +17,8 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"tiers" | "metering">("tiers");
+  const [showEmbed, setShowEmbed] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (productId) {
@@ -74,27 +79,93 @@ const ProductManagement = () => {
             Back to Dashboard
           </button>
           
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="mb-2 text-3xl font-bold text-dark dark:text-white lg:text-4xl">
-                {product.name}
-              </h1>
-              {product.description && (
-                <p className="text-base text-body-color dark:text-dark-6">
-                  {product.description}
-                </p>
-              )}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="mb-2 text-3xl font-bold text-dark dark:text-white lg:text-4xl">
+                  {product.name}
+                </h1>
+                {product.description && (
+                  <p className="text-base text-body-color dark:text-dark-6">
+                    {product.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant={product.isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={async () => {
+                    const checked = !product.isActive;
+                    try {
+                      const response = await fetch(`/api/saas/products/${productId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ isActive: checked }),
+                      });
+                      if (!response.ok) throw new Error("Failed to update status");
+                      fetchProduct();
+                      toast.success(checked ? "Product is now live" : "Product deactivated");
+                    } catch (error: any) {
+                      toast.error(error.message || "Failed to update status");
+                    }
+                  }}
+                >
+                  {product.isActive ? "Live" : "Make Live"}
+                </Button>
+                <span className={`text-sm font-medium ${
+                  product.isActive
+                    ? "text-green-800 dark:text-green-400"
+                    : "text-gray-800 dark:text-gray-400"
+                }`}>
+                  Status: {product.isActive ? "Live" : "Draft"}
+                </span>
+              </div>
             </div>
-            <span
-              className={`inline-flex rounded-full px-4 py-1.5 text-sm font-medium ${
-                product.isActive
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                  : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-              }`}
-            >
-              {product.isActive ? "Active" : "Inactive"}
-            </span>
-          </div>
+
+            <div className="flex justify-end mb-8">
+              <Sheet open={showEmbed} onOpenChange={setShowEmbed}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="mr-2">
+                    Embed Product
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="max-w-md">
+                  <SheetHeader>
+                    <SheetTitle>Embed Product Card</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Copy this code to embed the product card on your site:
+                    </p>
+                    <div className="relative">
+                      <textarea
+                        readOnly
+                        value={`<iframe src="/embed/product/${product.id}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`}
+                        className="w-full h-20 p-2 border rounded resize-none font-mono text-sm"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-6 w-6"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`<iframe src="/embed/product/${product.id}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                      >
+                        {copied ? <CopyCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Customize width/height as needed. The card shows pricing tiers and subscribe button.
+                    </p>
+                  </div>
+                </SheetContent>
+              </Sheet>
+              <Button onClick={() => router.push("/dashboard/products")}>
+                View All Products
+              </Button>
+            </div>
         </div>
 
         {/* Tabs */}

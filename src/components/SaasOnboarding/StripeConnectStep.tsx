@@ -8,7 +8,6 @@ interface StripeConnectStepProps {
   onComplete: (data: any) => void;
   onBack: () => void;
   loading: boolean;
-  onSkip?: () => void;
 }
 
 const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectStepProps) => {
@@ -61,13 +60,9 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
     }
   };
 
-  const handleSkip = () => {
-    onComplete({ stripeAccountId: "" });
-  };
-
   const handleContinue = () => {
     if (!isConnected && !stripeAccountId) {
-      toast.error("Please connect your Stripe account or skip this step");
+      toast.error("Please connect your Stripe account to continue");
       return;
     }
     onComplete({ stripeAccountId });
@@ -162,15 +157,6 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
           className="flex flex-1 items-center justify-center rounded-md border border-primary bg-primary px-5 py-3 text-base text-white transition duration-300 ease-in-out hover:bg-blue-dark disabled:opacity-50"
         >
           Continue {loading && <Loader />}
-        </button>
-      </div>
-
-      <div className="mt-4 text-center">
-        <button
-          onClick={handleSkip}
-          className="text-sm text-body-color hover:text-primary dark:text-dark-6 dark:hover:text-primary"
-        >
-          Skip for now (you can connect later)
         </button>
       </div>
     </div>

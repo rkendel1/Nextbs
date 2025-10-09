@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
                         hostname.startsWith('192.168.')
   const isMainDomain = hostname === 'saasinasnap.com' || hostname === 'www.saasinasnap.com'
   
-  if (isDevelopment || isMainDomain) {
+  if (isDevelopment || isMainDomain || url.pathname.startsWith('/embed')) {
     return NextResponse.next()
   }
   
@@ -48,7 +48,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - whitelabel (to prevent infinite loops)
+     * - embed (public embed viewer)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|whitelabel).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|whitelabel|embed).*)',
   ],
 }

@@ -96,6 +96,10 @@ model SaasCreator {
   crawlStatus         String?             @default("pending") // pending, processing, completed, failed
   crawlConfidence     String?             @db.Text // JSON object with confidence scores
   crawlCompletedAt    DateTime?
+  lightweightScrape   Json?
+  deepDesignTokens    Json?
+  mergedScrapeData    Json?
+  scrapedSite         ScrapedSite?        @relation("SaasCreatorToScrapedSite")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   stripeAccount       StripeAccount?
@@ -309,5 +313,82 @@ model AnalyticsSnapshot {
   @@unique([saasCreatorId, period, periodStart])
   @@index([saasCreatorId])
   @@index([periodStart])
+}
+
+model ScrapedSite {
+  id            String       @id @default(cuid())
+  saasCreatorId String       @unique
+  saasCreator   SaasCreator  @relation("SaasCreatorToScrapedSite", fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  url           String       @unique
+  domain        String?
+  title         String?
+  description   String?
+  crawledAt     DateTime     @default(now())
+  rawHtml       String?
+  screenshot    Bytes?
+  companyInfo   CompanyInfo? @relation("ScrapedSiteToCompanyInfo")
+  designTokens  DesignToken[] @relation("ScrapedSiteToDesignToken")
+  scrapedProducts ScrapedProduct[] @relation("ScrapedSiteToScrapedProduct")
+  brandVoice    BrandVoice?  @relation("ScrapedSiteToBrandVoice")
+
+  @@index([url])
+  @@index([domain])
+}
+
+model CompanyInfo {
+  id             String      @id @default(cuid())
+  scrapedSiteId  String      @unique
+  scrapedSite    ScrapedSite @relation("ScrapedSiteToCompanyInfo", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  companyName    String?
+  legalName      String?
+  contactEmails  String[]
+  contactPhones  String[]
+  addresses      String[]
+  structuredJson Json?
+  createdAt      DateTime    @default(now())
+
+  @@index([scrapedSiteId])
+}
+
+model DesignToken {
+  id        String      @id @default(cuid())
+  scrapedSiteId String
+  scrapedSite ScrapedSite @relation("ScrapedSiteToDesignToken", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  tokenKey  String
+  tokenType String
+  tokenValue String
+  source    String?
+  meta      Json?
+  createdAt DateTime    @default(now())
+
+  @@index([scrapedSiteId])
+  @@index([tokenType])
+}
+
+model ScrapedProduct {
+  id          String      @id @default(cuid())
+  scrapedSiteId String
+  scrapedSite ScrapedSite @relation("ScrapedSiteToScrapedProduct", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String?
+  price       String?
+  description String?
+  productUrl  String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+
+  @@index([scrapedSiteId])
+}
+
+model BrandVoice {
+  id           String      @id @default(cuid())
+  scrapedSiteId String     @unique
+  scrapedSite  ScrapedSite @relation("ScrapedSiteToBrandVoice", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  summary      String?
+  guidelines   Json?
+  embedding    Unsupported("vector(1536)")?
+  createdAt    DateTime    @default(now())
+
+  @@index([scrapedSiteId])
 }
 

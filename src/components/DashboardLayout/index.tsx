@@ -18,7 +18,8 @@ import {
   Bell,
   User,
   LogOut,
-  Wallet
+  Wallet,
+  Code
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: "Products", href: "/dashboard/products", icon: Package },
     { name: "Subscribers", href: "/dashboard/subscribers", icon: Users },
     { name: "Revenue", href: "/dashboard/revenue", icon: TrendingUp },
+    { name: "Embed Tools", href: "/tools/embed-viewer", icon: Code },
     { name: "Account", href: "/dashboard/account", icon: Wallet },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
