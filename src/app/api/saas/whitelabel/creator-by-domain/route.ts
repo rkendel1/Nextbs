@@ -102,7 +102,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return the creator data with white label config
+    // Parse design tokens from SaasCreator
+    const fonts = whiteLabelConfig.saasCreator.fonts 
+      ? JSON.parse(whiteLabelConfig.saasCreator.fonts) 
+      : null;
+
+    // Return the creator data with white label config and design tokens
     return NextResponse.json({
       creator: {
         ...whiteLabelConfig.saasCreator,
@@ -118,6 +123,14 @@ export async function GET(request: NextRequest) {
         subdomain: whiteLabelConfig.subdomain,
         customCss: whiteLabelConfig.customCss,
         isActive: whiteLabelConfig.isActive,
+      },
+      designTokens: {
+        fonts: fonts,
+        primaryColor: whiteLabelConfig.saasCreator.primaryColor,
+        secondaryColor: whiteLabelConfig.saasCreator.secondaryColor,
+        logoUrl: whiteLabelConfig.saasCreator.logoUrl,
+        faviconUrl: whiteLabelConfig.saasCreator.faviconUrl,
+        voiceAndTone: whiteLabelConfig.saasCreator.voiceAndTone,
       }
     });
 
