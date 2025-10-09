@@ -26,7 +26,7 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
       setStripeAccountId(data.stripeAccountId || urlStripeAccountId!);
       setIsConnected(true);
       if (stripeConnected === "true") {
-        toast.success("Nice! While you were connecting Stripe, we fetched your brand and company info.", {
+        toast.success("Done. Everything's in place.", {
           duration: 5000,
           icon: "✨",
         });
@@ -76,10 +76,10 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
   return (
     <div className="rounded-xl bg-white px-8 py-10 shadow-lg dark:bg-dark-2 sm:px-12 md:px-16">
       <h2 className="mb-3 text-center text-3xl font-bold text-dark dark:text-white">
-        Connect your Stripe account
+        Set up payments
       </h2>
       <p className="mb-10 text-center text-base text-body-color dark:text-dark-6">
-        Link your Stripe account to process payments from your subscribers
+        Standard infrastructure. Same system you&apos;re already using.
       </p>
 
       <div className="mb-8">
@@ -99,10 +99,10 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
               />
             </svg>
             <h3 className="mb-2 text-lg font-semibold text-green-800 dark:text-green-400">
-              Stripe Account Connected
+              You&apos;re connected
             </h3>
             <p className="text-sm text-green-600 dark:text-green-500">
-              Your Stripe account is now linked and ready to process payments
+              Revenue flows through here now
             </p>
           </div>
         ) : (
@@ -132,8 +132,18 @@ const StripeConnectStep = ({ data, onComplete, onBack, loading }: StripeConnectS
               Connect with Stripe
             </button>
             <p className="mt-4 text-sm text-body-color dark:text-dark-6">
-              You&apos;ll be redirected to Stripe to authorize the connection
+              Takes 60 seconds
             </p>
+            
+            {/* Background processing message */}
+            <div className="mt-6 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+              <p className="text-sm text-purple-900 dark:text-purple-100">
+                We&apos;re working in the background
+              </p>
+              <p className="mt-1 text-xs text-purple-700 dark:text-purple-300">
+                Come back to everything ready
+              </p>
+            </div>
           </div>
         )}
       </div>

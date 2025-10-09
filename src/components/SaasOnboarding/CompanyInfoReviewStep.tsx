@@ -61,29 +61,29 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
 
         // Show appropriate success message based on data sources
         if (result.hasStripeData && result.crawlStatus === "completed") {
-          toast.success("✨ We matched your brand from your website AND Stripe — ready to review?", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "🪄",
+            icon: "✨",
           });
         } else if (result.hasStripeData) {
-          toast.success("✨ We prefilled your info from Stripe — ready to review?", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "💳",
+            icon: "✨",
           });
         } else if (result.crawlStatus === "completed") {
-          toast.success("✨ We matched your brand automatically — ready to review?", {
+          toast.success("Ready to review", {
             duration: 5000,
-            icon: "🪄",
+            icon: "✨",
           });
         }
       } else if (result.crawlStatus === "processing" || result.crawlStatus === "pending") {
         // Still processing, show message
-        toast("Still fetching your brand info...", {
+        toast("Still working on it", {
           icon: "⏳",
         });
       } else {
         // Failed or not started
-        toast("Couldn't fetch automatically — please enter your info below", {
+        toast("No problem — fill in what we need", {
           icon: "ℹ️",
         });
       }
@@ -197,30 +197,32 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
       {/* Header with Animation */}
       <div className={`text-center mb-8 ${showAnimation ? 'animate-fade-in' : ''}`}>
         <h2 className="mb-3 text-3xl font-bold text-dark dark:text-white">
-          Review Your Company Info
+          {(crawlStatus === "completed" || hasStripeData)
+            ? "Look at this"
+            : "Your Company Details"}
         </h2>
         <p className="text-base text-body-color dark:text-dark-6">
           {(crawlStatus === "completed" || hasStripeData)
-            ? "We've pre-filled your company information. Review and edit as needed."
+            ? "Check what we found"
             : "Please enter your company information below"}
         </p>
       </div>
 
       {/* Success Message */}
       {(crawlStatus === "completed" || hasStripeData) && brandData && (
-        <div className="mb-6 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+        <div className="mb-6 rounded-lg bg-gradient-to-r from-green-50 to-blue-50 p-4 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800">
           <div className="flex gap-2">
             <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-900 dark:text-green-100">
                 {hasStripeData && crawlStatus === "completed"
-                  ? "Nice! While you were connecting Stripe, we fetched your brand info from your website AND your Stripe account."
+                  ? "Your brand. Your colors. Your logo. All here."
                   : hasStripeData
-                  ? "Nice! We prefilled your company information from your Stripe account."
-                  : "Nice! While you were connecting Stripe, we fetched your brand and company info."}
+                  ? "From your Stripe account"
+                  : "From your website"}
               </p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                Click the edit icon to modify any field, or accept and continue.
+                Change what you need. Keep what works.
               </p>
             </div>
           </div>
