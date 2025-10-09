@@ -76,7 +76,8 @@ export async function GET(request: NextRequest) {
       where: { saasCreatorId: saasCreator.id },
     });
 
-    // Build BrandData response
+    // Build BrandData response - ONLY design/brand data from scrapes
+    // Account/profile fields are handled by Stripe
     const brandData: BrandData = {
       logo_url: saasCreator.logoUrl || undefined,
       favicon_url: saasCreator.faviconUrl || undefined,
@@ -85,18 +86,26 @@ export async function GET(request: NextRequest) {
         secondary: saasCreator.secondaryColor || undefined,
       },
       fonts: fonts.length > 0 ? fonts : undefined,
-      company_name: saasCreator.businessName,
-      company_address: saasCreator.companyAddress || undefined,
-      contact_info: Object.keys(contactInfo).length > 0 ? contactInfo : undefined,
-      products: products.length > 0 ? products : undefined,
       voice: saasCreator.voiceAndTone || undefined,
       confidence_scores: Object.keys(confidenceScores).length > 0 ? confidenceScores : undefined,
     };
 
+    // Add spacing values if available from merged scrape data
+    let spacingValues: string[] = [];
+    if (saasCreator.mergedScrapeData) {
+      const merged = saasCreator.mergedScrapeData as any;
+      if (merged.merged?.spacingValues) {
+        spacingValues = merged.merged.spacingValues;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       crawlStatus: saasCreator.crawlStatus || "completed",
-      data: brandData,
+      data: {
+        ...brandData,
+        spacingValues: spacingValues.length > 0 ? spacingValues : undefined,
+      },
       hasStripeData: !!stripeAccount,
       message: "Brand data retrieved successfully",
     });
