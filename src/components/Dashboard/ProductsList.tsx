@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { Eye, EyeOff, Settings, CheckCircle2, DollarSign, Clock, TrendingUp, Zap } from "lucide-react";
 import ProductModal from "./ProductModal";
 import Loader from "@/components/Common/Loader";
 
@@ -42,8 +43,28 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
     setShowModal(true);
   };
 
+  const handleToggleProductStatus = async (productId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/saas/products/${productId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update product status");
+      }
+
+      toast.success(`Product ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      fetchProducts();
+      onUpdate?.();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update product status");
+    }
+  };
+
   const handleDeleteProduct = async (productId: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) {
+    if (!confirm("Are you sure you want to delete this product? This will also delete all associated tiers.")) {
       return;
     }
 
@@ -73,6 +94,19 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
     }
   };
 
+  const getBillingIcon = (billingPeriod: string) => {
+    switch (billingPeriod) {
+      case 'one-time':
+        return <DollarSign className="h-4 w-4" />;
+      case 'yearly':
+      case 'quarterly':
+      case 'monthly':
+        return <Clock className="h-4 w-4" />;
+      default:
+        return <TrendingUp className="h-4 w-4" />;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -82,12 +116,17 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-dark dark:text-white">
-          Your Products
-        </h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-dark dark:text-white">
+            Your Products
+          </h2>
+          <p className="mt-1 text-sm text-body-color dark:text-dark-6">
+            Manage your product catalog and pricing
+          </p>
+        </div>
         <button
           onClick={handleCreateProduct}
           className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-dark"
@@ -105,16 +144,16 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
               d="M12 6v6m0 0v6m0-6h6m-6 0H6"
             />
           </svg>
-          Add Product
+          Create Product
         </button>
       </div>
 
-      {/* Products List */}
+      {/* Products Grid */}
       {products.length === 0 ? (
-        <div className="py-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-3">
+        <div className="rounded-xl bg-white p-12 shadow-lg dark:bg-dark-2 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <svg
-              className="h-8 w-8 text-body-color dark:text-dark-6"
+              className="h-8 w-8 text-primary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -137,66 +176,209 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
             onClick={handleCreateProduct}
             className="inline-flex items-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-dark"
           >
-            Create Product
+            Create Your First Product
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {products.map((product) => (
             <div
               key={product.id}
-              className="rounded-lg border border-stroke p-4 transition hover:border-primary dark:border-dark-3 dark:hover:border-primary"
+              className={`group relative rounded-xl border-2 bg-white shadow-lg transition-all hover:shadow-xl dark:bg-dark-2 ${
+                product.isActive
+                  ? "border-stroke hover:border-primary dark:border-dark-3 dark:hover:border-primary"
+                  : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-900/20"
+              }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="mb-2 flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-dark dark:text-white">
-                      {product.name}
-                    </h3>
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              {/* Product Header */}
+              <div className="border-b border-stroke p-6 dark:border-dark-3">
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className={`text-xl font-bold ${product.isActive ? "text-dark dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>
+                        {product.name}
+                      </h3>
+                      {!product.isActive && (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleToggleProductStatus(product.id, product.isActive)}
+                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all ${
                         product.isActive
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                          ? "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
+                          : "bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-900/30"
                       }`}
+                      title={product.isActive ? "Click to hide from customers" : "Click to make visible to customers"}
                     >
-                      {product.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  {product.description && (
-                    <p className="mb-3 text-sm text-body-color dark:text-dark-6">
-                      {product.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-body-color dark:text-dark-6">
-                    <span>{product._count?.tiers || 0} pricing tiers</span>
-                    <span>•</span>
-                    <span>
-                      {product._count?.subscriptions || 0} subscribers
-                    </span>
+                      {product.isActive ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                      {product.isActive ? "Live" : "Hidden"}
+                    </button>
                   </div>
                 </div>
-                <div className="ml-4 flex gap-2">
+                
+                {product.description && (
+                  <p className="text-sm text-body-color dark:text-dark-6 line-clamp-2">
+                    {product.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Pricing Tiers Preview */}
+              <div className="p-6">
+                {product._count?.tiers > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-dark dark:text-white">
+                        Pricing Tiers
+                      </h4>
+                      <span className="text-xs text-body-color dark:text-dark-6">
+                        {product._count.tiers} tier{product._count.tiers !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    {/* Show first 3 tiers as preview */}
+                    <div className="space-y-2">
+                      {products
+                        .find(p => p.id === product.id)
+                        ?.tiers?.slice(0, 3)
+                        .map((tier: any) => (
+                          <div
+                            key={tier.id}
+                            className={`rounded-lg border p-3 ${
+                              tier.isActive
+                                ? "border-stroke bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:border-dark-3 dark:from-blue-900/10 dark:to-purple-900/10"
+                                : "border-dashed border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/10"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${tier.isActive ? "text-dark dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>
+                                  {tier.name}
+                                </span>
+                                {!tier.isActive && (
+                                  <span className="text-xs text-gray-400">(Hidden)</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-primary">
+                                {getBillingIcon(tier.billingPeriod)}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold text-primary">
+                                ${(tier.priceAmount / 100).toFixed(2)}
+                              </span>
+                              <span className="text-xs text-body-color dark:text-dark-6">
+                                / {tier.billingPeriod}
+                              </span>
+                            </div>
+                            
+                            {tier.features && tier.features.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-stroke dark:border-dark-3">
+                                <div className="flex items-start gap-1 text-xs text-body-color dark:text-dark-6">
+                                  <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0 mt-0.5" />
+                                  <span className="line-clamp-1">{tier.features[0]}</span>
+                                </div>
+                                {tier.features.length > 1 && (
+                                  <p className="text-xs text-body-color dark:text-dark-6 mt-1">
+                                    +{tier.features.length - 1} more feature{tier.features.length > 2 ? 's' : ''}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      
+                      {product._count?.tiers > 3 && (
+                        <div className="text-center py-2 text-xs text-body-color dark:text-dark-6">
+                          +{product._count.tiers - 3} more tier{product._count.tiers > 4 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-3">
+                      <DollarSign className="h-6 w-6 text-body-color dark:text-dark-6" />
+                    </div>
+                    <p className="text-sm text-body-color dark:text-dark-6">
+                      No pricing tiers yet
+                    </p>
+                    <button
+                      onClick={() => router.push(`/dashboard/products/${product.id}`)}
+                      className="mt-3 text-xs text-primary hover:underline"
+                    >
+                      Add pricing tiers →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats Bar */}
+              <div className="border-t border-stroke px-6 py-3 dark:border-dark-3">
+                <div className="flex items-center justify-between text-xs text-body-color dark:text-dark-6">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1">
+                      <Zap className="h-3 w-3" />
+                      {product._count?.tiers || 0} tier{product._count?.tiers !== 1 ? 's' : ''}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {product._count?.subscriptions || 0} subscriber{product._count?.subscriptions !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {product.stripeProductId && (
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Synced
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="border-t border-stroke p-4 dark:border-dark-3">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => router.push(`/dashboard/products/${product.id}`)}
-                    className="rounded-md border border-stroke px-3 py-1.5 text-sm text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white dark:hover:border-primary dark:hover:text-primary"
+                    className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-dark"
                   >
+                    <Settings className="h-4 w-4" />
                     Manage
                   </button>
                   <button
                     onClick={() => handleEditProduct(product)}
-                    className="rounded-md border border-stroke px-3 py-1.5 text-sm text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white dark:hover:border-primary dark:hover:text-primary"
+                    className="rounded-md border border-stroke px-4 py-2 text-sm font-medium text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white dark:hover:border-primary dark:hover:text-primary"
                   >
-                    Edit
+                    Edit Details
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    onClick={() => handleToggleProductStatus(product.id, product.isActive)}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                      product.isActive
+                        ? "border-orange-200 text-orange-600 hover:border-orange-600 hover:bg-orange-50 dark:border-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/10"
+                        : "border-green-200 text-green-600 hover:border-green-600 hover:bg-green-50 dark:border-green-900/20 dark:text-green-400 dark:hover:bg-green-900/10"
+                    }`}
+                  >
+                    {product.isActive ? "Deactivate" : "Activate"}
                   </button>
                   <button
                     onClick={() => handleDeleteProduct(product.id)}
-                    className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:border-red-600 hover:bg-red-50 dark:border-red-900/20 dark:text-red-400 dark:hover:border-red-600 dark:hover:bg-red-900/10"
+                    className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:border-red-600 hover:bg-red-50 dark:border-red-900/20 dark:text-red-400 dark:hover:border-red-600 dark:hover:bg-red-900/10"
                   >
                     Delete
                   </button>
                 </div>
               </div>
+
+              {/* Hover Effect Overlay */}
+              <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" />
             </div>
           ))}
         </div>

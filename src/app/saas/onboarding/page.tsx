@@ -6,7 +6,7 @@ export default async function OnboardingPage() {
   const session = await getServerSession();
 
   if (!session) {
-    redirect(`/auth/signin?callbackUrl=%2Fsaas%2Fonboarding`);
+    redirect(`/?auth=signin&callbackUrl=%2Fsaas%2Fonboarding`);
   }
 
   return <OnboardingWizard />;

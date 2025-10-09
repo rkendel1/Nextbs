@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { Eye, EyeOff } from "lucide-react";
 import TierModal from "./TierModal";
 
 interface TiersListProps {
@@ -21,6 +22,25 @@ const TiersList = ({ productId, tiers, onUpdate }: TiersListProps) => {
   const handleEditTier = (tier: any) => {
     setSelectedTier(tier);
     setShowModal(true);
+  };
+
+  const handleToggleTierStatus = async (tierId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/saas/tiers/${tierId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update tier status");
+      }
+
+      toast.success(`Tier ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      onUpdate();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update tier status");
+    }
   };
 
   const handleDeleteTier = async (tierId: string) => {
@@ -123,21 +143,33 @@ const TiersList = ({ productId, tiers, onUpdate }: TiersListProps) => {
             .map((tier) => (
               <div
                 key={tier.id}
-                className="rounded-lg border border-stroke p-6 transition hover:border-primary dark:border-dark-3 dark:hover:border-primary"
+                className={`rounded-lg border p-6 transition ${
+                  tier.isActive 
+                    ? "border-stroke hover:border-primary dark:border-dark-3 dark:hover:border-primary" 
+                    : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-900/20 opacity-75"
+                }`}
               >
                 <div className="mb-4 flex items-start justify-between">
-                  <h3 className="text-xl font-bold text-dark dark:text-white">
-                    {tier.name}
-                  </h3>
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  <div className="flex items-center gap-2">
+                    <h3 className={`text-xl font-bold ${tier.isActive ? "text-dark dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>
+                      {tier.name}
+                    </h3>
+                    {!tier.isActive && (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleToggleTierStatus(tier.id, tier.isActive)}
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all ${
                       tier.isActive
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                        ? "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-900/30"
                     }`}
+                    title={tier.isActive ? "Click to deactivate" : "Click to activate"}
                   >
-                    {tier.isActive ? "Active" : "Inactive"}
-                  </span>
+                    {tier.isActive ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    {tier.isActive ? "Live" : "Hidden"}
+                  </button>
                 </div>
 
                 {tier.description && (
@@ -206,8 +238,18 @@ const TiersList = ({ productId, tiers, onUpdate }: TiersListProps) => {
                     Edit
                   </button>
                   <button
+                    onClick={() => handleToggleTierStatus(tier.id, tier.isActive)}
+                    className={`flex-1 rounded-md border px-3 py-2 text-sm transition ${
+                      tier.isActive
+                        ? "border-orange-200 text-orange-600 hover:border-orange-600 hover:bg-orange-50 dark:border-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/10"
+                        : "border-green-200 text-green-600 hover:border-green-600 hover:bg-green-50 dark:border-green-900/20 dark:text-green-400 dark:hover:bg-green-900/10"
+                    }`}
+                  >
+                    {tier.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
                     onClick={() => handleDeleteTier(tier.id)}
-                    className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 transition hover:border-red-600 hover:bg-red-50 dark:border-red-900/20 dark:text-red-400 dark:hover:border-red-600 dark:hover:bg-red-900/10"
+                    className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 transition hover:border-red-600 hover:bg-red-50 dark:border-red-900/20 dark:text-red-400 dark:hover:border-red-600 dark:hover:bg-red-900/10"
                   >
                     Delete
                   </button>

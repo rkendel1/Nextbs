@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import Stripe from "stripe";
 import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("STRIPE_SECRET_KEY is not configured");
+}
+
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2023-10-16",
+});
 
 // PUT update tier
 export async function PUT(
@@ -56,7 +67,81 @@ export async function PUT(
       );
     }
 
-    // Update tier
+    // Handle Stripe synchronization
+    let newStripePriceId = tier.stripePriceId;
+
+    // Check if price or billing period changed (need new Stripe price)
+    const priceChanged = priceAmount !== undefined && priceAmount !== tier.priceAmount;
+    const billingChanged = billingPeriod && billingPeriod !== tier.billingPeriod;
+
+    if ((priceChanged || billingChanged) && tier.product.stripeProductId && priceAmount > 0) {
+      try {
+        // Archive old price if it exists
+        if (tier.stripePriceId) {
+          await stripe.prices.update(tier.stripePriceId, {
+            active: false,
+          });
+        }
+
+        // Create new Stripe price
+        let stripePriceData: any = {
+          product: tier.product.stripeProductId,
+          unit_amount: priceAmount ?? tier.priceAmount,
+          currency: 'usd',
+          metadata: {
+            tierName: name || tier.name,
+            productId: tier.productId,
+            saasCreatorId: user.saasCreator.id,
+            platformOwner: user.role === 'platform_owner' ? 'true' : 'false',
+          },
+        };
+
+        const finalBillingPeriod = billingPeriod || tier.billingPeriod;
+        
+        if (finalBillingPeriod === 'one-time') {
+          // One-time payment - no recurring
+        } else {
+          // Recurring payments
+          let interval: 'month' | 'year' = 'month';
+          let intervalCount = 1;
+
+          if (finalBillingPeriod === 'yearly') {
+            interval = 'year';
+          } else if (finalBillingPeriod === 'quarterly') {
+            interval = 'month';
+            intervalCount = 3;
+          } else {
+            interval = 'month';
+          }
+
+          stripePriceData.recurring = {
+            interval,
+            interval_count: intervalCount,
+          };
+        }
+
+        const stripePrice = await stripe.prices.create(stripePriceData);
+        newStripePriceId = stripePrice.id;
+      } catch (stripeError: any) {
+        console.error("Stripe price update error:", stripeError);
+        return NextResponse.json(
+          { error: "Failed to update price in Stripe: " + stripeError.message },
+          { status: 500 }
+        );
+      }
+    } else if (isActive !== undefined && tier.stripePriceId) {
+      // Only isActive changed - archive/activate existing price
+      try {
+        await stripe.prices.update(tier.stripePriceId, {
+          active: isActive,
+        });
+      } catch (stripeError: any) {
+        console.error("Stripe price activation error:", stripeError);
+        // Continue even if Stripe update fails
+      }
+    }
+
+    // Update tier in database
     const updatedTier = await prisma.tier.update({
       where: { id: params.id },
       data: {
@@ -68,6 +153,7 @@ export async function PUT(
         ...(features && { features }),
         ...(isActive !== undefined && { isActive }),
         ...(sortOrder !== undefined && { sortOrder }),
+        ...(newStripePriceId !== tier.stripePriceId && { stripePriceId: newStripePriceId }),
       },
     });
 

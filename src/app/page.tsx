@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Zap, Shield, BarChart3, Users, CreditCard, Rocket, Check } from "lucide-react";
 import { getAllPosts } from "@/utils/markdown";
+import toast from "react-hot-toast";
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +22,16 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
   const [tiers, setTiers] = useState<any[]>([]);
   const [tiersLoading, setTiersLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  useEffect(() => {
+    // Check for auth query parameter to trigger modal
+    const authParam = searchParams.get('auth');
+    if (authParam === 'signin' || authParam === 'signup') {
+      setAuthMode(authParam);
+      setShowAuthModal(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -94,6 +106,74 @@ export default function Home() {
       setAuthMode("signup");
       setShowAuthModal(true);
     }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const name = formData.get('name') as string;
+
+    try {
+      if (authMode === 'signup') {
+        const response = await fetch("/api/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            email,
+            password,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || "Registration failed");
+        }
+
+        toast.success("Account created successfully!");
+        const signInResult = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (signInResult?.error) {
+          throw new Error(signInResult.error);
+        }
+
+        setShowAuthModal(false);
+        router.refresh();
+      } else {
+        const result = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          throw new Error(result.error);
+        }
+
+        toast.success("Welcome back!");
+        setShowAuthModal(false);
+        router.refresh();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Authentication failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSocialAuth = (provider: string) => {
+    window.location.href = `/api/auth/signin/${provider}`;
   };
 
   const features = [
@@ -346,10 +426,10 @@ export default function Home() {
                 
                 {/* Social Sign In */}
                 <div className="space-y-3 mb-6">
-                  <Button className="w-full" variant="outline" onClick={() => window.location.href = '/api/auth/signin/google'}>
+                  <Button className="w-full" variant="outline" onClick={() => signIn('google', { callbackUrl: '/dashboard' })}>
                     Continue with Google
                   </Button>
-                  <Button className="w-full" variant="outline" onClick={() => window.location.href = '/api/auth/signin/github'}>
+                  <Button className="w-full" variant="outline" onClick={() => signIn('github', { callbackUrl: '/dashboard' })}>
                     Continue with GitHub
                   </Button>
                 </div>
@@ -366,14 +446,11 @@ export default function Home() {
                 </div>
                 
                 {/* Email/Password Form */}
-                <form className="space-y-4" onSubmit={(e) => {
-                  e.preventDefault();
-                  // Basic form submission - redirect to actual auth pages
-                  window.location.href = authMode === 'signin' ? '/auth/signin' : '/auth/signup';
-                }}>
+                <form className="space-y-4" onSubmit={handleAuthSubmit}>
                   <div>
                     <input
                       type="email"
+                      name="email"
                       placeholder="Email"
                       className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
                       required
@@ -383,6 +460,7 @@ export default function Home() {
                     <div>
                       <input
                         type="text"
+                        name="name"
                         placeholder="Full Name"
                         className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
                         required
@@ -392,13 +470,21 @@ export default function Home() {
                   <div>
                     <input
                       type="password"
+                      name="password"
                       placeholder="Password"
                       className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full auth-button-hover">
-                    {authMode === "signin" ? "Sign In" : "Sign Up"}
+                  <Button type="submit" className="w-full auth-button-hover" disabled={authLoading}>
+                    {authLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                        {authMode === "signin" ? "Signing In..." : "Creating Account..."}
+                      </>
+                    ) : (
+                      authMode === "signin" ? "Sign In" : "Sign Up"
+                    )}
                   </Button>
                 </form>
                 

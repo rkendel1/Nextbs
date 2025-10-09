@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2 } from "lucide-react";
+import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
@@ -9,9 +9,13 @@ interface GuidedProductWizardProps {
   onClose: (updated: boolean) => void;
 }
 
+type ProductType = "subscription" | "one-time" | "usage-based" | "metered";
+type BillingPeriod = "monthly" | "yearly" | "quarterly" | "one-time";
+
 const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [productType, setProductType] = useState<ProductType>("subscription");
   const [productData, setProductData] = useState({
     name: "",
     description: "",
@@ -20,9 +24,16 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
   const [tierData, setTierData] = useState({
     name: "",
     priceAmount: "",
-    interval: "monthly" as "monthly" | "yearly",
+    billingPeriod: "monthly" as BillingPeriod,
     features: [""],
+    usageLimit: "",
   });
+  const [meteringConfig, setMeteringConfig] = useState({
+    meteringType: "requests",
+    meteringUnit: "count",
+    aggregationType: "sum",
+  });
+  const [createdProductId, setCreatedProductId] = useState<string>("");
 
   const addFeature = () => {
     setTierData({
@@ -59,25 +70,51 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
       }
 
       const product = await productResponse.json();
+      setCreatedProductId(product.product.id);
 
-      // Create tier
+      // Create tier based on product type
+      const tierPayload: any = {
+        productId: product.product.id,
+        name: tierData.name,
+        priceAmount: productType === "one-time" 
+          ? Math.round(parseFloat(tierData.priceAmount) * 100)
+          : Math.round(parseFloat(tierData.priceAmount) * 100),
+        billingPeriod: productType === "one-time" ? "one-time" : tierData.billingPeriod,
+        features: tierData.features.filter((f) => f.trim() !== ""),
+      };
+
+      // Add usage limit for usage-based products
+      if ((productType === "usage-based" || productType === "metered") && tierData.usageLimit) {
+        tierPayload.usageLimit = parseInt(tierData.usageLimit);
+      }
+
       const tierResponse = await fetch("/api/saas/tiers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: product.product.id,
-          name: tierData.name,
-          priceAmount: Math.round(parseFloat(tierData.priceAmount) * 100), // Convert to cents
-          interval: tierData.interval,
-          features: tierData.features.filter((f) => f.trim() !== ""),
-        }),
+        body: JSON.stringify(tierPayload),
       });
 
       if (!tierResponse.ok) {
         throw new Error("Failed to create pricing tier");
       }
 
-      setStep(4); // Move to success step
+      // Create metering config for metered/usage-based products
+      if (productType === "metered" || productType === "usage-based") {
+        const meteringResponse = await fetch("/api/saas/metering", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: product.product.id,
+            ...meteringConfig,
+          }),
+        });
+
+        if (!meteringResponse.ok) {
+          console.warn("Failed to create metering config, but product was created");
+        }
+      }
+
+      setStep(6); // Move to success step
       setTimeout(() => {
         toast.success("Product created successfully! 🎉");
       }, 500);
@@ -87,8 +124,131 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
     }
   };
 
+  const productTypeOptions = [
+    {
+      type: "subscription" as ProductType,
+      icon: Clock,
+      title: "Recurring Subscription",
+      description: "Monthly or yearly recurring payments",
+      example: "SaaS platform, membership site, newsletter",
+      color: "blue",
+    },
+    {
+      type: "one-time" as ProductType,
+      icon: DollarSign,
+      title: "One-time Payment",
+      description: "Single purchase, no recurring charges",
+      example: "E-book, course, lifetime access",
+      color: "green",
+    },
+    {
+      type: "usage-based" as ProductType,
+      icon: TrendingUp,
+      title: "Usage-based Billing",
+      description: "Pay per use (API calls, storage, etc.)",
+      example: "API service, cloud storage, SMS credits",
+      color: "purple",
+    },
+    {
+      type: "metered" as ProductType,
+      icon: Activity,
+      title: "Metered Billing",
+      description: "Base fee + usage charges",
+      example: "Platform with base + API overages",
+      color: "orange",
+    },
+  ];
+
   const renderStep = () => {
     switch (step) {
+      case 0:
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                <Rocket className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
+                Choose Your Product Type
+              </h3>
+              <p className="text-sm text-body-color dark:text-dark-6">
+                Select the billing model that best fits your product
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              {productTypeOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = productType === option.type;
+                return (
+                  <button
+                    key={option.type}
+                    onClick={() => setProductType(option.type)}
+                    className={`relative p-6 rounded-xl border-2 transition-all text-left ${
+                      isSelected
+                        ? "border-primary bg-primary/5 dark:bg-primary/10"
+                        : "border-stroke hover:border-primary/50 dark:border-dark-3"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Icon className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-dark dark:text-white mb-1">
+                          {option.title}
+                        </h4>
+                        <p className="text-sm text-body-color dark:text-dark-6 mb-2">
+                          {option.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-body-color dark:text-dark-6">
+                          <Sparkles className="h-3 w-3" />
+                          <span>Example: {option.example}</span>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2 className="h-6 w-6 text-primary" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <div className="flex gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Not sure which to choose?
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Most SaaS products start with <strong>Recurring Subscription</strong>. 
+                    You can always add more product types later!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onClose(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => setStep(1)}
+                className="flex-1 bg-primary hover:bg-primary/90"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        );
+
       case 1:
         return (
           <div className="space-y-6">
@@ -97,10 +257,10 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 <Package className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
-                Name Your Product
+                Product Details
               </h3>
               <p className="text-sm text-body-color dark:text-dark-6">
-                What are you offering to your customers? Give it a clear, memorable name.
+                Give your {productTypeOptions.find(p => p.type === productType)?.title.toLowerCase()} a name and description
               </p>
             </div>
 
@@ -110,7 +270,12 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               </label>
               <input
                 type="text"
-                placeholder="e.g., API Access, Premium Plan, Pro Subscription"
+                placeholder={
+                  productType === "subscription" ? "e.g., Pro Plan, Premium Access" :
+                  productType === "one-time" ? "e.g., Complete Course, Lifetime Access" :
+                  productType === "usage-based" ? "e.g., API Credits, Storage Package" :
+                  "e.g., Platform Access + Usage"
+                }
                 value={productData.name}
                 onChange={(e) =>
                   setProductData({ ...productData, name: e.target.value })
@@ -140,12 +305,31 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Pro Tip
+                    Product Name Best Practices
                   </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    A great product name is specific, benefit-focused, and easy to remember. 
-                    Think about what problem you&apos;re solving for your customers.
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 mt-2 space-y-1">
+                    <li>• Keep it short and memorable (2-4 words)</li>
+                    <li>• Clearly indicate the value tier (Starter, Pro, Enterprise)</li>
+                    <li>• Avoid technical jargon unless targeting developers</li>
+                    <li>• Make it easy to say and spell</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+              <div className="flex gap-2">
+                <Package className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Description Tips for Product Cards
                   </p>
+                  <ul className="text-sm text-purple-700 dark:text-purple-300 mt-2 space-y-1">
+                    <li>• Lead with the main benefit, not features</li>
+                    <li>• Keep it under 150 characters for best display</li>
+                    <li>• Use action words that inspire confidence</li>
+                    <li>• Example: "Everything you need to scale your business" vs "Includes API access and support"</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -154,10 +338,10 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onClose(false)}
+                onClick={() => setStep(0)}
                 className="flex-1"
               >
-                Cancel
+                Back
               </Button>
               <Button
                 onClick={() => setStep(2)}
@@ -181,7 +365,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 Set Your Pricing
               </h3>
               <p className="text-sm text-body-color dark:text-dark-6">
-                Create your first pricing tier. You can add more tiers later.
+                Configure pricing for your {productTypeOptions.find(p => p.type === productType)?.title.toLowerCase()}
               </p>
             </div>
 
@@ -191,7 +375,11 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               </label>
               <input
                 type="text"
-                placeholder="e.g., Starter, Professional, Enterprise"
+                placeholder={
+                  productType === "subscription" ? "e.g., Starter, Professional, Enterprise" :
+                  productType === "one-time" ? "e.g., Standard, Premium, Complete" :
+                  "e.g., Pay-as-you-go, Volume Tier"
+                }
                 value={tierData.name}
                 onChange={(e) =>
                   setTierData({ ...tierData, name: e.target.value })
@@ -209,7 +397,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="9.99"
+                  placeholder={productType === "usage-based" ? "0.01 per unit" : "9.99"}
                   value={tierData.priceAmount}
                   onChange={(e) =>
                     setTierData({ ...tierData, priceAmount: e.target.value })
@@ -223,32 +411,83 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   Billing Period *
                 </label>
                 <select
-                  value={tierData.interval}
+                  value={tierData.billingPeriod}
                   onChange={(e) =>
                     setTierData({
                       ...tierData,
-                      interval: e.target.value as "monthly" | "yearly",
+                      billingPeriod: e.target.value as BillingPeriod,
                     })
                   }
-                  className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                  disabled={productType === "one-time"}
+                  className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary disabled:opacity-50"
                 >
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
+                  {productType === "one-time" ? (
+                    <option value="one-time">One-time</option>
+                  ) : (
+                    <>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="quarterly">Quarterly</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>
 
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+            {(productType === "usage-based" || productType === "metered") && (
+              <div>
+                <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                  Usage Limit (optional)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="e.g., 10000 API calls"
+                  value={tierData.usageLimit}
+                  onChange={(e) =>
+                    setTierData({ ...tierData, usageLimit: e.target.value })
+                  }
+                  className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                />
+                <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                  Set a monthly usage limit. Leave empty for unlimited.
+                </p>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 p-4 rounded-lg">
               <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                    Stripe Integration
+                  <p className="text-sm font-medium text-dark dark:text-white">
+                    {productType === "subscription" && "Recurring Revenue"}
+                    {productType === "one-time" && "One-time Revenue"}
+                    {productType === "usage-based" && "Usage-based Revenue"}
+                    {productType === "metered" && "Hybrid Revenue Model"}
                   </p>
-                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                    Your pricing will automatically sync with Stripe for seamless billing. 
-                    We handle all the payment processing for you!
+                  <p className="text-sm text-body-color dark:text-dark-6 mt-1">
+                    {productType === "subscription" && "Customers will be charged automatically each billing period."}
+                    {productType === "one-time" && "Customers pay once and get lifetime access."}
+                    {productType === "usage-based" && "Customers pay based on actual usage. Perfect for APIs and services."}
+                    {productType === "metered" && "Combine base subscription with usage charges for flexible pricing."}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
+              <div className="flex gap-2">
+                <DollarSign className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                    Pricing Psychology
+                  </p>
+                  <ul className="text-sm text-orange-700 dark:text-orange-300 mt-2 space-y-1">
+                    <li>• $9.99 feels cheaper than $10 (charm pricing)</li>
+                    <li>• Annual plans should offer 15-20% savings</li>
+                    <li>• Price based on value delivered, not just costs</li>
+                    <li>• Consider competitor pricing in your market</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -267,7 +506,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 disabled={!tierData.name.trim() || !tierData.priceAmount}
                 className="flex-1 bg-primary hover:bg-primary/90"
               >
-                Next: Features
+                Next: {productType === "metered" || productType === "usage-based" ? "Metering" : "Features"}
               </Button>
             </div>
           </div>
@@ -278,17 +517,102 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
           <div className="space-y-6">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                <Tag className="h-8 w-8 text-primary" />
+                {(productType === "metered" || productType === "usage-based") ? (
+                  <Settings className="h-8 w-8 text-primary" />
+                ) : (
+                  <Tag className="h-8 w-8 text-primary" />
+                )}
               </div>
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
-                Add Features
+                {(productType === "metered" || productType === "usage-based") ? "Metering Configuration" : "Add Features"}
               </h3>
               <p className="text-sm text-body-color dark:text-dark-6">
-                What features are included in this tier? List the key benefits.
+                {(productType === "metered" || productType === "usage-based") 
+                  ? "Configure how usage will be tracked and billed"
+                  : "What features are included in this tier?"}
               </p>
             </div>
 
+            {(productType === "metered" || productType === "usage-based") && (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                    Metering Type *
+                  </label>
+                  <select
+                    value={meteringConfig.meteringType}
+                    onChange={(e) =>
+                      setMeteringConfig({ ...meteringConfig, meteringType: e.target.value })
+                    }
+                    className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                  >
+                    <option value="requests">API Requests</option>
+                    <option value="users">Active Users</option>
+                    <option value="storage">Storage (GB)</option>
+                    <option value="compute">Compute Hours</option>
+                    <option value="bandwidth">Bandwidth (GB)</option>
+                    <option value="messages">Messages Sent</option>
+                    <option value="custom">Custom Metric</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                      Unit of Measurement
+                    </label>
+                    <select
+                      value={meteringConfig.meteringUnit}
+                      onChange={(e) =>
+                        setMeteringConfig({ ...meteringConfig, meteringUnit: e.target.value })
+                      }
+                      className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                    >
+                      <option value="count">Count</option>
+                      <option value="GB">Gigabytes (GB)</option>
+                      <option value="hours">Hours</option>
+                      <option value="MB">Megabytes (MB)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                      Aggregation Type
+                    </label>
+                    <select
+                      value={meteringConfig.aggregationType}
+                      onChange={(e) =>
+                        setMeteringConfig({ ...meteringConfig, aggregationType: e.target.value })
+                      }
+                      className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                    >
+                      <option value="sum">Sum (Total)</option>
+                      <option value="max">Maximum</option>
+                      <option value="last_during_period">Last Value</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                  <div className="flex gap-2">
+                    <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                        Usage Tracking
+                      </p>
+                      <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                        You'll receive implementation instructions in the next step showing how to report usage to our API.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
+              <label className="block text-base font-medium text-dark dark:text-white">
+                Features & Benefits
+              </label>
               {tierData.features.map((feature, index) => (
                 <div key={index} className="flex gap-2">
                   <input
@@ -321,17 +645,19 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               + Add Another Feature
             </Button>
 
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
               <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                <Tag className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                    Quick Tip
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Feature Presentation Tips
                   </p>
-                  <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                    Focus on value, not just features. Instead of &quot;10 API calls&quot;, 
-                    try &quot;10,000 API calls per month&quot; to be more specific.
-                  </p>
+                  <ul className="text-sm text-green-700 dark:text-green-300 mt-2 space-y-1">
+                    <li>• Start with the most valuable feature first</li>
+                    <li>• Use specific numbers: "10,000 API calls" not "API access"</li>
+                    <li>• Focus on outcomes: "24/7 priority support" not "support included"</li>
+                    <li>• Limit to 5-7 key features for better readability</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -346,79 +672,90 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 Back
               </Button>
               <Button
-                onClick={handleCreateProduct}
-                disabled={loading || tierData.features.every((f) => !f.trim())}
+                onClick={() => setStep((productType === "metered" || productType === "usage-based") ? 4 : 5)}
+                disabled={tierData.features.every((f) => !f.trim())}
                 className="flex-1 bg-primary hover:bg-primary/90"
               >
-                {loading ? <Loader /> : "Create Product"}
+                Next: {(productType === "metered" || productType === "usage-based") ? "Implementation" : "Review"}
               </Button>
             </div>
           </div>
         );
 
       case 4:
+        // Implementation Guide (only for metered/usage-based)
         return (
-          <div className="space-y-6 text-center animate-fade-in">
-            <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-green-400 to-green-600 mb-4 animate-bounce">
-              <CheckCircle2 className="h-12 w-12 text-white" />
-              <div className="absolute -top-2 -right-2">
-                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
-                  <span className="text-xl">✨</span>
-                </div>
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                <Code className="h-8 w-8 text-primary" />
               </div>
-            </div>
-            
-            <div>
-              <h3 className="text-3xl font-bold text-dark dark:text-white mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Product Created! 🎉
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
+                Implementation Guide
               </h3>
-              <p className="text-base text-body-color dark:text-dark-6 mb-6">
-                Your product <strong className="text-primary">{productData.name}</strong> is now live and ready to sell!
+              <p className="text-sm text-body-color dark:text-dark-6">
+                How to integrate usage tracking into your product
               </p>
             </div>
 
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-dashed border-primary/30">
-              <h4 className="font-semibold text-dark dark:text-white mb-3">
-                What&apos;s Next?
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
+              <h4 className="font-semibold text-dark dark:text-white mb-3 flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                Report Usage to Our API
               </h4>
-              <div className="space-y-2 text-sm text-left">
-                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-body-color dark:text-dark-6">
-                    <strong>Synced with Stripe</strong> - Billing is ready to go
-                  </p>
+              <p className="text-sm text-body-color dark:text-dark-6 mb-4">
+                Call this endpoint whenever you want to track usage:
+              </p>
+              <div className="bg-dark dark:bg-dark-2 p-4 rounded-lg font-mono text-sm text-white overflow-x-auto">
+                <div className="text-green-400 mb-2">POST /api/saas/usage</div>
+                <div className="text-gray-400">{'{'}</div>
+                <div className="ml-4 text-blue-300">"subscriptionId"<span className="text-white">:</span> <span className="text-yellow-300">"sub_xxx"</span>,</div>
+                <div className="ml-4 text-blue-300">"quantity"<span className="text-white">:</span> <span className="text-yellow-300">100</span>,</div>
+                <div className="ml-4 text-blue-300">"timestamp"<span className="text-white">:</span> <span className="text-yellow-300">"2024-01-15T10:30:00Z"</span></div>
+                <div className="text-gray-400">{'}'}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-white dark:bg-dark-2 p-4 rounded-lg border border-stroke dark:border-dark-3">
+                <h5 className="font-medium text-dark dark:text-white mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Example: Track API Requests
+                </h5>
+                <div className="bg-gray-50 dark:bg-dark p-3 rounded font-mono text-xs overflow-x-auto">
+                  <div className="text-purple-600 dark:text-purple-400">// After each API request</div>
+                  <div className="text-blue-600 dark:text-blue-400">await fetch<span className="text-dark dark:text-white">(</span><span className="text-green-600">'/api/saas/usage'</span>, {'{'}</div>
+                  <div className="ml-4">method: <span className="text-green-600">'POST'</span>,</div>
+                  <div className="ml-4">body: JSON.stringify({'{'} quantity: 1 {'}'})</div>
+                  <div className="text-blue-600 dark:text-blue-400">{'}'}<span className="text-dark dark:text-white">)</span></div>
                 </div>
-                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-body-color dark:text-dark-6">
-                    <strong>Available instantly</strong> on your white-label site
-                  </p>
-                </div>
-                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-body-color dark:text-dark-6">
-                    <strong>Ready to accept</strong> subscribers right now
-                  </p>
+              </div>
+
+              <div className="bg-white dark:bg-dark-2 p-4 rounded-lg border border-stroke dark:border-dark-3">
+                <h5 className="font-medium text-dark dark:text-white mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Example: Track Storage Usage
+                </h5>
+                <div className="bg-gray-50 dark:bg-dark p-3 rounded font-mono text-xs overflow-x-auto">
+                  <div className="text-purple-600 dark:text-purple-400">// When file is uploaded</div>
+                  <div className="text-blue-600 dark:text-blue-400">const fileSizeGB = fileSize / <span className="text-orange-600">(1024 ** 3)</span></div>
+                  <div className="text-blue-600 dark:text-blue-400">await reportUsage<span className="text-dark dark:text-white">(</span>fileSizeGB<span className="text-dark dark:text-white">)</span></div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-4 rounded-lg">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 justify-center">
-                  <span className="text-2xl">🚀</span>
-                  <p className="text-sm font-medium text-dark dark:text-white">
-                    Your product is live and generating revenue-ready links!
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+              <div className="flex gap-2">
+                <Sparkles className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                    Automatic Billing
+                  </p>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    We automatically aggregate usage and bill customers at the end of each billing period. 
+                    You just report the usage!
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open("/dashboard/white-label", "_blank")}
-                  className="mx-auto"
-                >
-                  View White-Label Site →
-                </Button>
               </div>
             </div>
 
@@ -426,15 +763,292 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => setStep(3)}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={() => setStep(5)}
+                className="flex-1 bg-primary hover:bg-primary/90"
+              >
+                Next: Review
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 5:
+        // Review & Confirm
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
+                Review Your Product
+              </h3>
+              <p className="text-sm text-body-color dark:text-dark-6">
+                Confirm everything looks good before creating
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-dashed border-primary/30">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-body-color dark:text-dark-6 mb-1">Product Type</p>
+                  <p className="text-lg font-semibold text-dark dark:text-white">
+                    {productTypeOptions.find(p => p.type === productType)?.title}
+                  </p>
+                </div>
+
+                <div className="h-px bg-stroke dark:bg-dark-3" />
+
+                <div>
+                  <p className="text-xs text-body-color dark:text-dark-6 mb-1">Product Name</p>
+                  <p className="text-lg font-semibold text-dark dark:text-white">{productData.name}</p>
+                  {productData.description && (
+                    <p className="text-sm text-body-color dark:text-dark-6 mt-1">{productData.description}</p>
+                  )}
+                </div>
+
+                <div className="h-px bg-stroke dark:bg-dark-3" />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-body-color dark:text-dark-6 mb-1">Tier Name</p>
+                    <p className="font-semibold text-dark dark:text-white">{tierData.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-body-color dark:text-dark-6 mb-1">Price</p>
+                    <p className="font-semibold text-dark dark:text-white">
+                      ${tierData.priceAmount}
+                      {productType !== "one-time" && ` / ${tierData.billingPeriod}`}
+                    </p>
+                  </div>
+                </div>
+
+                {tierData.features.filter(f => f.trim()).length > 0 && (
+                  <>
+                    <div className="h-px bg-stroke dark:bg-dark-3" />
+                    <div>
+                      <p className="text-xs text-body-color dark:text-dark-6 mb-2">Features</p>
+                      <ul className="space-y-1">
+                        {tierData.features.filter(f => f.trim()).map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm text-dark dark:text-white">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                )}
+
+                <div className="h-px bg-stroke dark:bg-dark-3" />
+
+                <div>
+                  <p className="text-xs text-body-color dark:text-dark-6 mb-3">Product Status</p>
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all hover:border-primary/50 ${productData.isActive ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-stroke dark:border-dark-3'}">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${productData.isActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-900/30'}`}>
+                          <Rocket className={`h-5 w-5 ${productData.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-dark dark:text-white">
+                            🟢 Make Live Immediately
+                          </p>
+                          <p className="text-xs text-body-color dark:text-dark-6">
+                            Product will be available for purchase right away
+                          </p>
+                        </div>
+                      </div>
+                      <input
+                        type="radio"
+                        checked={productData.isActive}
+                        onChange={() => setProductData({ ...productData, isActive: true })}
+                        className="h-5 w-5 text-primary focus:ring-2 focus:ring-primary"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all hover:border-primary/50 ${!productData.isActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-stroke dark:border-dark-3'}">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${!productData.isActive ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-gray-100 dark:bg-gray-900/30'}`}>
+                          <Package className={`h-5 w-5 ${!productData.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-dark dark:text-white">
+                            ⚪ Save as Draft
+                          </p>
+                          <p className="text-xs text-body-color dark:text-dark-6">
+                            Review and activate later from your dashboard
+                          </p>
+                        </div>
+                      </div>
+                      <input
+                        type="radio"
+                        checked={!productData.isActive}
+                        onChange={() => setProductData({ ...productData, isActive: false })}
+                        className="h-5 w-5 text-primary focus:ring-2 focus:ring-primary"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                  <div className="flex gap-2">
+                    <Sparkles className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                      <strong>Tip:</strong> You can always change the status later from your dashboard. 
+                      Draft products are perfect for testing pricing and features before going live.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep((productType === "metered" || productType === "usage-based") ? 4 : 3)}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={handleCreateProduct}
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+              >
+                {loading ? <Loader /> : "Create Product"}
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 6:
+        // Success & Celebration
+        return (
+          <div className="space-y-6 text-center animate-fade-in">
+            {productData.isActive ? (
+              <>
+                <div className="relative inline-flex items-center justify-center w-24 h-24 mb-4">
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-600 rounded-full animate-ping opacity-75" />
+                  <div className="relative bg-gradient-to-r from-green-400 to-emerald-600 rounded-full p-6">
+                    <Rocket className="h-12 w-12 text-white" />
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-4xl font-bold mb-2">
+                    <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      🎉 Product is LIVE! 🎉
+                    </span>
+                  </h3>
+                  <p className="text-xl text-body-color dark:text-dark-6 mb-4">
+                    <strong className="text-primary">{productData.name}</strong> is now available for purchase!
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                    <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                      Synced with Stripe & Ready to Sell
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-blue-400 to-purple-600 mb-4">
+                  <CheckCircle2 className="h-12 w-12 text-white" />
+                </div>
+                
+                <div>
+                  <h3 className="text-3xl font-bold text-dark dark:text-white mb-2">
+                    Product Created Successfully!
+                  </h3>
+                  <p className="text-base text-body-color dark:text-dark-6 mb-4">
+                    <strong className="text-primary">{productData.name}</strong> saved as draft
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-dashed border-primary/30">
+              <h4 className="font-semibold text-dark dark:text-white mb-3">
+                {productData.isActive ? "🚀 What's Happening Now:" : "📋 Next Steps:"}
+              </h4>
+              <div className="space-y-2 text-sm text-left">
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-body-color dark:text-dark-6">
+                    <strong>Stripe Integration:</strong> Product and pricing synced automatically
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-body-color dark:text-dark-6">
+                    <strong>White-label Site:</strong> {productData.isActive ? "Available now" : "Will appear when activated"}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-body-color dark:text-dark-6">
+                    <strong>Payment Processing:</strong> {productData.isActive ? "Ready to accept payments" : "Configure when ready"}
+                  </p>
+                </div>
+                {(productType === "metered" || productType === "usage-based") && (
+                  <div className="flex items-start gap-2 p-2 rounded bg-white/50 dark:bg-dark/50">
+                    <Code className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-body-color dark:text-dark-6">
+                      <strong>Usage Tracking:</strong> Implement the API calls shown in step 4
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {productData.isActive && (
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 p-6 rounded-lg">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 justify-center">
+                    <span className="text-3xl">💰</span>
+                    <p className="text-lg font-semibold text-dark dark:text-white">
+                      Start Earning Revenue Now!
+                    </p>
+                  </div>
+                  <p className="text-sm text-body-color dark:text-dark-6">
+                    Your product is live on your white-label site. Share the link and start getting subscribers!
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open("/dashboard/white-label", "_blank")}
+                    className="mx-auto"
+                  >
+                    View White-Label Site →
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
-                  setStep(1);
+                  setStep(0);
+                  setProductType("subscription");
                   setProductData({ name: "", description: "", isActive: true });
-                  setTierData({ name: "", priceAmount: "", interval: "monthly", features: [""] });
+                  setTierData({ name: "", priceAmount: "", billingPeriod: "monthly", features: [""], usageLimit: "" });
+                  setMeteringConfig({ meteringType: "requests", meteringUnit: "count", aggregationType: "sum" });
                   setLoading(false);
                 }}
                 className="flex-1"
               >
-                Create Another
+                Create Another Product
               </Button>
               <Button
                 onClick={() => onClose(true)}
@@ -451,18 +1065,21 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
     }
   };
 
+  const totalSteps = (productType === "metered" || productType === "usage-based") ? 6 : 5;
+  const currentStepForProgress = step > totalSteps ? totalSteps : step;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-xl bg-white p-8 shadow-xl dark:bg-dark-2 my-8">
+      <div className="w-full max-w-3xl rounded-xl bg-white p-8 shadow-xl dark:bg-dark-2 my-8">
         {/* Progress Indicator */}
-        {step < 4 && (
+        {step < totalSteps && (
           <div className="mb-8">
             <div className="flex justify-between mb-2">
-              {[1, 2, 3].map((s) => (
+              {Array.from({ length: totalSteps }).map((_, idx) => (
                 <div
-                  key={s}
-                  className={`flex-1 h-2 rounded-full mx-1 ${
-                    s <= step
+                  key={idx}
+                  className={`flex-1 h-2 rounded-full mx-1 transition-all ${
+                    idx < currentStepForProgress
                       ? "bg-primary"
                       : "bg-gray-200 dark:bg-gray-700"
                   }`}
@@ -470,7 +1087,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               ))}
             </div>
             <p className="text-xs text-center text-body-color dark:text-dark-6">
-              Step {step} of 3
+              Step {currentStepForProgress + 1} of {totalSteps}
             </p>
           </div>
         )}

@@ -22,14 +22,18 @@ export async function POST(request: any) {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-    await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "creator",
-      },
-    });
+  // Check if this is the first user (should be platform_owner)
+  const userCount = await prisma.user.count();
+  const role = userCount === 0 ? "platform_owner" : "creator";
 
-    return NextResponse.json("User created successfully!", { status: 200 });
+  await prisma.user.create({
+    data: {
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role,
+    },
+  });
+
+  return NextResponse.json("User created successfully!", { status: 200 });
 }

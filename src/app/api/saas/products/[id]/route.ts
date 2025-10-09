@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import Stripe from "stripe";
 import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("STRIPE_SECRET_KEY is not configured");
+}
+
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2023-10-16",
+});
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +46,6 @@ export async function GET(
       include: {
         saasCreator: true,
         tiers: {
-          where: { isActive: true },
           orderBy: { sortOrder: "asc" },
         },
         meteringConfig: true,
@@ -108,6 +118,20 @@ export async function PUT(
     // Verify ownership
     if (existingProduct.saasCreatorId !== user.saasCreator.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Sync with Stripe if name or description changed
+    if (existingProduct.stripeProductId && (name || description !== undefined)) {
+      try {
+        await stripe.products.update(existingProduct.stripeProductId, {
+          ...(name && { name }),
+          ...(description !== undefined && { description: description || undefined }),
+          active: isActive ?? existingProduct.isActive,
+        });
+      } catch (stripeError: any) {
+        console.error("Stripe product update error:", stripeError);
+        // Continue even if Stripe update fails
+      }
     }
 
     // Update the product

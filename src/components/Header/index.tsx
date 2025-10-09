@@ -15,8 +15,6 @@ const Header = () => {
   const router = useRouter();
   const pathUrl = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 
   const { theme, setTheme } = useTheme();
 
@@ -32,14 +30,14 @@ const Header = () => {
     if (session?.user) {
       router.push("/dashboard");
     } else {
-      setAuthMode("signup");
-      setShowAuthModal(true);
+      // Navigate to home page and trigger auth modal there
+      router.push("/?auth=signup");
     }
   };
 
   const handleAuth = (mode: "signin" | "signup") => {
-    setAuthMode(mode);
-    setShowAuthModal(true);
+    // Navigate to home page and trigger auth modal there
+    router.push(`/?auth=${mode}`);
   };
 
   const NavItems = () => (
@@ -207,120 +205,6 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Auth Panel - Slides in from right side */}
-      {showAuthModal && (
-        <>
-          {/* Backdrop overlay */}
-          <div 
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity duration-300"
-            onClick={() => setShowAuthModal(false)}
-          />
-          
-          {/* Sliding panel from right */}
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card shadow-2xl transform transition-transform duration-500 ease-out animate-slide-in-right">
-            <div className="h-full flex flex-col">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b">
-                <h2 className="text-xl font-semibold">
-                  {authMode === "signin" ? "Welcome Back" : "Create Account"}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowAuthModal(false)}
-                  className="auth-button-hover"
-                >
-                  ×
-                </Button>
-              </div>
-              
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <p className="text-muted-foreground mb-6">
-                  {authMode === "signin"
-                    ? "Sign in to your account to continue"
-                    : "Create your account to get started"}
-                </p>
-                
-                {/* Social Sign In */}
-                <div className="space-y-3 mb-6">
-                  <Button className="w-full" variant="outline" onClick={() => window.location.href = '/api/auth/signin/google'}>
-                    Continue with Google
-                  </Button>
-                  <Button className="w-full" variant="outline" onClick={() => window.location.href = '/api/auth/signin/github'}>
-                    Continue with GitHub
-                  </Button>
-                </div>
-                
-                <div className="relative mb-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">
-                      Or continue with
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Email/Password Form */}
-                <form className="space-y-4" onSubmit={(e) => {
-                  e.preventDefault();
-                  // Basic form submission - redirect to actual auth pages
-                  window.location.href = authMode === 'signin' ? '/auth/signin' : '/auth/signup';
-                }}>
-                  <div>
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
-                      required
-                    />
-                  </div>
-                  {authMode === 'signup' && (
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Full Name"
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
-                        required
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <input
-                      type="password"
-                      placeholder="Password"
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm auth-input-focus"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full auth-button-hover">
-                    {authMode === "signin" ? "Sign In" : "Sign Up"}
-                  </Button>
-                </form>
-                
-                <p className="text-center text-sm text-muted-foreground mt-6">
-                  {authMode === "signin" ? "Don't have an account?" : "Already have an account?"}{" "}
-                  <button
-                    onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    {authMode === "signin" ? "Sign Up" : "Sign In"}
-                  </button>
-                </p>
-                
-                {/* Additional links */}
-                <div className="mt-4 text-center">
-                  <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
-                    Forgot password?
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 };

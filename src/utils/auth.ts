@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GitHubProvider from "next-auth/providers/github";
-// import GoogleProvider from "next-auth/providers/google";
+import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
@@ -11,7 +11,9 @@ import type { Adapter } from "next-auth/adapters";
 
 export const authOptions: NextAuthOptions = {
   pages: {
-    signIn: "/auth/signin",
+    signIn: "/?auth=signin",
+    signOut: "/",
+    error: "/?auth=signin", // Error code passed in query string
   },
   adapter: PrismaAdapter(prisma) as Adapter,
   secret: process.env.SECRET,
@@ -116,17 +118,17 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
 
-    // GoogleProvider({
-    //   clientId: process.env.GOOGLE_CLIENT_ID!,
-    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    //   authorization: {
-    //     params: {
-    //       prompt: "select_account",
-    //       access_type: "online",
-    //       response_type: "code"
-    //     }
-    //   },
-    // }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "online",
+          response_type: "code"
+        }
+      },
+    }),
 
     EmailProvider({
       server: {
@@ -142,6 +144,54 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
+    signIn: async ({ user, account, profile }) => {
+      // Handle automatic account linking for OAuth providers
+      if (account?.provider === "google" || account?.provider === "github") {
+        if (!user.email) return false;
+
+        // Check if this OAuth account already exists
+        const existingAccount = await prisma.account.findUnique({
+          where: {
+            provider_providerAccountId: {
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+            },
+          },
+        });
+
+        // If OAuth account exists, allow sign-in
+        if (existingAccount) return true;
+
+        // Check if user exists with this email
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+        });
+
+        // If user exists, manually link the OAuth account
+        if (existingUser) {
+          await prisma.account.create({
+            data: {
+              userId: existingUser.id,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              refresh_token: account.refresh_token,
+              access_token: account.access_token,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              scope: account.scope,
+              id_token: account.id_token,
+              session_state: account.session_state,
+            },
+          });
+          return true;
+        }
+      }
+      
+      // Allow all other sign-ins
+      return true;
+    },
+
     jwt: async (payload: any) => {
       const { token } = payload;
       const user = payload.user;
@@ -183,6 +233,14 @@ export const authOptions: NextAuthOptions = {
     redirect: async ({ url, baseUrl }) => {
       // Allow relative URLs
       if (url.startsWith("/")) {
+        // Handle error cases - redirect to custom signin with error
+        if (url.includes('/api/auth/error')) {
+          return `${baseUrl}/?auth=signin&error=OAuthCallback`;
+        }
+        // Never redirect to default NextAuth signin page
+        if (url.includes('/api/auth/signin')) {
+          return `${baseUrl}/?auth=signin`;
+        }
         return `${baseUrl}${url}`;
       }
       
@@ -192,10 +250,20 @@ export const authOptions: NextAuthOptions = {
         if (url.includes('/api/auth/callback/') || url.includes('callbackUrl')) {
           return `${baseUrl}/saas/onboarding`;
         }
+        // Never redirect to default NextAuth pages
+        if (url.includes('/api/auth/signin')) {
+          return `${baseUrl}/?auth=signin`;
+        }
         return url;
       }
       
-      return baseUrl;
+      // Handle external redirects that might go to default NextAuth pages
+      if (url.includes('/api/auth/signin')) {
+        return `${baseUrl}/?auth=signin`;
+      }
+      
+      // Default to custom signin page for any other case
+      return `${baseUrl}/?auth=signin`;
     },
   },
 

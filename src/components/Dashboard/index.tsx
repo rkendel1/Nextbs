@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
 import Loader from "@/components/Common/Loader";
 import GuidedProductWizard from "./GuidedProductWizard";
+import ProductsList from "./ProductsList";
 
 const Dashboard = () => {
   const router = useRouter();
@@ -362,85 +363,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="products" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Management</CardTitle>
-                <CardDescription>Manage your SaaS products and pricing</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {products.length === 0 ? (
-                  <div className="text-center py-12 px-4">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                      <Package className="h-8 w-8 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">No products yet</h3>
-                    <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                      Products are the core of your SaaS business. Create your first product 
-                      to start accepting subscribers and generating revenue.
-                    </p>
-                    <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateProduct}>
-                      <Package className="mr-2 h-4 w-4" />
-                      Create First Product
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {products.map((product) => (
-                      <div
-                        key={product.id}
-                        className="rounded-lg border border-stroke p-4 transition hover:border-primary dark:border-dark-3 dark:hover:border-primary"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="mb-2 flex items-center gap-3">
-                              <h3 className="text-lg font-semibold text-dark dark:text-white">
-                                {product.name}
-                              </h3>
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  product.isActive
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                                }`}
-                              >
-                                {product.isActive ? "Active" : "Inactive"}
-                              </span>
-                            </div>
-                            {product.description && (
-                              <p className="mb-3 text-sm text-body-color dark:text-dark-6">
-                                {product.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 text-sm text-body-color dark:text-dark-6">
-                              <span>{product._count?.tiers || 0} pricing tiers</span>
-                              <span>•</span>
-                              <span>
-                                {product._count?.subscriptions || 0} subscribers
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/dashboard/products/${product.id}`)}
-                            >
-                              Manage
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="pt-4">
-                      <Button onClick={handleCreateProduct} className="w-full">
-                        <Package className="mr-2 h-4 w-4" />
-                        Add New Product
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ProductsList onUpdate={fetchDashboardData} />
           </TabsContent>
 
           <TabsContent value="subscribers" className="space-y-4">

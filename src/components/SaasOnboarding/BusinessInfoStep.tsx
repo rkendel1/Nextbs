@@ -3,6 +3,7 @@ import { useState } from "react";
 import Loader from "@/components/Common/Loader";
 import toast from "react-hot-toast";
 import { Sparkles } from "lucide-react";
+import { extractDesignTokens, ExtractedDesignTokens } from "@/utils/designTokenExtractor";
 
 interface BusinessInfoStepProps {
   data: any;
@@ -15,6 +16,23 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
     website: data.website || "",
   });
   const [isValidating, setIsValidating] = useState(false);
+  const [extractedTokens, setExtractedTokens] = useState<ExtractedDesignTokens | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const extractTokensFromWebsite = async (url: string) => {
+    setIsExtracting(true);
+    try {
+      const tokens = await extractDesignTokens(url);
+      setExtractedTokens(tokens);
+      console.log("Extracted design tokens:", tokens);
+      return tokens;
+    } catch (error) {
+      console.error("Error extracting design tokens:", error);
+      return null;
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +53,26 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
     setIsValidating(true);
 
     try {
-      // Trigger the crawler
+      // First, extract design tokens from the frontend for immediate feedback
+      const tokens = await extractTokensFromWebsite(formData.website);
+      
+      // Show immediate feedback with extracted tokens
+      if (tokens && tokens.confidenceScores) {
+        const avgConfidence = (tokens.confidenceScores.logo + tokens.confidenceScores.colors + tokens.confidenceScores.fonts) / 3;
+        
+        if (avgConfidence > 0.6) {
+          toast.success("✨ Great! We found your brand elements", {
+            duration: 3000,
+          });
+        } else {
+          toast("🎨 We detected some brand elements", {
+            duration: 3000,
+            icon: "🎨",
+          });
+        }
+      }
+
+      // Then trigger the server-side crawler for comprehensive analysis
       const scrapeResponse = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,8 +93,19 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
         icon: "✨",
       });
 
-      // Continue to next step
-      onComplete({ website: formData.website });
+      // Continue to next step with extracted tokens
+      onComplete({ 
+        website: formData.website,
+        // Include extracted tokens for immediate use
+        ...(tokens && {
+          logoUrl: tokens.logoUrl,
+          faviconUrl: tokens.faviconUrl,
+          primaryColor: tokens.primaryColor,
+          secondaryColor: tokens.secondaryColor,
+          fonts: tokens.fonts ? JSON.stringify(tokens.fonts) : undefined,
+          businessName: tokens.companyName,
+        })
+      });
     } catch (error: any) {
       console.error("Crawler start error:", error);
       toast.error(error.message || "Failed to process URL. Please try again.");
@@ -109,12 +157,69 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
           </div>
         </div>
 
+        {/* Extracted Tokens Preview */}
+        {extractedTokens && (
+          <div className="mb-8 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+            <div className="flex gap-2">
+              <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                  Brand elements detected
+                </p>
+                <div className="mt-2 flex items-center gap-4">
+                  {extractedTokens.logoUrl && (
+                    <img 
+                      src={extractedTokens.logoUrl} 
+                      alt="Logo" 
+                      className="h-8 w-8 object-contain rounded"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  {extractedTokens.primaryColor && (
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                        style={{ backgroundColor: extractedTokens.primaryColor }}
+                      />
+                      <span className="text-xs text-green-700 dark:text-green-300">
+                        {extractedTokens.primaryColor}
+                      </span>
+                    </div>
+                  )}
+                  {extractedTokens.secondaryColor && (
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                        style={{ backgroundColor: extractedTokens.secondaryColor }}
+                      />
+                      <span className="text-xs text-green-700 dark:text-green-300">
+                        {extractedTokens.secondaryColor}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {extractedTokens.companyName && (
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-2">
+                    Company: {extractedTokens.companyName}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
-          disabled={loading || isValidating}
+          disabled={loading || isValidating || isExtracting}
           className="flex w-full items-center justify-center rounded-md border border-primary bg-primary px-5 py-3 text-base text-white transition duration-300 ease-in-out hover:bg-blue-dark disabled:opacity-50"
         >
-          {isValidating ? (
+          {isExtracting ? (
+            <>
+              Extracting brand elements... <Loader />
+            </>
+          ) : isValidating ? (
             <>
               Validating URL... <Loader />
             </>

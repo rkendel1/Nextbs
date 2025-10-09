@@ -26,9 +26,6 @@ export async function GET() {
               where: { isActive: true },
               include: {
               tiers: {
-                where: {
-                  isActive: true
-                },
                 orderBy: { sortOrder: 'asc' }
               }
               }
@@ -196,22 +193,44 @@ export async function POST(request: NextRequest) {
     
     if (priceAmount > 0) {
       // Create Stripe Price for paid tiers only
-      const interval = billingPeriod === 'yearly' ? 'year' : 'month';
       try {
-        const stripePrice = await stripe.prices.create({
+        let stripePriceData: any = {
           product: product.stripeProductId!,
           unit_amount: priceAmount, // Already in cents
           currency: 'usd',
-          recurring: {
-            interval,
-          },
           metadata: {
             tierName: name,
             productId: productId,
             saasCreatorId: user.saasCreator.id,
             platformOwner: user.role === 'platform_owner' ? 'true' : 'false',
           },
-        });
+        };
+
+        // Handle different billing periods
+        if (billingPeriod === 'one-time') {
+          // One-time payment - no recurring
+          // Stripe doesn't need recurring field for one-time payments
+        } else {
+          // Recurring payments
+          let interval: 'month' | 'year' = 'month';
+          let intervalCount = 1;
+
+          if (billingPeriod === 'yearly') {
+            interval = 'year';
+          } else if (billingPeriod === 'quarterly') {
+            interval = 'month';
+            intervalCount = 3;
+          } else {
+            interval = 'month';
+          }
+
+          stripePriceData.recurring = {
+            interval,
+            interval_count: intervalCount,
+          };
+        }
+
+        const stripePrice = await stripe.prices.create(stripePriceData);
         stripePriceId = stripePrice.id;
       } catch (stripeError: any) {
         console.error("Stripe price creation error:", stripeError);

@@ -29,10 +29,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all products with tier and subscription counts
+    // Get all products with tiers and subscription counts
     const products = await prisma.product.findMany({
       where: { saasCreatorId: user.saasCreator.id },
       include: {
+        tiers: {
+          orderBy: { sortOrder: "asc" },
+        },
         _count: {
           select: {
             tiers: true,

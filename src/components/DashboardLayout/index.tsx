@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
@@ -15,7 +16,8 @@ import {
   Package,
   TrendingUp,
   Bell,
-  User
+  User,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +46,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -55,10 +57,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 transform bg-card shadow-xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-64 transform bg-card shadow-xl transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col overflow-hidden">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <Link href="/dashboard" className="flex items-center space-x-2">
@@ -101,7 +103,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </nav>
 
           {/* User Section */}
-          <div className="border-t p-3">
+          <div className="border-t p-3 space-y-2">
             <Link 
               href="/dashboard/settings"
               className="flex items-center space-x-3 rounded-lg px-3 py-2 hover:bg-accent transition-colors"
@@ -114,14 +116,22 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <p className="text-xs text-muted-foreground">Settings</p>
               </div>
             </Link>
+            
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="flex w-full items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b flex-shrink-0">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center space-x-4">
               <Button
@@ -149,7 +159,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </header>
 
         {/* Page Content */}
-        <main className="p-4">
+        <main className="p-6 pt-4">
           {children}
         </main>
       </div>

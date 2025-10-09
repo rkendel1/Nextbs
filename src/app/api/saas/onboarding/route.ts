@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
         },
       });
     } else if (saasCreator) {
-      // Update existing profile - only update onboardingCompleted if explicitly at step 3
-      const isCompleted = currentStep === 3;
+      // Update existing profile - mark as completed when reaching step 4 (COMPLETE)
+      const isCompleted = currentStep >= 4;
       saasCreator = await prisma.saasCreator.update({
         where: { id: saasCreator.id },
         data: {
@@ -202,12 +202,35 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // For regular users, return proper onboarding state
-    const onboardingCompleted = user.saasCreator?.onboardingCompleted || false;
-    const currentStep = user.saasCreator?.onboardingStep || 1;
+    // For regular users, ensure SaasCreator exists
+    let saasCreator = user.saasCreator;
+    
+    if (!saasCreator) {
+      // Auto-create SaasCreator for new users
+      const newCreator = await prisma.saasCreator.create({
+        data: {
+          userId: user.id,
+          businessName: user.name || 'My Business',
+          onboardingCompleted: false,
+          onboardingStep: 1,
+        },
+      });
+      
+      // Fetch with includes to match expected type
+      saasCreator = await prisma.saasCreator.findUnique({
+        where: { id: newCreator.id },
+        include: {
+          stripeAccount: true,
+          products: true,
+        },
+      });
+    }
+
+    const onboardingCompleted = saasCreator?.onboardingCompleted || false;
+    const currentStep = saasCreator?.onboardingStep || 1;
 
     return NextResponse.json({
-      saasCreator: user.saasCreator,
+      saasCreator,
       onboardingCompleted,
       currentStep,
     });
