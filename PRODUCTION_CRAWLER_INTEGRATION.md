@@ -1,8 +1,14 @@
 /**
  * Production Crawler Integration Example
  * 
- * This file shows how to integrate the actual rkendel1/designtokens crawler service
- * Replace the mock implementation in /api/scrape/route.ts with this code
+ * NOTE: The mock implementation in /api/scrape/route.ts has been REPLACED
+ * with an actual web scraper that extracts design tokens from websites.
+ * 
+ * The current implementation uses cheerio, css-tree, jsdom, and @mozilla/readability
+ * to directly scrape and parse website content for design tokens.
+ * 
+ * This file shows how to integrate with an external rkendel1/designtokens 
+ * crawler service if you prefer an external API over the built-in scraper.
  */
 
 import { NextRequest, NextResponse } from "next/server";

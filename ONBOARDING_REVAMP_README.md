@@ -210,13 +210,25 @@ export interface BrandData {
 ## Crawler Integration
 
 ### Current Implementation
-The `/api/scrape` endpoint currently includes a **simulated crawler** for development and testing purposes. It generates mock brand data after a 1-3 second delay.
+The `/api/scrape` endpoint now includes an **actual web scraper** that extracts design tokens directly from websites. It uses:
 
-### Production Integration
-To integrate with the actual rkendel1/designtokens crawler service:
+- **cheerio** - For HTML parsing and DOM manipulation
+- **css-tree** - For CSS parsing and color/font extraction
+- **@mozilla/readability** - For content extraction and company information
+- **jsdom** - For DOM manipulation with Readability
+
+The scraper extracts:
+- **Colors**: Analyzes all CSS files and inline styles to find primary and secondary brand colors
+- **Fonts**: Extracts font-family declarations from CSS and Google Fonts links
+- **Logo & Favicon**: Searches for logo images using common selectors and favicon links
+- **Company Info**: Uses Readability and meta tags to extract company name and description
+- **Contact Info**: Uses regex patterns to find email addresses, phone numbers, and physical addresses
+
+### Alternative: External Crawler Service
+If you prefer to use an external crawler service (like rkendel1/designtokens):
 
 1. Update the `triggerCrawlerJob` function in `/api/scrape/route.ts`
-2. Replace the mock response with an actual HTTP call:
+2. Replace the scraping logic with an HTTP call:
 
 ```typescript
 // Production integration example
