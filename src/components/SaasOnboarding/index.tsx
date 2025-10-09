@@ -65,7 +65,7 @@ const OnboardingWizard = () => {
     { id: OnboardingStep.PLAN_SELECTION, title: "Select Plan", description: "Choose your plan" },
     { id: OnboardingStep.URL_ENTRY, title: "Enter Your Site URL", description: "We'll analyze it automatically" },
     { id: OnboardingStep.STRIPE_CONNECT, title: "Connect Stripe", description: "Set up payments" },
-    { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review & Confirm", description: "Check your profile details" },
+    { id: OnboardingStep.COMPANY_INFO_REVIEW, title: "Review Your Brand", description: "See your captured design" },
     { id: OnboardingStep.COMPLETE, title: "Complete", description: "You're ready!" },
   ];
 
