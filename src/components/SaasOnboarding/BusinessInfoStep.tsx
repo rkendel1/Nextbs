@@ -69,16 +69,16 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
   return (
     <div className="rounded-xl bg-white px-8 py-10 shadow-lg dark:bg-dark-2 sm:px-12 md:px-16">
       <h2 className="mb-3 text-center text-3xl font-bold text-dark dark:text-white">
-        Enter Your Website URL
+        Just drop your URL
       </h2>
       <p className="mb-10 text-center text-base text-body-color dark:text-dark-6">
-        We&apos;ll automatically detect your brand colors, logo, and company information
+        Paste your website and we&apos;ll handle the rest. Your brand, your colors, your info — all automatically detected.
       </p>
 
       <form onSubmit={handleSubmit}>
         <div className="mb-8">
           <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
-            Website URL *
+            Your website
           </label>
           <input
             type="url"
@@ -89,7 +89,7 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
             className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
           />
           <p className="mt-2 text-sm text-body-color dark:text-dark-6">
-            Enter your public website URL and we&apos;ll automatically fetch your brand details
+            We&apos;ll read your site and pull everything we need — you won&apos;t have to type it twice
           </p>
         </div>
 
@@ -99,11 +99,11 @@ const BusinessInfoStep = ({ data, onComplete, loading }: BusinessInfoStepProps) 
             <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                ✨ Magic Prefill™
+                Here&apos;s what happens next
               </p>
               <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                While you connect Stripe, we&apos;ll automatically detect your brand colors, logo, 
-                fonts, and company information from your website. No manual typing required!
+                While you&apos;re connecting Stripe, we&apos;ll scan your site for your logo, brand colors, 
+                fonts, and company details. By the time you&apos;re back, everything will be ready to review.
               </p>
             </div>
           </div>
