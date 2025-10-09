@@ -131,13 +131,13 @@ export async function GET(request: NextRequest) {
       stripeAccountDetails = await connectedStripe.accounts.retrieve();
       console.log("Stripe account details retrieved:", JSON.stringify({
         business_name: stripeAccountDetails.business_profile?.name,
+        business_type: stripeAccountDetails.business_type,
         has_business_profile: !!stripeAccountDetails.business_profile,
-        has_settings: !!stripeAccountDetails.settings,
-        has_branding: !!stripeAccountDetails.settings?.branding,
-        branding_icon: stripeAccountDetails.settings?.branding?.icon,
-        branding_logo: stripeAccountDetails.settings?.branding?.logo,
-        primary_color: stripeAccountDetails.settings?.branding?.primary_color,
-        secondary_color: stripeAccountDetails.settings?.branding?.secondary_color,
+        has_company: !!stripeAccountDetails.company,
+        has_individual: !!stripeAccountDetails.individual,
+        country: stripeAccountDetails.country,
+        default_currency: stripeAccountDetails.default_currency,
+        email: stripeAccountDetails.email,
         product_description: stripeAccountDetails.business_profile?.product_description,
       }));
     } catch (error: any) {
@@ -160,7 +160,8 @@ export async function GET(request: NextRequest) {
       // Company address from Stripe (support address or business address)
       if (!user.saasCreator.companyAddress) {
         const address = stripeAccountDetails.business_profile?.support_address || 
-                       stripeAccountDetails.company?.address;
+                       stripeAccountDetails.company?.address ||
+                       stripeAccountDetails.individual?.address;
         if (address) {
           const addressParts = [
             address.line1,
@@ -180,18 +181,40 @@ export async function GET(request: NextRequest) {
       if (!user.saasCreator.contactInfo) {
         const contactInfo: any = {};
         
+        // Email - try multiple sources
         if (stripeAccountDetails.business_profile?.support_email) {
           contactInfo.email = stripeAccountDetails.business_profile.support_email;
         } else if (stripeAccountDetails.email) {
           contactInfo.email = stripeAccountDetails.email;
+        } else if (stripeAccountDetails.individual?.email) {
+          contactInfo.email = stripeAccountDetails.individual.email;
         }
         
+        // Phone - try multiple sources
         if (stripeAccountDetails.business_profile?.support_phone) {
           contactInfo.phone = stripeAccountDetails.business_profile.support_phone;
+        } else if (stripeAccountDetails.company?.phone) {
+          contactInfo.phone = stripeAccountDetails.company.phone;
+        } else if (stripeAccountDetails.individual?.phone) {
+          contactInfo.phone = stripeAccountDetails.individual.phone;
         }
 
+        // Website
         if (stripeAccountDetails.business_profile?.support_url) {
           contactInfo.website = stripeAccountDetails.business_profile.support_url;
+        }
+
+        // Additional business metadata
+        if (stripeAccountDetails.country) {
+          contactInfo.country = stripeAccountDetails.country;
+        }
+
+        if (stripeAccountDetails.default_currency) {
+          contactInfo.currency = stripeAccountDetails.default_currency;
+        }
+
+        if (stripeAccountDetails.business_type) {
+          contactInfo.businessType = stripeAccountDetails.business_type;
         }
 
         if (Object.keys(contactInfo).length > 0) {
@@ -204,26 +227,7 @@ export async function GET(request: NextRequest) {
         saasCreatorUpdates.website = stripeAccountDetails.business_profile.url;
       }
 
-      // Logo URL from Stripe branding settings
-      if (!user.saasCreator.logoUrl) {
-        // Prefer branding.logo over branding.icon as it's typically higher quality
-        const logoUrl = stripeAccountDetails.settings?.branding?.logo || 
-                       stripeAccountDetails.settings?.branding?.icon;
-        if (logoUrl) {
-          saasCreatorUpdates.logoUrl = logoUrl;
-        }
-      }
-
-      // Brand colors from Stripe branding settings
-      if (!user.saasCreator.primaryColor && stripeAccountDetails.settings?.branding?.primary_color) {
-        saasCreatorUpdates.primaryColor = stripeAccountDetails.settings.branding.primary_color;
-      }
-
-      if (!user.saasCreator.secondaryColor && stripeAccountDetails.settings?.branding?.secondary_color) {
-        saasCreatorUpdates.secondaryColor = stripeAccountDetails.settings.branding.secondary_color;
-      }
-
-      // Business description from Stripe business profile
+      // Business description - what the company does (business info, not design)
       if (!user.saasCreator.businessDescription && stripeAccountDetails.business_profile?.product_description) {
         saasCreatorUpdates.businessDescription = stripeAccountDetails.business_profile.product_description;
       }
