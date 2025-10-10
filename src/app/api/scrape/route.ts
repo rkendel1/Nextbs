@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     // Kick off both lightweight and deep scraping in the background
     // This allows the API to return immediately
-    const scrapePromise = (async () => {
+    (async () => {
       try {
         // Lightweight extraction
         const response = await fetch(url);
@@ -471,9 +471,14 @@ Tone:`,
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
           data: { crawlStatus: "failed" },
+        }).catch(err => {
+          console.error("Failed to update crawl status after error:", err);
         });
       }
-    })();
+    })().catch(err => {
+      // Final catch to prevent unhandled promise rejection
+      console.error("Unhandled error in background scrape:", err);
+    });
 
     // Return immediately without waiting for scraping to complete
     return NextResponse.json({
