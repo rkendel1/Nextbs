@@ -135,6 +135,7 @@ model Product {
   saasCreator      SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
   name             String
   description      String?     @db.Text
+  imageUrl         String?
   isActive         Boolean     @default(true)
   stripePriceId    String?
   stripeProductId  String?

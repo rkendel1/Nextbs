@@ -6,6 +6,7 @@ import Loader from "@/components/Common/Loader";
 import TiersList from "./TiersList";
 import MeteringConfig from "./MeteringConfig";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Copy, CopyCheck } from "lucide-react";
 
@@ -89,6 +90,29 @@ const ProductManagement = () => {
                     {product.description}
                   </p>
                 )}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Product Image URL (optional)
+                  </label>
+                  <Input
+                    placeholder="https://example.com/product-image.jpg"
+                    value={product.imageUrl || ''}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProduct({ ...product, imageUrl: e.target.value })}
+                    className="mb-2"
+                  />
+                  {product.imageUrl && (
+                    <div className="flex justify-center">
+                      <img
+                        src={product.imageUrl}
+                        alt="Product preview"
+                        className="w-32 h-32 object-cover rounded-lg border"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -100,7 +124,10 @@ const ProductManagement = () => {
                       const response = await fetch(`/api/saas/products/${productId}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ isActive: checked }),
+                        body: JSON.stringify({ 
+                          isActive: checked,
+                          imageUrl: product.imageUrl 
+                        }),
                       });
                       if (!response.ok) throw new Error("Failed to update status");
                       fetchProduct();

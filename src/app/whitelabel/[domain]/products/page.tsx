@@ -19,6 +19,7 @@ interface Product {
   id: string;
   name: string;
   description?: string;
+  imageUrl?: string;
   isActive: boolean;
   tiers: Tier[];
   meteringConfig?: {
@@ -157,6 +158,20 @@ const WhiteLabelProducts = () => {
                   <h3 className="text-2xl font-bold text-gray-900 mb-3">
                     {product.name}
                   </h3>
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-48 object-cover rounded-lg mb-4"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                      <span className="text-gray-500 text-sm">No image available</span>
+                    </div>
+                  )}
                   {product.description && (
                     <p className="text-gray-600 mb-6">
                       {product.description}

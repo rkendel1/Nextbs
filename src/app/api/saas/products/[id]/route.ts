@@ -91,7 +91,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, isActive } = body;
+    const { name, description, isActive, imageUrl } = body;
 
     // Find user and SaaS creator
     const user = await prisma.user.findUnique({
@@ -141,6 +141,7 @@ export async function PUT(
         name: name ?? existingProduct.name,
         description: description ?? existingProduct.description,
         isActive: isActive ?? existingProduct.isActive,
+        imageUrl: imageUrl ?? existingProduct.imageUrl,
       },
     });
 
