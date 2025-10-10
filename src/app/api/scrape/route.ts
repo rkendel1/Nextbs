@@ -207,127 +207,127 @@ export async function POST(request: NextRequest) {
         }
         const html = await response.text();
 
-    // Parse HTML with JSDOM for Readability
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
-    const article = reader.parse();
+        // Parse HTML with JSDOM for Readability
+        const dom = new JSDOM(html, { url });
+        const reader = new Readability(dom.window.document);
+        const article = reader.parse();
 
-    // Extract main text using Readability
-    const mainText = article?.textContent?.substring(0, 1000) || "";
+        // Extract main text using Readability
+        const mainText = article?.textContent?.substring(0, 1000) || "";
 
-    // Parse HTML with Cheerio for structural elements
-    const $ = cheerio.load(html);
+        // Parse HTML with Cheerio for structural elements
+        const $ = cheerio.load(html);
 
-    const headings: string[] = [];
-    $("h1, h2, h3, h4, h5, h6").each((index: number, element) => {
-      const text = $(element).text().trim();
-      if (text) headings.push(text);
-    });
+        const headings: string[] = [];
+        $("h1, h2, h3, h4, h5, h6").each((index: number, element) => {
+          const text = $(element).text().trim();
+          if (text) headings.push(text);
+        });
 
-    const links: { href: string; text: string }[] = [];
-    $("a").each((index: number, element) => {
-      const href = $(element).attr("href") || "";
-      const text = $(element).text().trim();
-      if (href && text) links.push({ href, text });
-    });
+        const links: { href: string; text: string }[] = [];
+        $("a").each((index: number, element) => {
+          const href = $(element).attr("href") || "";
+          const text = $(element).text().trim();
+          if (href && text) links.push({ href, text });
+        });
 
-    const images: { src: string; alt: string }[] = [];
-    $("img").each((index: number, element) => {
-      const src = $(element).attr("src") || "";
-      const alt = $(element).attr("alt") || "";
-      if (src) images.push({ src, alt });
-    });
+        const images: { src: string; alt: string }[] = [];
+        $("img").each((index: number, element) => {
+          const src = $(element).attr("src") || "";
+          const alt = $(element).attr("alt") || "";
+          if (src) images.push({ src, alt });
+        });
 
-    // Extract colors, fonts, and spacing using css-tree
-    const extractedColors = new Set<string>();
-    const extractedFonts = new Set<string>();
-    const extractedSpacing = new Set<string>();
+        // Extract colors, fonts, and spacing using css-tree
+        const extractedColors = new Set<string>();
+        const extractedFonts = new Set<string>();
+        const extractedSpacing = new Set<string>();
 
-    // Process inline styles
-    $("[style]").each((index: number, element) => {
-      const style = $(element).attr("style");
-      if (style) {
-        try {
-          const ast = csstree.parse(style, { context: "declarationList" });
-          csstree.walk(ast, {
-            visit: "Declaration",
-            enter: (node: CssNode) => {
-              if (node.type === 'Declaration') {
-                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-              }
-            },
-          });
-        } catch (e) {
-          console.warn("Error parsing inline style:", style, e);
+        // Process inline styles
+        $("[style]").each((index: number, element) => {
+          const style = $(element).attr("style");
+          if (style) {
+            try {
+              const ast = csstree.parse(style, { context: "declarationList" });
+              csstree.walk(ast, {
+                visit: "Declaration",
+                enter: (node: CssNode) => {
+                  if (node.type === 'Declaration') {
+                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+                  }
+                },
+              });
+            } catch (e) {
+              console.warn("Error parsing inline style:", style, e);
+            }
+          }
+        });
+
+        // Process <style> tags
+        $("style").each((index: number, element) => {
+          const styleContent = $(element).html() || "";
+          if (styleContent) {
+            try {
+              const ast = csstree.parse(styleContent);
+              csstree.walk(ast, {
+                visit: "Declaration",
+                enter: (node: CssNode) => {
+                  if (node.type === 'Declaration') {
+                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+                  }
+                },
+              });
+            } catch (e) {
+              console.warn("Error parsing <style> content:", e);
+            }
+          }
+        });
+
+        // Process <link rel="stylesheet"> tags
+        const cssUrls: string[] = [];
+        $('link[rel="stylesheet"]').each((index: number, element) => {
+          const href = $(element).attr("href") || "";
+          if (href) {
+            try {
+              const absoluteUrl = new URL(href, url).href;
+              cssUrls.push(absoluteUrl);
+            } catch (e) {
+              console.warn(`Invalid CSS link href: ${href}`, e);
+            }
+          }
+        });
+
+        const allCssContents = await Promise.all(cssUrls.map(fetchCss));
+        for (const cssContent of allCssContents) {
+          if (cssContent) {
+            try {
+              const ast = csstree.parse(cssContent);
+              csstree.walk(ast, {
+                visit: "Declaration",
+                enter: (node: CssNode) => {
+                  if (node.type === 'Declaration') {
+                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
+                  }
+                },
+              });
+            } catch (e) {
+              console.warn("Error parsing linked CSS content:", e);
+            }
+          }
         }
-      }
-    });
 
-    // Process <style> tags
-    $("style").each((index: number, element) => {
-      const styleContent = $(element).html() || "";
-      if (styleContent) {
-        try {
-          const ast = csstree.parse(styleContent);
-          csstree.walk(ast, {
-            visit: "Declaration",
-            enter: (node: CssNode) => {
-              if (node.type === 'Declaration') {
-                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-              }
-            },
-          });
-        } catch (e) {
-          console.warn("Error parsing <style> content:", e);
-        }
-      }
-    });
+        // Deduplicate and limit
+        const uniqueColors = Array.from(extractedColors).slice(0, 5);
+        const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
+        const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
 
-    // Process <link rel="stylesheet"> tags
-    const cssUrls: string[] = [];
-    $('link[rel="stylesheet"]').each((index: number, element) => {
-      const href = $(element).attr("href") || "";
-      if (href) {
-        try {
-          const absoluteUrl = new URL(href, url).href;
-          cssUrls.push(absoluteUrl);
-        } catch (e) {
-          console.warn(`Invalid CSS link href: ${href}`, e);
-        }
-      }
-    });
-
-    const allCssContents = await Promise.all(cssUrls.map(fetchCss));
-    for (const cssContent of allCssContents) {
-      if (cssContent) {
-        try {
-          const ast = csstree.parse(cssContent);
-          csstree.walk(ast, {
-            visit: "Declaration",
-            enter: (node: CssNode) => {
-              if (node.type === 'Declaration') {
-                processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-              }
-            },
-          });
-        } catch (e) {
-          console.warn("Error parsing linked CSS content:", e);
-        }
-      }
-    }
-
-    // Deduplicate and limit
-    const uniqueColors = Array.from(extractedColors).slice(0, 5);
-    const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
-    const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
-
-    // Infer tone using AI
-    let tone = "neutral";
-    if (mainText.length > 50) {
-      const { text: aiTone } = await generateText({
-        model: openai("gpt-4o-mini"),
-        messages: [
-          {
+        // Infer tone using AI
+        let tone = "neutral";
+        if (mainText.length > 50) {
+          const { text: aiTone } = await generateText({
+            model: openai("gpt-4o-mini"),
+            messages: [
+              {
             role: "system",
             content: `Analyze the following text and determine its overall tone. Respond with a single word: casual, formal, friendly, professional, playful, serious, urgent, calm. If unsure, default to 'neutral'.
 
@@ -361,15 +361,15 @@ Tone: neutral
 
 Text: "${mainText}"
 Tone:`,
-          },
-        ],
-      });
-      tone = aiTone.trim().toLowerCase();
-      const validTones = ["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"];
-      if (!validTones.includes(tone)) {
-        tone = "neutral";
-      }
-    }
+              },
+            ],
+          });
+          tone = aiTone.trim().toLowerCase();
+          const validTones = ["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"];
+          if (!validTones.includes(tone)) {
+            tone = "neutral";
+          }
+        }
 
         const feelData: FeelData = {
           url,
