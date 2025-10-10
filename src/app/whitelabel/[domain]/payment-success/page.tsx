@@ -37,7 +37,7 @@ export default async function PaymentSuccessPage({ params, searchParams }: Payme
   let subscriptionDetails = null;
   if (session_id) {
     try {
-      const response = await fetch(`${process.env.SITE_URL || 'http://localhost:3001'}/api/saas/verify-checkout`, {
+      const response = await fetch(`${process.env.SITE_URL || 'http://localhost:3000'}/api/saas/verify-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id }),

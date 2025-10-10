@@ -100,6 +100,7 @@ export async function PUT(
         
         if (finalBillingPeriod === 'one-time') {
           // One-time payment - no recurring
+          stripePriceData.type = 'one_time';
         } else {
           // Recurring payments
           let interval: 'month' | 'year' = 'month';
