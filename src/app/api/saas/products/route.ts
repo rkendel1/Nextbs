@@ -161,44 +161,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create default price and tier
-    const unitAmount = priceAmount ?? 1000; // Default $10 USD if not provided
-    let stripePrice;
-    try {
-      stripePrice = await stripe.prices.create({
-        product: stripeProduct.id,
-        unit_amount: unitAmount,
-        currency: 'usd',
-        recurring: {
-          interval: 'month',
-        },
-      });
-    } catch (stripeError: any) {
-      console.error("Stripe price creation error:", stripeError);
-      return NextResponse.json(
-        { error: "Failed to create price in Stripe: " + stripeError.message },
-        { status: 500 }
-      );
-    }
-
-    // Create default tier
-    const tier = await prisma.tier.create({
-      data: {
-        productId: product.id,
-        name: 'Basic',
-        description: 'Basic monthly plan',
-        priceAmount: unitAmount,
-        billingPeriod: 'monthly',
-        features: ['Basic access to product'],
-        stripePriceId: stripePrice.id,
-        sortOrder: 0,
-      },
-    });
-
-    // Update product with stripePriceId
+    // Update product without auto-tier (tier created separately via /tiers)
     const updatedProduct = await prisma.product.update({
       where: { id: product.id },
-      data: { stripePriceId: stripePrice.id },
+      data: { },
       include: {
         tiers: {
           where: { isActive: true },

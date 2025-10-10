@@ -158,6 +158,7 @@ model Tier {
   features      String[]       // Array of feature descriptions
   usageLimit    Int?           // Optional usage limit
   stripePriceId String?        @unique
+  prices        Json?
   isActive      Boolean        @default(true)
   sortOrder     Int            @default(0)
   createdAt     DateTime       @default(now())
@@ -168,8 +169,8 @@ model Tier {
 // Subscriptions - linking subscribers to products and tiers
 model Subscription {
   id                   String       @id @default(cuid())
-  userId               String
-  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String?
+  user                 User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   saasCreatorId        String
   saasCreator          SaasCreator  @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
   productId            String
@@ -393,4 +394,3 @@ model BrandVoice {
 
   @@index([scrapedSiteId])
 }
-

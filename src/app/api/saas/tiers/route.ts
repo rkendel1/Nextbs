@@ -13,6 +13,8 @@ const stripe = new Stripe(stripeSecretKey, {
   apiVersion: "2023-10-16",
 });
 
+type Prices = Record<string, { amount: number; stripePriceId: string }> | null;
+
 // GET fetch active tiers from platform owner's products
 export async function GET() {
   try {
@@ -96,15 +98,34 @@ export async function POST(request: NextRequest) {
       productId,
       isActive,
       sortOrder,
+      hasYearly,
+      discount,
     } = body;
 
-    console.log("Validation fields - name:", name, "priceAmount:", priceAmount, "productId:", productId);
+    console.log("Validation fields - name:", name, "priceAmount:", priceAmount, "productId:", productId, "hasYearly:", hasYearly, "discount:", discount);
     if (!name || !productId || priceAmount === undefined || priceAmount < 0) {
       console.log("Validation failed: Invalid fields");
       return NextResponse.json(
         { error: "Missing or invalid required fields: name, non-negative priceAmount, productId" },
         { status: 400 }
       );
+    }
+
+    // Validate yearly option
+    if (hasYearly) {
+      if (billingPeriod !== 'monthly') {
+        return NextResponse.json(
+          { error: "Yearly option requires monthly billing as base" },
+          { status: 400 }
+        );
+      }
+      const disc = discount || 17;
+      if (disc < 0 || disc > 50) {
+        return NextResponse.json(
+          { error: "Discount must be between 0 and 50%" },
+          { status: 400 }
+        );
+      }
     }
 
     // Find user and SaaS creator
@@ -161,6 +182,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce single tier per product
+    const existingTiersCount = await prisma.tier.count({
+      where: { productId },
+    });
+
+    if (existingTiersCount > 0) {
+      return NextResponse.json(
+        { error: "This product already has a pricing tier. Each product supports only one tier for cleaner pricing cards." },
+        { status: 400 }
+      );
+    }
+
     // Ensure product has Stripe product ID
     if (!product.stripeProductId) {
       let stripeProduct;
@@ -189,50 +222,81 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle free tiers (priceAmount = 0) differently from paid tiers
-    let stripePriceId = null;
-    
+    // Handle pricing for paid tiers (priceAmount > 0)
+    let prices: Prices = null;
     if (priceAmount > 0) {
-      // Create Stripe Price for paid tiers only
       try {
-        let stripePriceData: any = {
-          product: product.stripeProductId!,
-          unit_amount: priceAmount, // Already in cents
-          currency: 'usd',
-          metadata: {
-            tierName: name,
-            productId: productId,
-            saasCreatorId: user.saasCreator.id,
-            platformOwner: user.role === 'platform_owner' ? 'true' : 'false',
-          },
+        const metadata = {
+          tierName: name,
+          productId: productId,
+          saasCreatorId: user.saasCreator.id,
+          platformOwner: user.role === 'platform_owner' ? 'true' : 'false',
         };
 
-        // Handle different billing periods
-        if (billingPeriod === 'one-time') {
-          // One-time payment - no recurring
-          // Stripe doesn't need recurring field for one-time payments
-        } else {
-          // Recurring payments
-          let interval: 'month' | 'year' = 'month';
-          let intervalCount = 1;
+        if (hasYearly && billingPeriod === 'monthly') {
+          const disc = discount || 17;
+          const yrAmount = Math.round(priceAmount * 12 * (1 - disc / 100));
 
-          if (billingPeriod === 'yearly') {
-            interval = 'year';
-          } else if (billingPeriod === 'quarterly') {
-            interval = 'month';
-            intervalCount = 3;
+          // Create monthly price
+          const moPriceData = {
+            product: product.stripeProductId!,
+            unit_amount: priceAmount,
+            currency: 'usd',
+            recurring: { interval: 'month' as const },
+            metadata,
+          };
+          const moPrice = await stripe.prices.create(moPriceData);
+
+          // Create yearly price
+          const yrPriceData = {
+            product: product.stripeProductId!,
+            unit_amount: yrAmount,
+            currency: 'usd',
+            recurring: { interval: 'year' as const },
+            metadata: { ...metadata, discountPercent: disc.toString() },
+          };
+          const yrPrice = await stripe.prices.create(yrPriceData);
+
+          prices = {
+            monthly: { amount: priceAmount, stripePriceId: moPrice.id },
+            yearly: { amount: yrAmount, stripePriceId: yrPrice.id },
+          };
+        } else {
+          // Single price for other cases (one-time, yearly, quarterly, or no yearly)
+          let stripePriceData: any = {
+            product: product.stripeProductId!,
+            unit_amount: priceAmount,
+            currency: 'usd',
+            metadata,
+          };
+
+          if (billingPeriod === 'one-time') {
+            // One-time - no recurring
           } else {
-            interval = 'month';
+            let interval: 'month' | 'year' = 'month';
+            let intervalCount = 1;
+
+            if (billingPeriod === 'yearly') {
+              interval = 'year';
+            } else if (billingPeriod === 'quarterly') {
+              interval = 'month';
+              intervalCount = 3;
+            } else {
+              interval = 'month';
+            }
+
+            stripePriceData.recurring = {
+              interval,
+              interval_count: intervalCount,
+            };
           }
 
-          stripePriceData.recurring = {
-            interval,
-            interval_count: intervalCount,
+          const stripePrice = await stripe.prices.create(stripePriceData);
+          const periodKey = billingPeriod === 'one-time' ? 'one-time' : billingPeriod;
+          prices = {
+            [periodKey]: { amount: priceAmount, stripePriceId: stripePrice.id },
           };
         }
-
-        const stripePrice = await stripe.prices.create(stripePriceData);
-        stripePriceId = stripePrice.id;
       } catch (stripeError: any) {
         console.error("Stripe price creation error:", stripeError);
         return NextResponse.json(
@@ -248,11 +312,12 @@ export async function POST(request: NextRequest) {
         productId,
         name,
         description,
-        priceAmount, // Already in cents
+        priceAmount, // Base amount in cents (monthly or single)
         billingPeriod,
         features: features || [],
         usageLimit: usageLimit ? parseInt(usageLimit) : null,
-        stripePriceId: stripePriceId,
+        stripePriceId: prices ? prices['monthly']?.stripePriceId || prices[billingPeriod as string]?.stripePriceId || null : null,
+        prices: prices || undefined,
         isActive: isActive ?? true,
         sortOrder: sortOrder ?? 0,
       },

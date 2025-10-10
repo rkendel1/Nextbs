@@ -103,6 +103,98 @@ const DashboardStats = ({ stats }: DashboardStatsProps) => {
         </h3>
         <p className="text-sm text-body-color dark:text-dark-6">Monthly Revenue</p>
       </div>
+
+      {/* MRR */}
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-900/20">
+          <svg
+            className="h-6 w-6 text-indigo-600 dark:text-indigo-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <h3 className="mb-2 text-2xl font-bold text-dark dark:text-white">
+          ${(stats.mrr / 100).toLocaleString()}
+        </h3>
+        <p className="text-sm text-body-color dark:text-dark-6">MRR</p>
+      </div>
+
+      {/* ARR */}
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20">
+          <svg
+            className="h-6 w-6 text-purple-600 dark:text-purple-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <h3 className="mb-2 text-2xl font-bold text-dark dark:text-white">
+          ${(stats.arr / 100).toLocaleString()}
+        </h3>
+        <p className="text-sm text-body-color dark:text-dark-6">ARR</p>
+      </div>
+
+      {/* Total Revenue */}
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20">
+          <svg
+            className="h-6 w-6 text-red-600 dark:text-red-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <h3 className="mb-2 text-2xl font-bold text-dark dark:text-white">
+          ${(stats.totalRevenue / 100).toLocaleString()}
+        </h3>
+        <p className="text-sm text-body-color dark:text-dark-6">Total Revenue</p>
+      </div>
+
+      {/* Churn Rate */}
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 dark:bg-orange-900/20">
+          <svg
+            className="h-6 w-6 text-orange-600 dark:text-orange-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <h3 className="mb-2 text-2xl font-bold text-dark dark:text-white">
+          {stats.churnRate}%
+        </h3>
+        <p className="text-sm text-body-color dark:text-dark-6">Churn Rate (30d)</p>
+      </div>
     </div>
   );
 };

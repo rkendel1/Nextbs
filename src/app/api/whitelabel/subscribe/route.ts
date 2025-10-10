@@ -59,22 +59,20 @@ export async function POST(request: NextRequest) {
     const success_url = `${siteUrl}/${domain}${successPath}?session_id={CHECKOUT_SESSION_ID}`;
     const cancel_url = `${siteUrl}/${domain}/products`;
 
-    const lineItems = tier.stripePriceId ? 
-      [{ price: tier.stripePriceId, quantity: 1 }] :
-      [{
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `${product.name} - ${tier.name}`,
-            description: tier.description ?? undefined,
-          },
-          unit_amount: tier.priceAmount,
-          recurring: {
-            interval: tier.billingPeriod === 'monthly' ? ('month' as const) : tier.billingPeriod === 'yearly' ? ('year' as const) : 'month' as const,
-          },
+    const lineItems = [{
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: `${product.name} - ${tier.name}`,
+          description: tier.description ?? undefined,
         },
-        quantity: 1,
-      }];
+        unit_amount: tier.priceAmount,
+        recurring: tier.priceAmount > 0 ? {
+          interval: tier.billingPeriod === 'monthly' ? ('month' as const) : tier.billingPeriod === 'yearly' ? ('year' as const) : ('month' as const),
+        } : undefined,
+      },
+      quantity: 1,
+    }];
 
     // Create checkout session on connected account
     const sessionData = await stripe.checkout.sessions.create(
