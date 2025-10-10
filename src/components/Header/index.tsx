@@ -1,7 +1,6 @@
 "use client";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Moon, Sun, User, LogOut, Settings, BarChart3 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 const Header = () => {
   const { data: session } = useSession();
@@ -112,22 +112,7 @@ const Header = () => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2">
-              <div className="relative h-8 w-32">
-                <Image
-                  src="/images/logo/logo.svg"
-                  alt="logo"
-                  width={120}
-                  height={30}
-                  className="dark:hidden"
-                />
-                <Image
-                  src="/images/logo/logo-white.svg"
-                  alt="logo"
-                  width={120}
-                  height={30}
-                  className="hidden dark:block"
-                />
-              </div>
+              <Logo className="scale-75" />
             </Link>
 
             {/* Desktop Navigation */}

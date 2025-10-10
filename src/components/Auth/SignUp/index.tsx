@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -11,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 const SignUp = () => {
   const router = useRouter();
@@ -81,22 +81,9 @@ const SignUp = () => {
       <div className={`w-full max-w-md ${isSliding ? 'animate-slide-in-right' : 'animate-slide-out-right'}`}>
         <Card className="border-0 auth-card-shadow bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
           <CardHeader className="text-center space-y-3 pb-6">
-            <div className="mb-4">
+            <div className="mb-4 flex justify-center">
               <Link href="/" className="inline-block">
-                <Image
-                  src="/images/logo/logo.svg"
-                  alt="logo"
-                  width={140}
-                  height={30}
-                  className="dark:hidden"
-                />
-                <Image
-                  src="/images/logo/logo-white.svg"
-                  alt="logo"
-                  width={140}
-                  height={30}
-                  className="hidden dark:block"
-                />
+                <Logo className="scale-90" />
               </Link>
             </div>
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>

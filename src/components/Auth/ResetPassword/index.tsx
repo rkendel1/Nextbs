@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/Logo";
 
 const ResetPassword = ({ token }: { token: string }) => {
   const [data, setData] = useState({
@@ -86,22 +86,9 @@ const ResetPassword = ({ token }: { token: string }) => {
               className="wow fadeInUp relative mx-auto max-w-[525px] overflow-hidden rounded-lg bg-white px-8 py-14 text-center dark:bg-dark-2 sm:px-12 md:px-[60px]"
               data-wow-delay=".15s"
             >
-              <div className="mb-10 text-center">
+              <div className="mb-10 text-center flex justify-center">
                 <Link href="/" className="mx-auto inline-block max-w-[160px]">
-                  <Image
-                    src="/images/logo/logo.svg"
-                    alt="logo"
-                    width={140}
-                    height={30}
-                    className="dark:hidden"
-                  />
-                  <Image
-                    src="/images/logo/logo-white.svg"
-                    alt="logo"
-                    width={140}
-                    height={30}
-                    className="hidden dark:block"
-                  />
+                  <Logo className="scale-90" />
                 </Link>
               </div>
 

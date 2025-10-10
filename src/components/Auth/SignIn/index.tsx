@@ -1,6 +1,5 @@
 "use client";
 import { signIn } from "next-auth/react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -12,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, User, ChevronRight } from "lucide-react";
 import MagicLink from "../MagicLink";
 import Loader from "@/components/Common/Loader";
+import { Logo } from "@/components/Logo";
 
 const Signin = () => {
   const router = useRouter();
@@ -107,22 +107,9 @@ const Signin = () => {
       <div className={`w-full max-w-md ${isSliding ? 'animate-slide-in-right' : 'animate-slide-out-right'}`}>
         <Card className="border-0 auth-card-shadow bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
           <CardHeader className="text-center space-y-3 pb-6">
-            <div className="mb-4">
+            <div className="mb-4 flex justify-center">
               <Link href="/" className="inline-block">
-                <Image
-                  src="/images/logo/logo.svg"
-                  alt="logo"
-                  width={140}
-                  height={30}
-                  className="dark:hidden"
-                />
-                <Image
-                  src="/images/logo/logo-white.svg"
-                  alt="logo"
-                  width={140}
-                  height={30}
-                  className="hidden dark:block"
-                />
+                <Logo className="scale-90" />
               </Link>
             </div>
             <CardTitle className="text-2xl font-bold">
