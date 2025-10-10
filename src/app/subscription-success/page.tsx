@@ -6,7 +6,7 @@ export default async function SubscriptionSuccessPage() {
   const session = await getServerSession();
 
   if (!session) {
-    redirect(`/auth/signin?callbackUrl=%2Fsubscription-success`);
+    redirect(`/auth/signin?callbackUrl=%2Fpayment-success`);
   }
 
   return (

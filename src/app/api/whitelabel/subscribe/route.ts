@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     const siteUrl = process.env.SITE_URL || request.headers.get('origin') || 'http://localhost:3000';
 
-    let successPath = whiteLabelConfig.successRedirect || '/subscription-success';
+    let successPath = whiteLabelConfig.successRedirect || '/payment-success';
     // Normalize successPath to remove leading domain if present
     if (successPath.startsWith(`/${domain}`)) {
       successPath = successPath.slice(domain.length + 1);

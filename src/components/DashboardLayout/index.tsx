@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
@@ -30,6 +30,7 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   const navigation = [
     { name: "Overview", href: "/dashboard", icon: Home },
@@ -120,6 +121,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <p className="text-xs text-muted-foreground">Manage billing</p>
               </div>
             </Link>
+
+            {session && (
+              <p className="px-3 text-xs text-muted-foreground capitalize">
+                Role: {session.user.role}
+              </p>
+            )}
             
             <button
               onClick={() => signOut({ callbackUrl: "/" })}

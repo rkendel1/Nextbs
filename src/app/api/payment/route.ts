@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "subscription",
-      success_url: `${siteUrl}/subscription-success`,
+      success_url: `${siteUrl}/payment-success`,
       cancel_url: `${siteUrl}/#pricing`, // Return to pricing section
       allow_promotion_codes: true,
       billing_address_collection: "required",
