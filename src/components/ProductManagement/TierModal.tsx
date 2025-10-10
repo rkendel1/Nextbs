@@ -20,6 +20,11 @@ const TierModal = ({ productId, tier, onClose }: TierModalProps) => {
     features: tier?.features || [],
     isActive: tier?.isActive ?? true,
     sortOrder: tier?.sortOrder ?? 0,
+    // Limit enforcement fields
+    limitAction: tier?.limitAction || "warn",
+    softLimitPercent: tier?.softLimitPercent || 0.8,
+    overageAllowed: tier?.overageAllowed || false,
+    overageRate: tier?.overageRate ? tier.overageRate / 100 : "",
   });
   const [featureInput, setFeatureInput] = useState("");
 
@@ -50,15 +55,28 @@ const TierModal = ({ productId, tier, onClose }: TierModalProps) => {
         : "/api/saas/tiers";
       const method = tier ? "PUT" : "POST";
 
+      const payload: any = {
+        ...formData,
+        productId,
+        priceAmount: Math.round(formData.priceAmount * 100), // Convert to cents
+        usageLimit: formData.usageLimit ? parseInt(formData.usageLimit as any) : null,
+      };
+
+      // Add limit enforcement fields if usage limit is set
+      if (formData.usageLimit) {
+        payload.limitAction = formData.limitAction;
+        payload.softLimitPercent = formData.softLimitPercent;
+        payload.overageAllowed = formData.limitAction === "overage";
+        
+        if (formData.limitAction === "overage" && formData.overageRate) {
+          payload.overageRate = Math.round(parseFloat(formData.overageRate as any) * 100);
+        }
+      }
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          productId,
-          priceAmount: Math.round(formData.priceAmount * 100), // Convert to cents
-          usageLimit: formData.usageLimit ? parseInt(formData.usageLimit as any) : null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -172,6 +190,79 @@ const TierModal = ({ productId, tier, onClose }: TierModalProps) => {
               className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
             />
           </div>
+
+          {/* Limit Enforcement Configuration - Only show if usage limit is set */}
+          {formData.usageLimit && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-900/30">
+              <h3 className="text-base font-semibold text-dark dark:text-white mb-3">
+                Usage Limit Enforcement
+              </h3>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2.5 block text-sm font-medium text-dark dark:text-white">
+                    Limit Action
+                  </label>
+                  <select
+                    value={formData.limitAction}
+                    onChange={(e) =>
+                      setFormData({ ...formData, limitAction: e.target.value })
+                    }
+                    className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 text-sm text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                  >
+                    <option value="warn">Soft Limit - Warn only</option>
+                    <option value="block">Hard Limit - Block usage</option>
+                    <option value="overage">Allow Overage - Charge extra</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2.5 block text-sm font-medium text-dark dark:text-white">
+                    Warning Threshold (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.softLimitPercent * 100}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        softLimitPercent: parseFloat(e.target.value) / 100,
+                      })
+                    }
+                    className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              {formData.limitAction === "overage" && (
+                <div className="mt-4">
+                  <label className="mb-2.5 block text-sm font-medium text-dark dark:text-white">
+                    Overage Rate (USD per unit)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.01"
+                    value={formData.overageRate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, overageRate: e.target.value })
+                    }
+                    className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                  />
+                  <p className="mt-1 text-xs text-body-color dark:text-dark-6">
+                    Charge this amount for each unit used over the limit
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs text-blue-700 dark:text-blue-300">
+                <strong>💡 Tip:</strong> Soft limits (warn) provide the best user experience. Hard limits (block) protect your infrastructure. Overage pricing offers flexibility.
+              </div>
+            </div>
+          )}
 
           <div className="mt-6">
             <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
