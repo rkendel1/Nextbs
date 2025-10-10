@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings, Copy, CopyCheck, Eye } from "lucide-react";
+import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings, Copy, CopyCheck, Eye, Webhook, Key, AlertTriangle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
+import ProductPreviewCard from "./ProductPreviewCard";
 
 interface GuidedProductWizardProps {
   onClose: (updated: boolean) => void;
@@ -33,11 +34,41 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
     meteringUnit: "count",
     aggregationType: "sum",
   });
+  const [limitConfig, setLimitConfig] = useState({
+    limitAction: "warn" as "warn" | "block" | "overage",
+    softLimitPercent: 80,
+    overageRate: "",
+  });
+  const [webhookConfig, setWebhookConfig] = useState({
+    enabled: false,
+    url: "",
+    events: [] as string[],
+  });
+  const [apiKeyConfig, setApiKeyConfig] = useState({
+    requiresApiKey: false,
+    apiKeyName: "",
+  });
   const [createdProductId, setCreatedProductId] = useState<string>("");
   const [whiteLabelConfig, setWhiteLabelConfig] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [embedCode, setEmbedCode] = useState("");
   const [showEmbedPreview, setShowEmbedPreview] = useState(false);
+
+  useEffect(() => {
+    // Fetch white-label config on mount for preview card
+    const fetchWhiteLabelConfig = async () => {
+      try {
+        const response = await fetch("/api/saas/white-label");
+        if (response.ok) {
+          const data = await response.json();
+          setWhiteLabelConfig(data.whiteLabel);
+        }
+      } catch (error) {
+        console.error("Failed to fetch white-label config:", error);
+      }
+    };
+    fetchWhiteLabelConfig();
+  }, []);
 
   const addFeature = () => {
     setTierData({
@@ -90,6 +121,12 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
       // Add usage limit for usage-based products
       if ((productType === "usage-based" || productType === "metered") && tierData.usageLimit) {
         tierPayload.usageLimit = parseInt(tierData.usageLimit);
+        // Add limit enforcement configuration
+        tierPayload.limitAction = limitConfig.limitAction;
+        tierPayload.softLimitPercent = limitConfig.softLimitPercent / 100; // Convert to decimal
+        if (limitConfig.limitAction === "overage" && limitConfig.overageRate) {
+          tierPayload.overageRate = Math.round(parseFloat(limitConfig.overageRate) * 100); // Convert to cents
+        }
       }
 
       const tierResponse = await fetch("/api/saas/tiers", {
@@ -104,17 +141,46 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
 
       // Create metering config for metered/usage-based products
       if (productType === "metered" || productType === "usage-based") {
+        const meteringPayload: any = {
+          productId: product.product.id,
+          ...meteringConfig,
+        };
+
+        // Add webhook URL if configured
+        if (webhookConfig.enabled && webhookConfig.url) {
+          meteringPayload.usageReportingUrl = webhookConfig.url;
+          meteringPayload.webhookEvents = webhookConfig.events;
+        }
+
         const meteringResponse = await fetch("/api/saas/metering", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: product.product.id,
-            ...meteringConfig,
-          }),
+          body: JSON.stringify(meteringPayload),
         });
 
         if (!meteringResponse.ok) {
           console.warn("Failed to create metering config, but product was created");
+        }
+      }
+
+      // Create API key if required
+      if (apiKeyConfig.requiresApiKey && apiKeyConfig.apiKeyName) {
+        try {
+          const apiKeyResponse = await fetch("/api/saas/api-keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: apiKeyConfig.apiKeyName,
+              productId: product.product.id,
+              permissions: ["usage:read", "usage:write"],
+            }),
+          });
+
+          if (!apiKeyResponse.ok) {
+            console.warn("Failed to create API key, but product was created");
+          }
+        } catch (error) {
+          console.warn("Error creating API key:", error);
         }
       }
 
@@ -617,6 +683,97 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Limit Enforcement Configuration */}
+                {tierData.usageLimit && (
+                  <div className="space-y-4 border-t border-stroke dark:border-dark-3 pt-4 mt-4">
+                    <h4 className="font-semibold text-dark dark:text-white flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-primary" />
+                      Limit Enforcement
+                    </h4>
+
+                    <div>
+                      <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                        What happens when limit is reached? *
+                      </label>
+                      <select
+                        value={limitConfig.limitAction}
+                        onChange={(e) =>
+                          setLimitConfig({ ...limitConfig, limitAction: e.target.value as "warn" | "block" | "overage" })
+                        }
+                        className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                      >
+                        <option value="warn">Soft Limit (Warn only - allow usage to continue)</option>
+                        <option value="block">Hard Limit (Block usage when exceeded)</option>
+                        <option value="overage">Allow Overage (Charge extra for usage over limit)</option>
+                      </select>
+                      <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                        {limitConfig.limitAction === "warn" && "Users receive warnings but can continue using the service"}
+                        {limitConfig.limitAction === "block" && "Usage is blocked once limit is reached"}
+                        {limitConfig.limitAction === "overage" && "Users are charged for usage beyond the limit"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                        Warning Threshold (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="80"
+                        value={limitConfig.softLimitPercent}
+                        onChange={(e) =>
+                          setLimitConfig({ ...limitConfig, softLimitPercent: parseInt(e.target.value) || 80 })
+                        }
+                        className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                      />
+                      <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                        Users will receive a warning when they reach this percentage of their limit (e.g., 80% means warning at {tierData.usageLimit ? Math.floor(parseInt(tierData.usageLimit) * (limitConfig.softLimitPercent / 100)) : 0} units)
+                      </p>
+                    </div>
+
+                    {limitConfig.limitAction === "overage" && (
+                      <div>
+                        <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                          Overage Rate (USD per unit)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.01"
+                          value={limitConfig.overageRate}
+                          onChange={(e) =>
+                            setLimitConfig({ ...limitConfig, overageRate: e.target.value })
+                          }
+                          className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                        />
+                        <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                          Price charged per unit over the limit (e.g., $0.01 per API call over limit)
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <div className="flex gap-2">
+                        <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Limit Enforcement Best Practices
+                          </p>
+                          <ul className="text-sm text-blue-700 dark:text-blue-300 mt-2 space-y-1">
+                            <li>• Set warning at 80-90% to give users time to upgrade</li>
+                            <li>• Hard limits work best for free tiers</li>
+                            <li>• Overage pricing provides flexibility for power users</li>
+                            <li>• Always communicate limits clearly to users</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -753,6 +910,171 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   <div className="text-blue-600 dark:text-blue-400">await reportUsage<span className="text-dark dark:text-white">(</span>fileSizeGB<span className="text-dark dark:text-white">)</span></div>
                 </div>
               </div>
+            </div>
+
+            {/* Webhook Configuration */}
+            <div className="border-t border-stroke dark:border-dark-3 pt-6 space-y-4">
+              <h4 className="font-semibold text-dark dark:text-white flex items-center gap-2">
+                <Webhook className="h-5 w-5 text-primary" />
+                Webhook Configuration (Optional)
+              </h4>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="enableWebhooks"
+                  checked={webhookConfig.enabled}
+                  onChange={(e) =>
+                    setWebhookConfig({ ...webhookConfig, enabled: e.target.checked })
+                  }
+                  className="h-4 w-4 text-primary focus:ring-2 focus:ring-primary"
+                />
+                <label htmlFor="enableWebhooks" className="text-base font-medium text-dark dark:text-white">
+                  Enable webhook notifications for usage events
+                </label>
+              </div>
+
+              {webhookConfig.enabled && (
+                <div className="space-y-4 pl-7">
+                  <div>
+                    <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                      Webhook URL *
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://your-domain.com/webhooks/usage"
+                      value={webhookConfig.url}
+                      onChange={(e) =>
+                        setWebhookConfig({ ...webhookConfig, url: e.target.value })
+                      }
+                      className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                    />
+                    <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                      We&apos;ll send POST requests to this URL when usage events occur
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                      Events to Track
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        { value: "usage.recorded", label: "Usage Recorded", desc: "Triggered each time usage is reported" },
+                        { value: "limit.warning", label: "Limit Warning", desc: "Triggered at warning threshold" },
+                        { value: "limit.exceeded", label: "Limit Exceeded", desc: "Triggered when limit is reached" },
+                        { value: "subscription.updated", label: "Subscription Updated", desc: "Triggered on subscription changes" },
+                      ].map((event) => (
+                        <div key={event.value} className="flex items-start gap-3 p-3 rounded-lg border border-stroke dark:border-dark-3">
+                          <input
+                            type="checkbox"
+                            id={event.value}
+                            checked={webhookConfig.events.includes(event.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setWebhookConfig({
+                                  ...webhookConfig,
+                                  events: [...webhookConfig.events, event.value],
+                                });
+                              } else {
+                                setWebhookConfig({
+                                  ...webhookConfig,
+                                  events: webhookConfig.events.filter((ev) => ev !== event.value),
+                                });
+                              }
+                            }}
+                            className="mt-1 h-4 w-4 text-primary focus:ring-2 focus:ring-primary"
+                          />
+                          <label htmlFor={event.value} className="flex-1">
+                            <p className="text-sm font-medium text-dark dark:text-white">{event.label}</p>
+                            <p className="text-xs text-body-color dark:text-dark-6">{event.desc}</p>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                    <div className="flex gap-2">
+                      <Code className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                          Webhook Payload Example
+                        </p>
+                        <pre className="text-xs text-purple-700 dark:text-purple-300 mt-2 overflow-x-auto">
+{`{
+  "event": "usage.recorded",
+  "subscriptionId": "sub_xxx",
+  "userId": "user_xxx",
+  "quantity": 100,
+  "timestamp": "2024-01-15T10:30:00Z"
+}`}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* API Key Management */}
+            <div className="border-t border-stroke dark:border-dark-3 pt-6 space-y-4">
+              <h4 className="font-semibold text-dark dark:text-white flex items-center gap-2">
+                <Key className="h-5 w-5 text-primary" />
+                API Key Management (Optional)
+              </h4>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="requiresApiKey"
+                  checked={apiKeyConfig.requiresApiKey}
+                  onChange={(e) =>
+                    setApiKeyConfig({ ...apiKeyConfig, requiresApiKey: e.target.checked })
+                  }
+                  className="h-4 w-4 text-primary focus:ring-2 focus:ring-primary"
+                />
+                <label htmlFor="requiresApiKey" className="text-base font-medium text-dark dark:text-white">
+                  Generate API keys for subscribers
+                </label>
+              </div>
+
+              {apiKeyConfig.requiresApiKey && (
+                <div className="space-y-4 pl-7">
+                  <div>
+                    <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+                      API Key Purpose/Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Production API Access"
+                      value={apiKeyConfig.apiKeyName}
+                      onChange={(e) =>
+                        setApiKeyConfig({ ...apiKeyConfig, apiKeyName: e.target.value })
+                      }
+                      className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                    />
+                    <p className="mt-2 text-xs text-body-color dark:text-dark-6">
+                      Helps you and subscribers identify the key&apos;s purpose
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                    <div className="flex gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                          Automatic API Key Generation
+                        </p>
+                        <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                          When enabled, we&apos;ll automatically generate a unique API key for each subscriber. 
+                          Keys are securely sent via email and displayed in their account dashboard.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
@@ -919,6 +1241,30 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                 </div>
               </div>
             </div>
+
+            {/* Product Preview Card */}
+            {whiteLabelConfig && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-lg border-2 border-dashed border-purple-300/50">
+                <div className="flex items-center gap-2 mb-4">
+                  <Eye className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <h4 className="font-semibold text-dark dark:text-white">
+                    Live Preview on Your Site
+                  </h4>
+                </div>
+                <ProductPreviewCard
+                  productName={productData.name}
+                  description={productData.description}
+                  tierName={tierData.name}
+                  price={parseFloat(tierData.priceAmount) || 0}
+                  billingPeriod={tierData.billingPeriod}
+                  features={tierData.features.filter(f => f.trim())}
+                  primaryColor={whiteLabelConfig?.primaryColor || "#3b82f6"}
+                  businessName={whiteLabelConfig?.businessName}
+                  logoUrl={whiteLabelConfig?.logoUrl}
+                  isActive={productData.isActive}
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <Button
