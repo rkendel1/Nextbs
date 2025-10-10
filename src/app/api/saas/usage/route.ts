@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/utils/prismaDB";
 import { verifyApiKey, hasPermission } from "@/utils/middleware/apiKeyAuth";
+import {
+  checkUsageLimit,
+  shouldTriggerWarning,
+  createLimitEvent,
+  sendUsageWarning,
+} from "@/utils/usageLimits";
+import { reportUsageToStripe } from "@/utils/stripeUsageReporting";
 
 // POST track usage
 export async function POST(request: NextRequest) {
@@ -38,6 +45,7 @@ export async function POST(request: NextRequest) {
       where: { id: subscriptionId },
       include: {
         saasCreator: true,
+        tier: true,
         product: {
           include: {
             meteringConfig: true,
@@ -66,6 +74,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ========== NEW: CHECK USAGE LIMITS ==========
+    const limitCheck = await checkUsageLimit(subscriptionId, parseFloat(quantity));
+
+    // If blocked, return 429 Too Many Requests
+    if (!limitCheck.allowed) {
+      // Create exceeded event
+      await createLimitEvent(
+        subscriptionId,
+        userId,
+        "exceeded",
+        limitCheck.currentUsage,
+        limitCheck.limit!
+      );
+
+      // Send notification
+      await sendUsageWarning(
+        userId,
+        "exceeded",
+        limitCheck.currentUsage,
+        limitCheck.limit!,
+        limitCheck.percentage
+      );
+
+      return NextResponse.json(
+        {
+          error: limitCheck.reason || "Usage limit exceeded",
+          limits: {
+            limit: limitCheck.limit,
+            currentUsage: limitCheck.currentUsage,
+            requestedQuantity: parseFloat(quantity),
+            percentage: limitCheck.percentage.toFixed(1),
+          },
+        },
+        { status: 429 } // Too Many Requests
+      );
+    }
+
+    // Check if we should send a warning
+    if (limitCheck.limit && limitCheck.percentage >= 80) {
+      const warningCheck = await shouldTriggerWarning(
+        subscriptionId,
+        limitCheck.percentage,
+        subscription.tier
+      );
+
+      if (warningCheck.shouldTrigger) {
+        const eventType = limitCheck.percentage >= 95 ? "critical" : "warning";
+        
+        // Create warning event
+        await createLimitEvent(
+          subscriptionId,
+          userId,
+          eventType,
+          limitCheck.currentUsage,
+          limitCheck.limit,
+          warningCheck.threshold
+        );
+
+        // Send warning notification
+        await sendUsageWarning(
+          userId,
+          eventType,
+          limitCheck.currentUsage,
+          limitCheck.limit,
+          limitCheck.percentage
+        );
+      }
+    }
+    // ========== END LIMIT ENFORCEMENT ==========
+
     // Create usage record
     const usageRecord = await prisma.usageRecord.create({
       data: {
@@ -75,6 +153,20 @@ export async function POST(request: NextRequest) {
         metadata: metadata || {},
       },
     });
+
+    // ========== NEW: REPORT TO STRIPE ==========
+    let stripeReported = false;
+    try {
+      stripeReported = await reportUsageToStripe(
+        subscriptionId,
+        parseFloat(quantity),
+        usageRecord.timestamp
+      );
+    } catch (stripeError) {
+      console.error("Stripe reporting failed:", stripeError);
+      // Continue even if Stripe fails - local tracking is primary
+    }
+    // ========== END STRIPE REPORTING ==========
 
     // If there's a webhook URL, send usage data
     if (subscription.product.meteringConfig?.usageReportingUrl) {
@@ -104,7 +196,16 @@ export async function POST(request: NextRequest) {
         id: usageRecord.id,
         quantity: usageRecord.quantity,
         timestamp: usageRecord.timestamp,
+        stripeReported, // NEW: indicate if reported to Stripe
       },
+      limits: limitCheck.limit ? {
+        limit: limitCheck.limit,
+        currentUsage: limitCheck.currentUsage,
+        newTotal: limitCheck.newTotal,
+        percentage: limitCheck.percentage.toFixed(1),
+        action: limitCheck.action,
+        reason: limitCheck.reason,
+      } : undefined,
     }, { status: 201 });
   } catch (error: any) {
     console.error("Track usage error:", error);

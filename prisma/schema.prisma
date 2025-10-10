@@ -39,16 +39,16 @@ model Session {
 }
 
 model User {
-  id                    String         @id @default(cuid())
+  id                    String              @id @default(cuid())
   name                  String?
-  email                 String?        @unique
+  email                 String?             @unique
   emailVerified         DateTime?
   image                 String?
   password              String?
-  passwordResetToken    String?        @unique
+  passwordResetToken    String?             @unique
   passwordResetTokenExp DateTime?
-  role                  String         @default("creator") // creator, platform_owner
-  subscriptionStatus    SubscriptionStatus @default(FREE)
+  role                  String              @default("creator") // creator, platform_owner
+  subscriptionStatus    SubscriptionStatus  @default(FREE)
   accounts              Account[]
   sessions              Session[]
   saasCreator           SaasCreator?
@@ -56,6 +56,7 @@ model User {
   usageRecords          UsageRecord[]
   apiKeys               ApiKey[]
   emailNotifications    EmailNotification[]
+  usageLimitEvents      UsageLimitEvent[]
 }
 
 enum SubscriptionStatus {
@@ -130,74 +131,86 @@ model StripeAccount {
 
 // Products offered by SaaS creators
 model Product {
-  id               String      @id @default(cuid())
-  saasCreatorId    String
-  saasCreator      SaasCreator @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  name             String
-  description      String?     @db.Text
-  imageUrl         String?
-  isActive         Boolean     @default(true)
-  stripePriceId    String?
-  stripeProductId  String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  tiers            Tier[]
-  subscriptions    Subscription[]
-  meteringConfig   MeteringConfig?
+  id              String          @id @default(cuid())
+  saasCreatorId   String
+  saasCreator     SaasCreator     @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?         @db.Text
+  imageUrl        String?
+  isActive        Boolean         @default(true)
+  stripePriceId   String?
+  stripeProductId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tiers           Tier[]
+  subscriptions   Subscription[]
+  meteringConfig  MeteringConfig?
 }
 
 // Pricing tiers for products
 model Tier {
-  id            String         @id @default(cuid())
-  productId     String
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?        @db.Text
-  priceAmount   Int            // Amount in cents
-  billingPeriod String         // monthly, yearly, etc.
-  features      String[]       // Array of feature descriptions
-  usageLimit    Int?           // Optional usage limit
-  stripePriceId String?        @unique
-  prices        Json?
-  isActive      Boolean        @default(true)
-  sortOrder     Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  subscriptions Subscription[]
+  id                   String         @id @default(cuid())
+  productId            String
+  product              Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?        @db.Text
+  priceAmount          Int // Amount in cents
+  billingPeriod        String // monthly, yearly, etc.
+  features             String[] // Array of feature descriptions
+  usageLimit           Int? // Optional usage limit
+  stripePriceId        String?        @unique
+  prices               Json?
+  isActive             Boolean        @default(true)
+  sortOrder            Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  subscriptions        Subscription[]
+  // Limit enforcement fields
+  softLimitPercent     Float?         @default(0.8) // Warning at 80%
+  limitAction          String         @default("warn") // "block", "warn", "overage"
+  overageAllowed       Boolean        @default(false)
+  overageRate          Int? // Cost per unit over limit (cents)
+  warningThresholds    Json? // Custom thresholds [0.7, 0.85, 0.95]
+  // Stripe metered billing fields
+  meteringEnabled      Boolean        @default(false)
+  stripePriceIdMetered String?        @unique // Separate price for metered component
+  unitPrice            Int? // Price per unit in cents (for metered)
 }
 
 // Subscriptions - linking subscribers to products and tiers
 model Subscription {
-  id                   String       @id @default(cuid())
+  id                   String                   @id @default(cuid())
   userId               String?
-  user                 User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                 User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
   saasCreatorId        String
-  saasCreator          SaasCreator  @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  saasCreator          SaasCreator              @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
   productId            String
-  product              Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product              Product                  @relation(fields: [productId], references: [id], onDelete: Cascade)
   tierId               String
-  tier                 Tier         @relation(fields: [tierId], references: [id], onDelete: Cascade)
-  stripeSubscriptionId String?      @unique
-  status               String       @default("active") // active, canceled, past_due, etc.
+  tier                 Tier                     @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String?                  @unique
+  status               String                   @default("active") // active, canceled, past_due, etc.
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
-  cancelAtPeriodEnd    Boolean      @default(false)
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  cancelAtPeriodEnd    Boolean                  @default(false)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
   usageRecords         UsageRecord[]
+  usageLimitEvents     UsageLimitEvent[]
+  stripeItems          StripeSubscriptionItem[]
 }
 
 // Metering configuration for products
 model MeteringConfig {
-  id               String   @id @default(cuid())
-  productId        String   @unique
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  meteringType     String   // requests, users, storage, compute, etc.
-  meteringUnit     String   // count, GB, hours, etc.
-  aggregationType  String   // sum, max, last_during_period
+  id                String   @id @default(cuid())
+  productId         String   @unique
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  meteringType      String // requests, users, storage, compute, etc.
+  meteringUnit      String // count, GB, hours, etc.
+  aggregationType   String // sum, max, last_during_period
   usageReportingUrl String? // Webhook URL for usage reporting
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // Usage tracking records
@@ -209,7 +222,7 @@ model UsageRecord {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   quantity       Float
   timestamp      DateTime     @default(now())
-  metadata       Json?        // Additional context about the usage
+  metadata       Json? // Additional context about the usage
   reportedAt     DateTime     @default(now())
 
   @@index([subscriptionId, timestamp])
@@ -237,20 +250,20 @@ model WhiteLabelConfig {
 
 // API Keys for authentication
 model ApiKey {
-  id            String      @id @default(cuid())
+  id            String       @id @default(cuid())
   userId        String?
-  user          User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   saasCreatorId String?
   saasCreator   SaasCreator? @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
   name          String
-  key           String      @unique
-  keyPrefix     String?     // First 8 chars for display
-  permissions   String[]    // Array of permissions
+  key           String       @unique
+  keyPrefix     String? // First 8 chars for display
+  permissions   String[] // Array of permissions
   lastUsedAt    DateTime?
   expiresAt     DateTime?
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([userId])
   @@index([saasCreatorId])
@@ -259,19 +272,19 @@ model ApiKey {
 
 // Email notification tracking
 model EmailNotification {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type          String   // subscription_created, payment_failed, etc.
-  subject       String
-  body          String   @db.Text
-  recipient     String
-  status        String   @default("pending") // pending, sent, failed
-  sentAt        DateTime?
-  error         String?  @db.Text
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // subscription_created, payment_failed, etc.
+  subject   String
+  body      String    @db.Text
+  recipient String
+  status    String    @default("pending") // pending, sent, failed
+  sentAt    DateTime?
+  error     String?   @db.Text
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -280,16 +293,16 @@ model EmailNotification {
 
 // Webhook events from Stripe
 model WebhookEvent {
-  id              String   @id @default(cuid())
-  eventId         String   @unique // Stripe event ID
-  eventType       String
-  status          String   @default("pending") // pending, processed, failed
-  payload         Json
-  processedAt     DateTime?
-  error           String?  @db.Text
-  retryCount      Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String    @id @default(cuid())
+  eventId     String    @unique // Stripe event ID
+  eventType   String
+  status      String    @default("pending") // pending, processed, failed
+  payload     Json
+  processedAt DateTime?
+  error       String?   @db.Text
+  retryCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([eventType])
   @@index([status])
@@ -298,20 +311,20 @@ model WebhookEvent {
 
 // Analytics snapshots for performance
 model AnalyticsSnapshot {
-  id              String   @id @default(cuid())
-  saasCreatorId   String?
-  saasCreator     SaasCreator? @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  period          String   // daily, weekly, monthly
-  periodStart     DateTime
-  periodEnd       DateTime
-  totalRevenue    Int      @default(0)
-  newSubscribers  Int      @default(0)
-  churnedSubscribers Int   @default(0)
-  activeSubscribers Int    @default(0)
-  totalUsage      Float    @default(0)
-  metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                 String       @id @default(cuid())
+  saasCreatorId      String?
+  saasCreator        SaasCreator? @relation(fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  period             String // daily, weekly, monthly
+  periodStart        DateTime
+  periodEnd          DateTime
+  totalRevenue       Int          @default(0)
+  newSubscribers     Int          @default(0)
+  churnedSubscribers Int          @default(0)
+  activeSubscribers  Int          @default(0)
+  totalUsage         Float        @default(0)
+  metadata           Json?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   @@unique([saasCreatorId, period, periodStart])
   @@index([saasCreatorId])
@@ -319,20 +332,20 @@ model AnalyticsSnapshot {
 }
 
 model ScrapedSite {
-  id            String       @id @default(cuid())
-  saasCreatorId String       @unique
-  saasCreator   SaasCreator  @relation("SaasCreatorToScrapedSite", fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  url           String       @unique
-  domain        String?
-  title         String?
-  description   String?
-  crawledAt     DateTime     @default(now())
-  rawHtml       String?
-  screenshot    Bytes?
-  companyInfo   CompanyInfo? @relation("ScrapedSiteToCompanyInfo")
-  designTokens  DesignToken[] @relation("ScrapedSiteToDesignToken")
+  id              String           @id @default(cuid())
+  saasCreatorId   String           @unique
+  saasCreator     SaasCreator      @relation("SaasCreatorToScrapedSite", fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  url             String           @unique
+  domain          String?
+  title           String?
+  description     String?
+  crawledAt       DateTime         @default(now())
+  rawHtml         String?
+  screenshot      Bytes?
+  companyInfo     CompanyInfo?     @relation("ScrapedSiteToCompanyInfo")
+  designTokens    DesignToken[]    @relation("ScrapedSiteToDesignToken")
   scrapedProducts ScrapedProduct[] @relation("ScrapedSiteToScrapedProduct")
-  brandVoice    BrandVoice?  @relation("ScrapedSiteToBrandVoice")
+  brandVoice      BrandVoice?      @relation("ScrapedSiteToBrandVoice")
 
   @@index([url])
   @@index([domain])
@@ -354,43 +367,83 @@ model CompanyInfo {
 }
 
 model DesignToken {
-  id        String      @id @default(cuid())
+  id            String      @id @default(cuid())
   scrapedSiteId String
-  scrapedSite ScrapedSite @relation("ScrapedSiteToDesignToken", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
-  tokenKey  String
-  tokenType String
-  tokenValue String
-  source    String?
-  meta      Json?
-  createdAt DateTime    @default(now())
+  scrapedSite   ScrapedSite @relation("ScrapedSiteToDesignToken", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  tokenKey      String
+  tokenType     String
+  tokenValue    String
+  source        String?
+  meta          Json?
+  createdAt     DateTime    @default(now())
 
   @@index([scrapedSiteId])
   @@index([tokenType])
 }
 
 model ScrapedProduct {
-  id          String      @id @default(cuid())
+  id            String      @id @default(cuid())
   scrapedSiteId String
-  scrapedSite ScrapedSite @relation("ScrapedSiteToScrapedProduct", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
-  name        String
-  slug        String?
-  price       String?
-  description String?
-  productUrl  String?
-  metadata    Json?
-  createdAt   DateTime    @default(now())
+  scrapedSite   ScrapedSite @relation("ScrapedSiteToScrapedProduct", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String?
+  price         String?
+  description   String?
+  productUrl    String?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
 
   @@index([scrapedSiteId])
 }
 
 model BrandVoice {
-  id           String      @id @default(cuid())
-  scrapedSiteId String     @unique
-  scrapedSite  ScrapedSite @relation("ScrapedSiteToBrandVoice", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
-  summary      String?
-  guidelines   Json?
-  embedding    Unsupported("vector(1536)")?
-  createdAt    DateTime    @default(now())
+  id            String                       @id @default(cuid())
+  scrapedSiteId String                       @unique
+  scrapedSite   ScrapedSite                  @relation("ScrapedSiteToBrandVoice", fields: [scrapedSiteId], references: [id], onDelete: Cascade)
+  summary       String?
+  guidelines    Json?
+  embedding     Unsupported("vector(1536)")?
+  createdAt     DateTime                     @default(now())
 
   @@index([scrapedSiteId])
+}
+
+// Usage limit event tracking
+model UsageLimitEvent {
+  id               String       @id @default(cuid())
+  subscriptionId   String
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType        String // "warning", "critical", "exceeded", "reset"
+  threshold        Float // 0.8, 0.9, 1.0
+  currentUsage     Float
+  usageLimit       Int
+  percentage       Float
+  timestamp        DateTime     @default(now())
+  notificationSent Boolean      @default(false)
+  notifiedAt       DateTime?
+  metadata         Json?
+
+  @@index([subscriptionId, timestamp])
+  @@index([userId, timestamp])
+  @@index([eventType])
+}
+
+// Stripe subscription item tracking for metered billing
+model StripeSubscriptionItem {
+  id                       String       @id @default(cuid())
+  subscriptionId           String
+  subscription             Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  stripeSubscriptionItemId String       @unique
+  stripePriceId            String
+  itemType                 String // "base_fee" or "metered_usage"
+  meteringType             String? // "api_calls", "storage", etc.
+  lastReportedUsage        Float?       @default(0)
+  lastReportedAt           DateTime?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  @@index([subscriptionId])
+  @@index([stripeSubscriptionItemId])
 }
