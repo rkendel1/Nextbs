@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
         customDomain: whiteLabelConfig.customDomain,
         subdomain: whiteLabelConfig.subdomain,
         customCss: whiteLabelConfig.customCss,
+        successRedirect: whiteLabelConfig.successRedirect,
         isActive: whiteLabelConfig.isActive,
       },
       designTokens: {

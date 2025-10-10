@@ -205,7 +205,7 @@ const WhiteLabelProductDetails = () => {
                     className="w-full px-4 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    {submitting ? 'Processing...' : 'Subscribe Now'}
+                    {submitting ? 'Processing...' : 'Checkout'}
                   </button>
 
                   {error && (

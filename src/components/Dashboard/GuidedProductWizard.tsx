@@ -1037,7 +1037,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     <input
                       type="text"
                       readOnly
-                      value={`${window.location.origin}/whitelabel/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain + '.platform.com'}/products/${createdProductId}`}
+                      value={`${window.location.origin}/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain}/products/${createdProductId}`}
                       className="w-full p-3 border rounded-lg text-sm font-mono bg-gray-100 dark:bg-dark-3"
                     />
                     <Button
@@ -1045,7 +1045,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                       size="sm"
                       className="absolute right-2 top-2"
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/whitelabel/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain + '.platform.com'}/products/${createdProductId}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/${whiteLabelConfig.customDomain || whiteLabelConfig.subdomain}/products/${createdProductId}`);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -1108,12 +1108,12 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     </p>
                   </div>
                   <p className="text-sm text-body-color dark:text-dark-6 mb-4">
-                    Set up your custom domain or subdomain to get your public product page.
+                    Check out your product on your whitelabel product page!
                   </p>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open("/dashboard/white-label", "_blank")}
+                    onClick={() => window.open(`/${whiteLabelConfig?.subdomain || ""}`, "_blank")}
                     className="mx-auto"
                   >
                     Set Up White-Label →

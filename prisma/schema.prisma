@@ -228,6 +228,7 @@ model WhiteLabelConfig {
   customDomain    String?     @unique
   subdomain       String?     @unique
   customCss       String?     @db.Text
+  successRedirect String?
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +31,12 @@ import Loader from "@/components/Common/Loader";
 import GuidedProductWizard from "./GuidedProductWizard";
 import ProductsList from "./ProductsList";
 
+interface WhiteLabelConfig {
+  subdomain?: string;
+  customDomain?: string;
+  successRedirect?: string;
+}
+
 const Dashboard = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -47,6 +55,13 @@ const Dashboard = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [showProductModal, setShowProductModal] = useState(false);
   const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [whiteLabelConfig, setWhiteLabelConfig] = useState<WhiteLabelConfig | null>(null);
+  const [formData, setFormData] = useState({
+    subdomain: '',
+    customDomain: '',
+    successRedirect: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -60,8 +75,46 @@ const Dashboard = () => {
     if (saasCreator) {
       fetchProducts();
       fetchSubscribers();
+      fetchWhiteLabelConfig();
     }
   }, [saasCreator]);
+
+  useEffect(() => {
+    if (whiteLabelConfig) {
+      setFormData({
+        subdomain: whiteLabelConfig.subdomain || '',
+        customDomain: whiteLabelConfig.customDomain || '',
+        successRedirect: whiteLabelConfig.successRedirect || '',
+      });
+    }
+  }, [whiteLabelConfig]);
+
+  const handleSaveConfig = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/saas/white-label/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWhiteLabelConfig({
+          subdomain: data.config.subdomain,
+          customDomain: data.config.customDomain,
+        });
+        toast.success('Configuration saved successfully');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to save configuration');
+      }
+    } catch (error) {
+      toast.error('Failed to save configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const checkOnboardingStatus = async () => {
     try {
@@ -84,6 +137,21 @@ const Dashboard = () => {
       toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWhiteLabelConfig = async () => {
+    try {
+      const response = await fetch("/api/saas/white-label/config");
+      if (response.ok) {
+        const data = await response.json();
+        setWhiteLabelConfig({
+          subdomain: data.subdomain,
+          customDomain: data.customDomain,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch white label config:', error);
     }
   };
 
@@ -234,6 +302,7 @@ const Dashboard = () => {
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -347,14 +416,23 @@ const Dashboard = () => {
                   <Button 
                     variant="outline" 
                     className="justify-start h-auto py-4 flex-col items-start gap-2"
-                    onClick={() => router.push("/dashboard/white-label")}
+                    onClick={() => {
+                      const origin = window.location.origin;
+                      const domain = whiteLabelConfig?.customDomain || whiteLabelConfig?.subdomain;
+                      if (domain) {
+                        const url = whiteLabelConfig?.customDomain ? `https://${domain}` : `${origin}/${domain}`;
+                        window.open(url, "_blank");
+                      } else {
+                        toast.error("No white label domain set up. Please configure your subdomain or custom domain first.");
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-2 w-full">
                       <CreditCard className="h-5 w-5 text-primary" />
                       <span className="font-semibold">White-Label Site</span>
                     </div>
                     <span className="text-xs text-muted-foreground text-left">
-                      Configure your branded portal
+                      View your white-label site
                     </span>
                   </Button>
                 </div>
@@ -480,6 +558,55 @@ const Dashboard = () => {
                   <Button className="mt-4 bg-primary hover:bg-primary/90">
                     <BarChart3 className="mr-2 h-4 w-4" />
                     View Detailed Analytics
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>White Label Settings</CardTitle>
+                <CardDescription>Configure your white label domain and post-subscription redirect</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="subdomain">Subdomain (e.g., yourname)</Label>
+                    <Input
+                      id="subdomain"
+                      value={formData.subdomain}
+                      onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
+                      placeholder="Enter subdomain"
+                    />
+                    <p className="text-sm text-muted-foreground">Your site will be at yourname.saasinasnap.com</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="customDomain">Custom Domain (optional)</Label>
+                    <Input
+                      id="customDomain"
+                      value={formData.customDomain}
+                      onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+                      placeholder="example.com"
+                    />
+                    <p className="text-sm text-muted-foreground">Replace the subdomain with your own domain</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="successRedirect">Post-Subscription Redirect (optional)</Label>
+                    <Input
+                      id="successRedirect"
+                      value={formData.successRedirect}
+                      onChange={(e) => setFormData({ ...formData, successRedirect: e.target.value })}
+                      placeholder="/onboarding or /dashboard"
+                    />
+                    <p className="text-sm text-muted-foreground">Where users go after successful subscription (relative path)</p>
+                  </div>
+
+                  <Button onClick={handleSaveConfig} disabled={saving} className="w-full">
+                    {saving ? 'Saving...' : 'Save Configuration'}
                   </Button>
                 </div>
               </CardContent>

@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
     // Fetch whiteLabelConfig by domain, include saasCreator and related
     const whiteLabelConfig = await prisma.whiteLabelConfig.findFirst({
       where: {
-        customDomain: domain,
+        OR: [
+          { customDomain: domain },
+          { subdomain: domain }
+        ]
       },
       include: {
         saasCreator: {
@@ -52,6 +55,10 @@ export async function POST(request: NextRequest) {
 
     const siteUrl = process.env.SITE_URL || request.headers.get('origin') || 'http://localhost:3000';
 
+    const successPath = whiteLabelConfig.successRedirect || '/subscription-success';
+    const success_url = `${siteUrl}/${domain}${successPath}?session_id={CHECKOUT_SESSION_ID}`;
+    const cancel_url = `${siteUrl}/${domain}/products`;
+
     const lineItems = tier.stripePriceId ? 
       [{ price: tier.stripePriceId, quantity: 1 }] :
       [{
@@ -74,8 +81,8 @@ export async function POST(request: NextRequest) {
       {
         line_items: lineItems,
         mode: 'subscription',
-        success_url: `${siteUrl}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/products/${productId}`,
+        success_url,
+        cancel_url,
         allow_promotion_codes: true,
         billing_address_collection: 'required',
         metadata: {

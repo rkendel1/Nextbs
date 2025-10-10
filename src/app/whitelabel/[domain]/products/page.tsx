@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
 interface Tier {
   id: string;
@@ -62,6 +63,37 @@ const WhiteLabelProducts = () => {
   const [creator, setCreator] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+
+  const handleSubscribe = async (productId: string, tierId: string) => {
+    try {
+      const response = await fetch('/api/whitelabel/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId,
+          tierId,
+          domain,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      alert('Failed to start subscription. Please try again or contact support.');
+    }
+  };
 
   useEffect(() => {
     fetchCreatorData();
@@ -211,6 +243,16 @@ const WhiteLabelProducts = () => {
                             ))}
                           </ul>
                         )}
+
+                        {/* Subscribe Button */}
+                        <Button
+                          onClick={() => handleSubscribe(product.id, tier.id)}
+                          className="w-full mt-3"
+                          style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
+                          variant="default"
+                        >
+                          Subscribe to {tier.name} - ${(tier.priceAmount / 100).toFixed(0)}/{tier.billingPeriod}
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -221,7 +263,7 @@ const WhiteLabelProducts = () => {
                     className="block w-full text-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    View Details & Subscribe
+                    View Details
                   </Link>
 
                   {/* Embed Section */}

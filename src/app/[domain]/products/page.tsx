@@ -59,6 +59,8 @@ const BrandedProducts = () => {
   const domain = params.domain as string;
   const [creator, setCreator] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCreatorData();
@@ -82,6 +84,36 @@ const BrandedProducts = () => {
       console.error('Failed to fetch creator data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubscribe = async (productId: string, tierId: string) => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/whitelabel/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, tierId, domain }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to create subscription');
+      }
+
+      const { url } = await response.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscription failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -183,13 +215,14 @@ const BrandedProducts = () => {
                     </div>
 
                     {/* CTA Button */}
-                    <Link
-                      href={`/${domain}/products/${product.id}`}
-                      className="block w-full text-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity"
+                    <button
+                      onClick={() => handleSubscribe(product.id, product.tiers[0].id)}
+                      disabled={submitting}
+                      className="block w-full text-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      View Details & Subscribe
-                    </Link>
+                      {submitting ? 'Processing...' : 'Checkout'}
+                    </button>
 
                     {/* Embed Section */}
                     <div className="mt-6 pt-6 border-t border-gray-200">
