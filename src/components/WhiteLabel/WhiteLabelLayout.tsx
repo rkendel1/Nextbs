@@ -37,18 +37,25 @@ interface CreatorData {
 interface WhiteLabelLayoutProps {
   children: React.ReactNode;
   domain: string;
+  config?: WhiteLabelConfig;
+  creator?: CreatorData;
+  designTokens?: DesignTokens;
 }
 
-const WhiteLabelLayout = ({ children, domain }: WhiteLabelLayoutProps) => {
+const WhiteLabelLayout = ({ children, domain, config: propConfig, creator: propCreator, designTokens: propDesignTokens }: WhiteLabelLayoutProps) => {
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState<WhiteLabelConfig | null>(null);
-  const [creator, setCreator] = useState<CreatorData | null>(null);
-  const [designTokens, setDesignTokens] = useState<DesignTokens | null>(null);
+  const [config, setConfig] = useState<WhiteLabelConfig | null>(propConfig || null);
+  const [creator, setCreator] = useState<CreatorData | null>(propCreator || null);
+  const [designTokens, setDesignTokens] = useState<DesignTokens | null>(propDesignTokens || null);
   const pathname = usePathname();
 
   useEffect(() => {
-    fetchCreatorData();
-  }, [domain]);
+    if (!propConfig && !propCreator) {
+      fetchCreatorData();
+    } else {
+      setLoading(false);
+    }
+  }, [domain, propConfig, propCreator]);
 
   const fetchCreatorData = async () => {
     try {

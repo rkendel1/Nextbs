@@ -33,8 +33,6 @@ export default async function PaymentSuccessPage({ params, searchParams }: Payme
     notFound();
   }
 
-  const creator = whiteLabelConfig.saasCreator;
-
   // Optional: Verify session if session_id provided
   let subscriptionDetails = null;
   if (session_id) {
@@ -48,7 +46,7 @@ export default async function PaymentSuccessPage({ params, searchParams }: Payme
         const data = await response.json();
         subscriptionDetails = {
           status: data.status || 'active',
-          product: data.productName || creator.products[0]?.name || 'Product',
+          product: data.productName || 'Product',
           tier: data.tierName || 'Standard',
         };
       }
@@ -86,7 +84,7 @@ export default async function PaymentSuccessPage({ params, searchParams }: Payme
             </a>
           </div>
           <p className="text-center text-xs text-gray-500">
-            Questions? Contact support at {creator.businessName || 'support'}.
+            Questions? Contact support.
           </p>
         </div>
       </div>

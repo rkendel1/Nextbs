@@ -4,6 +4,10 @@ interface DashboardStatsProps {
     totalSubscribers: number;
     activeSubscriptions: number;
     monthlyRevenue: number;
+    mrr: number;
+    arr: number;
+    totalRevenue: number;
+    churnRate: string;
   };
 }
 

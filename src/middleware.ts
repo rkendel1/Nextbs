@@ -15,8 +15,18 @@ export function middleware(request: NextRequest) {
   // In development, apply rewrite for subdomain paths like /s/...
   if (isDevelopment && url.pathname.startsWith('/s/')) {
     const subdomain = 's';
-    url.pathname = `/whitelabel/${subdomain}${url.pathname}`
-    return NextResponse.rewrite(url)
+    url.pathname = `/whitelabel/${subdomain}${url.pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // Specific rewrite for payment-success path
+  if (isDevelopment && url.pathname.endsWith('/payment-success')) {
+    const pathParts = url.pathname.split('/');
+    const domain = pathParts[1]; // e.g., 'sus' from /sus/payment-success
+    if (domain) {
+      url.pathname = `/whitelabel/${domain}/payment-success`;
+      return NextResponse.rewrite(url);
+    }
   }
   
   if (isDevelopment || isMainDomain || url.pathname.startsWith('/embed')) {

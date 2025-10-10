@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
 
     const siteUrl = process.env.SITE_URL || request.headers.get('origin') || 'http://localhost:3000';
 
-    const successPath = whiteLabelConfig.successRedirect || '/subscription-success';
+    let successPath = whiteLabelConfig.successRedirect || '/subscription-success';
+    // Normalize successPath to remove leading domain if present
+    if (successPath.startsWith(`/${domain}`)) {
+      successPath = successPath.slice(domain.length + 1);
+    }
     const success_url = `${siteUrl}/${domain}${successPath}?session_id={CHECKOUT_SESSION_ID}`;
     const cancel_url = `${siteUrl}/${domain}/products`;
 
