@@ -11,6 +11,25 @@ import { generateText } from "ai";
 import { openai } from '@ai-sdk/openai';
 import type { FeelData } from "@/types/saas";
 
+// Helper to extract domain name from URL for subdomain
+function extractDomainForSubdomain(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    // Remove 'www.' if present
+    const cleanHostname = hostname.replace(/^www\./, '');
+    // Get the main domain part (without TLD)
+    const parts = cleanHostname.split('.');
+    const domain = parts.length > 1 ? parts[0] : cleanHostname;
+    // Clean it to only allow alphanumeric and hyphens
+    const cleaned = domain.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return cleaned.substring(0, 30) || 'mysite';
+  } catch (error) {
+    console.error('Error extracting domain:', error);
+    return 'mysite';
+  }
+}
+
 // Helper to fetch CSS content
 async function fetchCss(url: string): Promise<string | null> {
   try {
@@ -177,12 +196,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Lightweight extraction
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch URL: ${response.statusText}`);
-    }
-    const html = await response.text();
+    // Kick off both lightweight and deep scraping in the background
+    // This allows the API to return immediately
+    const scrapePromise = (async () => {
+      try {
+        // Lightweight extraction
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch URL: ${response.statusText}`);
+        }
+        const html = await response.text();
 
     // Parse HTML with JSDOM for Readability
     const dom = new JSDOM(html, { url });
@@ -348,88 +371,115 @@ Tone:`,
       }
     }
 
-    const feelData: FeelData = {
-      url,
-      headings,
-      mainText,
-      links,
-      images,
-      colors: uniqueColors,
-      fonts: uniqueFonts,
-      tone,
-      spacingValues: uniqueSpacing,
-    };
+        const feelData: FeelData = {
+          url,
+          headings,
+          mainText,
+          links,
+          images,
+          colors: uniqueColors,
+          fonts: uniqueFonts,
+          tone,
+          spacingValues: uniqueSpacing,
+        };
 
-    await prisma.saasCreator.update({
-      where: { id: saasCreator.id },
-      data: {
-        lightweightScrape: feelData as any,
-        crawlStatus: "lightweight_completed",
-      },
-    });
+        await prisma.saasCreator.update({
+          where: { id: saasCreator.id },
+          data: {
+            lightweightScrape: feelData as any,
+            crawlStatus: "lightweight_completed",
+          },
+        });
 
-    // Parallel deep trigger
-    const deepPromise = fetch("http://localhost:3030/api/crawl", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, depth: 1 }),
-    }).then((res) => {
-      if (!res.ok) throw new Error("Deep scrape failed");
-      return res.json();
-    }).then(async (deepData) => {
-      // Merge logic
-      const mergedColors = deepData.designTokens
-        ?.filter((t: any) => t.tokenType === "color")
-        .map((t: any) => t.tokenValue)
-        .slice(0, 5) || feelData.colors;
-      const mergedFonts = deepData.designTokens
-        ?.filter((t: any) => t.tokenType === "typography")
-        .map((t: any) => t.tokenValue)
-        .slice(0, 3) || feelData.fonts;
-      const mergedSpacing = deepData.designTokens
-        ?.filter((t: any) => t.tokenType === "spacing")
-        .map((t: any) => t.tokenValue)
-        .slice(0, 5) || feelData.spacingValues;
-      const mergedTone = deepData.brandVoice?.tone || feelData.tone;
-      const primaryColor = mergedColors[0] || "#1A73E8";
-      const secondaryColor = mergedColors[1] || "#F5F5F5";
-      const merged = {
-        colors: mergedColors,
-        fonts: mergedFonts,
-        tone: mergedTone,
-        spacingValues: mergedSpacing,
-      };
-      const voiceAndToneString = Array.isArray(mergedTone) ? JSON.stringify(mergedTone) : mergedTone;
-      await prisma.saasCreator.update({
-        where: { id: saasCreator.id },
-        data: {
-          deepDesignTokens: deepData,
-          mergedScrapeData: {
-            lightweight: feelData,
-            deep: deepData,
-            merged,
-          } as any,
-          primaryColor,
-          secondaryColor,
-          fonts: JSON.stringify(mergedFonts),
-          voiceAndTone: voiceAndToneString,
-          crawlStatus: "completed",
-          crawlCompletedAt: new Date(),
-        },
-      });
-      console.log(`Deep job ${jobId} completed`);
-    }).catch(async (err) => {
-      console.error("Deep scrape error:", err);
-      await prisma.saasCreator.update({
-        where: { id: saasCreator.id },
-        data: { crawlStatus: "deep_failed" },
-      });
-    });
+        // Parallel deep trigger
+        const deepPromise = fetch("http://localhost:3030/api/crawl", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, depth: 1 }),
+        }).then((res) => {
+          if (!res.ok) throw new Error("Deep scrape failed");
+          return res.json();
+        }).then(async (deepData) => {
+          // Merge logic
+          const mergedColors = deepData.designTokens
+            ?.filter((t: any) => t.tokenType === "color")
+            .map((t: any) => t.tokenValue)
+            .slice(0, 5) || feelData.colors;
+          const mergedFonts = deepData.designTokens
+            ?.filter((t: any) => t.tokenType === "typography")
+            .map((t: any) => t.tokenValue)
+            .slice(0, 3) || feelData.fonts;
+          const mergedSpacing = deepData.designTokens
+            ?.filter((t: any) => t.tokenType === "spacing")
+            .map((t: any) => t.tokenValue)
+            .slice(0, 5) || feelData.spacingValues;
+          const mergedTone = deepData.brandVoice?.tone || feelData.tone;
+          const primaryColor = mergedColors[0] || "#1A73E8";
+          const secondaryColor = mergedColors[1] || "#F5F5F5";
+          const merged = {
+            colors: mergedColors,
+            fonts: mergedFonts,
+            tone: mergedTone,
+            spacingValues: mergedSpacing,
+          };
+          const voiceAndToneString = Array.isArray(mergedTone) ? JSON.stringify(mergedTone) : mergedTone;
+          await prisma.saasCreator.update({
+            where: { id: saasCreator.id },
+            data: {
+              deepDesignTokens: deepData,
+              mergedScrapeData: {
+                lightweight: feelData,
+                deep: deepData,
+                merged,
+              } as any,
+              primaryColor,
+              secondaryColor,
+              fonts: JSON.stringify(mergedFonts),
+              voiceAndTone: voiceAndToneString,
+              crawlStatus: "completed",
+              crawlCompletedAt: new Date(),
+            },
+          });
 
+          // Update WhiteLabelConfig with design tokens if it exists
+          const whiteLabelConfig = await prisma.whiteLabelConfig.findUnique({
+            where: { saasCreatorId: saasCreator.id },
+          });
+
+          if (whiteLabelConfig) {
+            await prisma.whiteLabelConfig.update({
+              where: { id: whiteLabelConfig.id },
+              data: {
+                primaryColor,
+                secondaryColor,
+                logoUrl: deepData.logo_url || whiteLabelConfig.logoUrl,
+                faviconUrl: deepData.favicon_url || whiteLabelConfig.faviconUrl,
+              },
+            });
+          }
+
+          console.log(`Deep job ${jobId} completed`);
+        }).catch(async (err) => {
+          console.error("Deep scrape error:", err);
+          await prisma.saasCreator.update({
+            where: { id: saasCreator.id },
+            data: { crawlStatus: "deep_failed" },
+          });
+        });
+      } catch (error: any) {
+        console.error("Background scrape error:", error);
+        await prisma.saasCreator.update({
+          where: { id: saasCreator.id },
+          data: { crawlStatus: "failed" },
+        });
+      }
+    })();
+
+    // Return immediately without waiting for scraping to complete
     return NextResponse.json({
       success: true,
       jobId,
-      feelData,
+      message: "Scraping started in background. You can continue with onboarding.",
     });
   } catch (error: any) {
     console.error("Scrape API error:", error);

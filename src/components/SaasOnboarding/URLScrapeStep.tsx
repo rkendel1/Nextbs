@@ -75,8 +75,8 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
         icon: "🔍",
       });
 
-      // Pass original user input as website, normalized for API
-      onComplete({ website: url });
+      // Pass normalized URL as website so it can be used for subdomain extraction
+      onComplete({ website: normalizedUrl });
 
     } catch (err) {
       console.error("Error triggering scrapes:", err);
