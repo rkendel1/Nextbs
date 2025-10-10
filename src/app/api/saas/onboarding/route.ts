@@ -116,10 +116,28 @@ export async function POST(request: NextRequest) {
         });
 
         if (!existingWhiteLabel) {
-          // Generate a subdomain from business name
-          const subdomain = businessName 
-            ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
-            : `creator-${saasCreator.id.substring(0, 8)}`;
+          // Generate a subdomain from website URL (preferred) or business name as fallback
+          let subdomain: string;
+          if (website) {
+            // Extract domain from URL (e.g., vibe-fix.com -> vibe-fix)
+            try {
+              const urlObj = new URL(website.startsWith('http') ? website : `https://${website}`);
+              const hostname = urlObj.hostname;
+              const cleanHostname = hostname.replace(/^www\./, '');
+              const parts = cleanHostname.split('.');
+              const domain = parts.length > 1 ? parts[0] : cleanHostname;
+              subdomain = domain.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
+            } catch (error) {
+              console.error('Error parsing website URL:', error);
+              subdomain = businessName 
+                ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
+                : `creator-${saasCreator.id.substring(0, 8)}`;
+            }
+          } else {
+            subdomain = businessName 
+              ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
+              : `creator-${saasCreator.id.substring(0, 8)}`;
+          }
 
           await prisma.whiteLabelConfig.create({
             data: {
