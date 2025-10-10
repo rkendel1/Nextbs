@@ -44,3 +44,5 @@ const EmbedViewer: React.FC<EmbedViewerProps> = ({ product, saasCreator }) => {
     </div>
   );
 };
+
+export { EmbedViewer };

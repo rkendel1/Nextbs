@@ -73,7 +73,11 @@ const BrandedProducts = () => {
       }
       
       const data = await response.json();
-      setCreator(data);
+      setCreator({
+        ...data.creator,
+        whiteLabel: data.whiteLabel,
+        designTokens: data.designTokens,
+      });
     } catch (error) {
       console.error('Failed to fetch creator data:', error);
     } finally {

@@ -12,6 +12,13 @@ export function middleware(request: NextRequest) {
                         hostname.startsWith('192.168.')
   const isMainDomain = hostname === 'saasinasnap.com' || hostname === 'www.saasinasnap.com'
   
+  // In development, apply rewrite for subdomain paths like /s/...
+  if (isDevelopment && url.pathname.startsWith('/s/')) {
+    const subdomain = 's';
+    url.pathname = `/whitelabel/${subdomain}${url.pathname}`
+    return NextResponse.rewrite(url)
+  }
+  
   if (isDevelopment || isMainDomain || url.pathname.startsWith('/embed')) {
     return NextResponse.next()
   }

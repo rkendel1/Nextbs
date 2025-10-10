@@ -4,14 +4,14 @@ const prisma = new PrismaClient();
 
 async function addTestProductToRandy() {
   try {
-    console.log('Finding WhiteLabelConfig for "randy-kendel"...');
+    console.log('Finding WhiteLabelConfig for "s"...');
     
     const config = await prisma.whiteLabelConfig.findFirst({
-      where: { subdomain: 'randy-kendel', isActive: true }
+      where: { subdomain: 's', isActive: true }
     });
 
     if (!config) {
-      console.log('No active config found for randy-kendel');
+      console.log('No active config found for s');
       return;
     }
 
@@ -19,7 +19,7 @@ async function addTestProductToRandy() {
     console.log('Using saasCreatorId:', saasCreatorId);
 
     // Upsert test product
-    const testProductId = 'cmgjrx0xx000b11zjxt7mg2d8';
+    const testProductId = 'cmgjs22an000i11zjcvpwpkc2';
     const testProduct = await prisma.product.upsert({
       where: { id: testProductId },
       update: {
