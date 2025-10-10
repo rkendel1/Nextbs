@@ -405,7 +405,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                     <li>• Lead with the main benefit, not features</li>
                     <li>• Keep it under 150 characters for best display</li>
                     <li>• Use action words that inspire confidence</li>
-                    <li>• Example: "Everything you need to scale your business" vs "Includes API access and support"</li>
+                    <li>• Example: &quot;Everything you need to scale your business&quot; vs &quot;Includes API access and support&quot;</li>
                   </ul>
                 </div>
               </div>
@@ -678,7 +678,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                         Usage Tracking
                       </p>
                       <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                        You'll receive implementation instructions in the next step showing how to report usage to our API.
+                        You&apos;ll receive implementation instructions in the next step showing how to report usage to our API.
                       </p>
                     </div>
                   </div>
@@ -822,8 +822,8 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   </p>
                   <ul className="text-sm text-green-700 dark:text-green-300 mt-2 space-y-1">
                     <li>• Start with the most valuable feature first</li>
-                    <li>• Use specific numbers: "10,000 API calls" not "API access"</li>
-                    <li>• Focus on outcomes: "24/7 priority support" not "support included"</li>
+                    <li>• Use specific numbers: &quot;10,000 API calls&quot; not &quot;API access&quot;</li>
+                    <li>• Focus on outcomes: &quot;24/7 priority support&quot; not &quot;support included&quot;</li>
                     <li>• Limit to 5-7 key features for better readability</li>
                   </ul>
                 </div>
@@ -877,9 +877,9 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               <div className="bg-dark dark:bg-dark-2 p-4 rounded-lg font-mono text-sm text-white overflow-x-auto">
                 <div className="text-green-400 mb-2">POST /api/saas/usage</div>
                 <div className="text-gray-400">{'{'}</div>
-                <div className="ml-4 text-blue-300">"subscriptionId"<span className="text-white">:</span> <span className="text-yellow-300">"sub_xxx"</span>,</div>
-                <div className="ml-4 text-blue-300">"quantity"<span className="text-white">:</span> <span className="text-yellow-300">100</span>,</div>
-                <div className="ml-4 text-blue-300">"timestamp"<span className="text-white">:</span> <span className="text-yellow-300">"2024-01-15T10:30:00Z"</span></div>
+                <div className="ml-4 text-blue-300">&quot;subscriptionId&quot;<span className="text-white">:</span> <span className="text-yellow-300">&quot;sub_xxx&quot;</span>,</div>
+                <div className="ml-4 text-blue-300">&quot;quantity&quot;<span className="text-white">:</span> <span className="text-yellow-300">100</span>,</div>
+                <div className="ml-4 text-blue-300">&quot;timestamp&quot;<span className="text-white">:</span> <span className="text-yellow-300">&quot;2024-01-15T10:30:00Z&quot;</span></div>
                 <div className="text-gray-400">{'}'}</div>
               </div>
             </div>
@@ -891,9 +891,9 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   Example: Track API Requests
                 </h5>
                 <div className="bg-gray-50 dark:bg-dark p-3 rounded font-mono text-xs overflow-x-auto">
-                  <div className="text-purple-600 dark:text-purple-400">// After each API request</div>
-                  <div className="text-blue-600 dark:text-blue-400">await fetch<span className="text-dark dark:text-white">(</span><span className="text-green-600">'/api/saas/usage'</span>, {'{'}</div>
-                  <div className="ml-4">method: <span className="text-green-600">'POST'</span>,</div>
+                  <div className="text-purple-600 dark:text-purple-400">{`// After each API request`}</div>
+                  <div className="text-blue-600 dark:text-blue-400">await fetch<span className="text-dark dark:text-white">(</span><span className="text-green-600">&apos;/api/saas/usage&apos;</span>, {'{'}</div>
+                  <div className="ml-4">method: <span className="text-green-600">&apos;POST&apos;</span>,</div>
                   <div className="ml-4">body: JSON.stringify({'{'} quantity: 1 {'}'})</div>
                   <div className="text-blue-600 dark:text-blue-400">{'}'}<span className="text-dark dark:text-white">)</span></div>
                 </div>
@@ -905,7 +905,7 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
                   Example: Track Storage Usage
                 </h5>
                 <div className="bg-gray-50 dark:bg-dark p-3 rounded font-mono text-xs overflow-x-auto">
-                  <div className="text-purple-600 dark:text-purple-400">// When file is uploaded</div>
+                  <div className="text-purple-600 dark:text-purple-400">{`// When file is uploaded`}</div>
                   <div className="text-blue-600 dark:text-blue-400">const fileSizeGB = fileSize / <span className="text-orange-600">(1024 ** 3)</span></div>
                   <div className="text-blue-600 dark:text-blue-400">await reportUsage<span className="text-dark dark:text-white">(</span>fileSizeGB<span className="text-dark dark:text-white">)</span></div>
                 </div>
