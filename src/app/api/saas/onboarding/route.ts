@@ -116,12 +116,18 @@ export async function POST(request: NextRequest) {
         });
 
         if (!existingWhiteLabel) {
+          // Refetch the latest SaasCreator data to ensure we have any updates from background scraping
+          const latestSaasCreator = await prisma.saasCreator.findUnique({
+            where: { id: saasCreator.id },
+          });
+
           // Generate a subdomain from website URL (preferred) or business name as fallback
           let subdomain: string;
-          if (website) {
+          const websiteUrl = website || latestSaasCreator?.website;
+          if (websiteUrl) {
             // Extract domain from URL (e.g., vibe-fix.com -> vibe-fix)
             try {
-              const urlObj = new URL(website.startsWith('http') ? website : `https://${website}`);
+              const urlObj = new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`);
               const hostname = urlObj.hostname;
               const cleanHostname = hostname.replace(/^www\./, '');
               const parts = cleanHostname.split('.');
@@ -139,14 +145,15 @@ export async function POST(request: NextRequest) {
               : `creator-${saasCreator.id.substring(0, 8)}`;
           }
 
+          // Use the latest data from deep scrape if available, otherwise fall back to request params or defaults
           await prisma.whiteLabelConfig.create({
             data: {
               saasCreatorId: saasCreator.id,
-              brandName: businessName || saasCreator.businessName,
-              primaryColor: primaryColor || saasCreator.primaryColor || '#667eea',
-              secondaryColor: secondaryColor || saasCreator.secondaryColor || '#764ba2',
-              logoUrl: logoUrl || saasCreator.logoUrl,
-              faviconUrl: faviconUrl || saasCreator.faviconUrl,
+              brandName: businessName || latestSaasCreator?.businessName,
+              primaryColor: latestSaasCreator?.primaryColor || primaryColor || '#667eea',
+              secondaryColor: latestSaasCreator?.secondaryColor || secondaryColor || '#764ba2',
+              logoUrl: latestSaasCreator?.logoUrl || logoUrl,
+              faviconUrl: latestSaasCreator?.faviconUrl || faviconUrl,
               subdomain: subdomain,
               isActive: true,
             },
