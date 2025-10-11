@@ -30,6 +30,7 @@ interface CreatorData {
   whiteLabel: {
     primaryColor?: string;
     secondaryColor?: string;
+    pageVisibility?: 'public' | 'private' | 'unlisted';
   };
 }
 
@@ -42,6 +43,20 @@ const WhiteLabelPricing = () => {
   useEffect(() => {
     fetchCreatorData();
   }, [domain]);
+
+  // Add noindex meta tag for unlisted pages
+  useEffect(() => {
+    if (creator?.whiteLabel?.pageVisibility === 'unlisted') {
+      const metaTag = document.createElement('meta');
+      metaTag.name = 'robots';
+      metaTag.content = 'noindex, nofollow';
+      document.head.appendChild(metaTag);
+
+      return () => {
+        document.head.removeChild(metaTag);
+      };
+    }
+  }, [creator]);
 
   const fetchCreatorData = async () => {
     try {

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // Check if config already exists
     const existingConfig = await prisma.whiteLabelConfig.findUnique({
-      where: { userId: user.id },
+      where: { saasCreatorId: user.saasCreator.id },
     });
 
     if (existingConfig) {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     const config = await prisma.whiteLabelConfig.create({
       data: {
-        userId: user.id,
+        saasCreatorId: user.saasCreator.id,
         brandName: brandName || null,
         primaryColor: primaryColor || null,
         logoUrl: logoUrl || null,
@@ -131,17 +131,18 @@ export async function PUT(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: { saasCreator: true },
     });
 
-    if (!user) {
+    if (!user || !user.saasCreator) {
       return NextResponse.json(
-        { message: "User not found" },
+        { message: "SaaS creator profile not found" },
         { status: 404 }
       );
     }
 
     const config = await prisma.whiteLabelConfig.upsert({
-      where: { userId: user.id },
+      where: { saasCreatorId: user.saasCreator.id },
       update: {
         brandName: brandName || null,
         primaryColor: primaryColor || null,
@@ -152,7 +153,7 @@ export async function PUT(request: NextRequest) {
         pageVisibility: pageVisibility || 'public',
       },
       create: {
-        userId: user.id,
+        saasCreatorId: user.saasCreator.id,
         brandName: brandName || null,
         primaryColor: primaryColor || null,
         logoUrl: logoUrl || null,
