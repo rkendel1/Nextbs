@@ -12,6 +12,7 @@ interface WhiteLabelConfig {
   subdomain: string;
   customCss: string;
   isActive: boolean;
+  pageVisibility: 'public' | 'private' | 'unlisted';
 }
 
 const WhiteLabelConfiguration = () => {
@@ -25,6 +26,7 @@ const WhiteLabelConfiguration = () => {
     subdomain: "",
     customCss: "",
     isActive: true,
+    pageVisibility: "public",
   });
 
   useEffect(() => {
@@ -194,6 +196,100 @@ const WhiteLabelConfiguration = () => {
             <p className="mt-1 text-xs text-body-color dark:text-dark-6">
               Use your own domain (requires DNS configuration).
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Visibility Settings */}
+      <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-dark-2">
+        <h2 className="mb-6 text-xl font-bold text-dark dark:text-white">
+          Page Visibility
+        </h2>
+
+        <div className="space-y-4">
+          {/* Page Visibility Options */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-dark dark:text-white">
+              Visibility Setting
+            </label>
+            <div className="space-y-3">
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="radio"
+                  name="pageVisibility"
+                  value="public"
+                  checked={config.pageVisibility === "public"}
+                  onChange={(e) => setConfig({ ...config, pageVisibility: e.target.value as 'public' | 'private' | 'unlisted' })}
+                  className="mt-1 h-4 w-4 text-primary focus:ring-primary"
+                />
+                <div className="ml-3">
+                  <div className="text-sm font-medium text-dark dark:text-white">
+                    Public
+                  </div>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    Your white label page is visible to everyone and can be accessed via your domain.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="radio"
+                  name="pageVisibility"
+                  value="unlisted"
+                  checked={config.pageVisibility === "unlisted"}
+                  onChange={(e) => setConfig({ ...config, pageVisibility: e.target.value as 'public' | 'private' | 'unlisted' })}
+                  className="mt-1 h-4 w-4 text-primary focus:ring-primary"
+                />
+                <div className="ml-3">
+                  <div className="text-sm font-medium text-dark dark:text-white">
+                    Unlisted
+                  </div>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    Your white label page is accessible via direct link but won&apos;t appear in search results.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="radio"
+                  name="pageVisibility"
+                  value="private"
+                  checked={config.pageVisibility === "private"}
+                  onChange={(e) => setConfig({ ...config, pageVisibility: e.target.value as 'public' | 'private' | 'unlisted' })}
+                  className="mt-1 h-4 w-4 text-primary focus:ring-primary"
+                />
+                <div className="ml-3">
+                  <div className="text-sm font-medium text-dark dark:text-white">
+                    Private
+                  </div>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    Your white label page is hidden and will not be accessible to anyone.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Active Status Toggle */}
+          <div className="pt-4 border-t border-stroke dark:border-dark-3">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.isActive}
+                onChange={(e) => setConfig({ ...config, isActive: e.target.checked })}
+                className="h-4 w-4 text-primary focus:ring-primary rounded"
+              />
+              <div className="ml-3">
+                <div className="text-sm font-medium text-dark dark:text-white">
+                  Active
+                </div>
+                <p className="text-xs text-body-color dark:text-dark-6">
+                  Enable or disable your white label configuration entirely.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
       </div>

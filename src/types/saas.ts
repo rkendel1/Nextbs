@@ -142,6 +142,7 @@ export interface WhiteLabelConfig {
   subdomain?: string;
   customCss?: string;
   isActive: boolean;
+  pageVisibility: 'public' | 'private' | 'unlisted';
   createdAt: Date;
   updatedAt: Date;
 }

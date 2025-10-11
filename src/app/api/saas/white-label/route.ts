@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       subdomain,
       customCss,
       isActive,
+      pageVisibility,
     } = body;
 
     const user = await prisma.user.findUnique({
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
     });
 
@@ -125,7 +127,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandName, primaryColor, logoUrl, customDomain, subdomain, customCss } = body;
+    const { brandName, primaryColor, logoUrl, customDomain, subdomain, customCss, pageVisibility } = body;
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -147,6 +149,7 @@ export async function PUT(request: NextRequest) {
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
       create: {
         userId: user.id,
@@ -156,6 +159,7 @@ export async function PUT(request: NextRequest) {
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
     });
 
