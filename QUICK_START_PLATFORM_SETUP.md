@@ -20,7 +20,7 @@ npx prisma migrate deploy
 npm run setup:platform
 
 # Verify the setup
-npm run verify:tiers
+npm run verify:setup
 ```
 
 ## What This Does
@@ -59,18 +59,28 @@ After running the setup, you should see:
 Tiers with Stripe prices: 3
 ```
 
+Run the verification script to confirm everything is working:
+
+```bash
+npm run verify:setup
+```
+
 Visit `/pricing` to see the products displayed.
 
 ## Troubleshooting
 
 **No products showing on pricing page?**
 - Ensure `STRIPE_SECRET_KEY` is set
-- Run `npm run verify:tiers` to check configuration
+- Run `npm run verify:setup` to check configuration
 - Look for tiers with `stripePriceId` in the output
 
 **Already ran the script?**
 - Safe to re-run - script is idempotent
 - Will update missing Stripe IDs if Stripe is now configured
+
+**Want to verify the setup?**
+- Run `npm run verify:setup` for comprehensive validation
+- Run `npm run verify:tiers` for tier-specific details
 
 ## Documentation
 

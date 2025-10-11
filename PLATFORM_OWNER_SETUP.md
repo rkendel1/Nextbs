@@ -108,11 +108,69 @@ If Stripe is not configured:
 After running the setup script, verify the configuration:
 
 ```bash
-# Check tiers in database
-npx tsx scripts/verify-tiers.ts
+# Comprehensive setup verification
+npm run verify:setup
 
-# Check platform owner
+# Check tiers in database (detailed)
+npm run verify:tiers
+
+# Check platform owner (basic)
 npx tsx scripts/check-platform-owner.ts
+```
+
+### Verification Script Output
+
+The `verify:setup` script checks:
+
+1. ✅ Platform owner user exists
+2. ✅ SaasCreator profile is complete
+3. ✅ Active products exist
+4. ✅ Products have Stripe integration
+5. ✅ Tiers have Stripe price IDs
+6. ✅ API endpoint will return valid data
+
+**Example output:**
+```
+🔍 Verifying Platform Owner Setup...
+
+1️⃣  Checking Platform Owner User...
+   ✅ PASSED: Platform owner found (platform@nextbs.com)
+
+2️⃣  Checking SaasCreator Profile...
+   ✅ PASSED: SaasCreator found (Platform Business)
+   ✅ Onboarding completed (step 4)
+
+3️⃣  Checking Active Products...
+   ✅ PASSED: 3 active product(s) found
+
+4️⃣  Checking Stripe Integration...
+   📦 Starter Plan
+      Stripe Product: prod_...
+      ✅ Basic: $29.00/monthly
+         Stripe Price: price_...
+
+5️⃣  Checking API Endpoint Compatibility...
+   Tiers with Stripe prices: 3
+   Tiers without Stripe prices: 0
+   ✅ PASSED: All tiers have Stripe price IDs
+
+6️⃣  Simulating API Response...
+   API would return 3 tier(s):
+   - Starter Plan - Basic: $29.00
+   - Professional Plan - Professional: $59.00
+   - Enterprise Plan - Enterprise: $99.00
+
+==================================================
+📋 VERIFICATION SUMMARY
+==================================================
+✅ All checks passed!
+✅ Platform is ready for creator onboarding
+
+Next steps:
+1. Visit /pricing to see the products
+2. Test creator signup and product selection
+3. Verify Stripe checkout flow
+==================================================
 ```
 
 ### Expected Output

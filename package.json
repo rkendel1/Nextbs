@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "setup:platform": "tsx scripts/setup-full-platform-owner.ts",
-    "verify:tiers": "tsx scripts/verify-tiers.ts"
+    "verify:tiers": "tsx scripts/verify-tiers.ts",
+    "verify:setup": "tsx scripts/verify-platform-setup.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^1.5.0",
