@@ -295,15 +295,15 @@ const Dashboard = () => {
                       <Package className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Configure a Product</p>
-                      <p className="text-sm text-muted-foreground">Set up your first product to start accepting subscriptions</p>
+                      <p className="font-medium">Set Up Products</p>
+                      <p className="text-sm text-muted-foreground">Create products so subscribers can find and purchase your offerings</p>
                     </div>
                   </div>
                   <Button 
                     onClick={handleCreateProduct}
                     className="bg-primary hover:bg-primary/90"
                   >
-                    Configure Now
+                    Create Product
                   </Button>
                 </div>
               )}
@@ -314,15 +314,15 @@ const Dashboard = () => {
                       <CreditCard className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Review White-Label Site</p>
-                      <p className="text-sm text-muted-foreground">Configure and preview your branded site</p>
+                      <p className="font-medium">Review White-Label Pages</p>
+                      <p className="text-sm text-muted-foreground">Configure your branding and visibility settings</p>
                     </div>
                   </div>
                   <Button 
                     variant="outline"
-                    onClick={() => router.push("/dashboard/settings")}
+                    onClick={() => router.push("/dashboard/white-label")}
                   >
-                    Review Site
+                    Review & Configure
                   </Button>
                 </div>
               )}
