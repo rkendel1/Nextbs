@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Head from "next/head";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 import Image from "next/image";
@@ -51,20 +52,6 @@ const WhiteLabelHomepage = () => {
     fetchCreatorData();
   }, [domain]);
 
-  // Add noindex meta tag for unlisted pages
-  useEffect(() => {
-    if (creator?.whiteLabel?.pageVisibility === 'unlisted') {
-      const metaTag = document.createElement('meta');
-      metaTag.name = 'robots';
-      metaTag.content = 'noindex, nofollow';
-      document.head.appendChild(metaTag);
-
-      return () => {
-        document.head.removeChild(metaTag);
-      };
-    }
-  }, [creator]);
-
   const fetchCreatorData = async () => {
     try {
       const response = await fetch(`/api/saas/whitelabel/creator-by-domain?domain=${encodeURIComponent(domain)}`);
@@ -114,8 +101,14 @@ const WhiteLabelHomepage = () => {
   const gradientTo = `${primaryColor}15`; // 15% opacity of primary color for subtle branding
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen bg-white">
+    <>
+      {creator.whiteLabel?.pageVisibility === 'unlisted' && (
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+      )}
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen bg-white">
         {/* Hero Section */}
         <section 
           className="relative py-20"
@@ -264,6 +257,7 @@ const WhiteLabelHomepage = () => {
         </section>
       </div>
     </WhiteLabelLayout>
+    </>
   );
 };
 

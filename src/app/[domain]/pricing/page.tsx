@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Head from "next/head";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 
@@ -43,20 +44,6 @@ const WhiteLabelPricing = () => {
   useEffect(() => {
     fetchCreatorData();
   }, [domain]);
-
-  // Add noindex meta tag for unlisted pages
-  useEffect(() => {
-    if (creator?.whiteLabel?.pageVisibility === 'unlisted') {
-      const metaTag = document.createElement('meta');
-      metaTag.name = 'robots';
-      metaTag.content = 'noindex, nofollow';
-      document.head.appendChild(metaTag);
-
-      return () => {
-        document.head.removeChild(metaTag);
-      };
-    }
-  }, [creator]);
 
   const fetchCreatorData = async () => {
     try {
@@ -102,8 +89,14 @@ const WhiteLabelPricing = () => {
   const secondaryColor = creator.whiteLabel?.secondaryColor || '#f5f5f5';
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
+    <>
+      {creator.whiteLabel?.pageVisibility === 'unlisted' && (
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+      )}
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -196,6 +189,7 @@ const WhiteLabelPricing = () => {
         </div>
       </div>
     </WhiteLabelLayout>
+    </>
   );
 };
 

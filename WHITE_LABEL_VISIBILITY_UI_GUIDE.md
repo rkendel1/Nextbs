@@ -48,7 +48,7 @@ The new Page Visibility section appears in the White Label Configuration dashboa
 - Page accessible at `https://yourdomain.com`
 - Will NOT appear in Google search results
 - Perfect for sharing with beta testers
-- Meta tag added: `<meta name="robots" content="noindex, nofollow">`
+- Meta tag added: `<meta name="robots" content="noindex, nofollow">` (using Next.js Head for proper SEO)
 
 ### Example 3: Maintenance Mode
 **Setting**: Private ✓
@@ -61,17 +61,12 @@ The new Page Visibility section appears in the White Label Configuration dashboa
 
 ### Frontend (React Components)
 ```tsx
-// Radio button selection
-<input
-  type="radio"
-  name="pageVisibility"
-  value="public"
-  checked={config.pageVisibility === "public"}
-  onChange={(e) => setConfig({ 
-    ...config, 
-    pageVisibility: e.target.value as 'public' | 'private' | 'unlisted' 
-  })}
-/>
+// Using Next.js Head component for SEO-friendly meta tags
+{creator?.whiteLabel?.pageVisibility === 'unlisted' && (
+  <Head>
+    <meta name="robots" content="noindex, nofollow" />
+  </Head>
+)}
 ```
 
 ### Backend (API Response)

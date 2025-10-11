@@ -61,22 +61,24 @@ if (whiteLabelConfig.pageVisibility === 'private') {
 
 ### Frontend Implementation
 
-All white label pages automatically add `noindex, nofollow` meta tags for unlisted pages:
+All white label pages use Next.js Head component to add `noindex, nofollow` meta tags for unlisted pages:
 
 ```typescript
-useEffect(() => {
-  if (creator?.whiteLabel?.pageVisibility === 'unlisted') {
-    const metaTag = document.createElement('meta');
-    metaTag.name = 'robots';
-    metaTag.content = 'noindex, nofollow';
-    document.head.appendChild(metaTag);
-
-    return () => {
-      document.head.removeChild(metaTag);
-    };
-  }
-}, [creator]);
+return (
+  <>
+    {creator?.whiteLabel?.pageVisibility === 'unlisted' && (
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+    )}
+    <WhiteLabelLayout domain={domain}>
+      {/* Page content */}
+    </WhiteLabelLayout>
+  </>
+);
 ```
+
+This ensures the meta tag is present in the initial render for better SEO compliance.
 
 ## Configuration UI
 
