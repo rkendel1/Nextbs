@@ -2,6 +2,13 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/**
+ * NOTE: For a complete platform owner setup with Stripe integration,
+ * use setup-full-platform-owner.ts instead:
+ *   npx tsx scripts/setup-full-platform-owner.ts
+ * 
+ * This script creates platform owner with basic products and test data.
+ */
 async function setupPlatformComplete() {
   try {
     // Step 1: Find or create platform owner user
