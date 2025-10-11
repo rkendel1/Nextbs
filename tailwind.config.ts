@@ -26,8 +26,8 @@ const config: Config = {
   			},
   			accent: {
   				DEFAULT: 'hsl(var(--accent))',
-  				light: '#22d3ee',
-  				dark: '#0891b2',
+  				light: '#f5f5f6',
+  				dark: '#374151',
   				foreground: 'hsl(var(--accent-foreground))'
   			},
   			background: 'hsl(var(--background))',
