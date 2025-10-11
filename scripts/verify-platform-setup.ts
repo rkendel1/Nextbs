@@ -25,15 +25,12 @@ async function verifyPlatformSetup() {
     if (!platformOwner) {
       console.log('   ❌ FAILED: No platform owner user found');
       console.log('   Action: Run npm run setup:platform');
-      allChecks = false;
-    } else {
-      console.log(`   ✅ PASSED: Platform owner found (${platformOwner.email})`);
-    }
-
-    if (!platformOwner) {
       console.log('\n❌ Cannot continue without platform owner. Run setup script first.\n');
+      allChecks = false;
       return;
     }
+    
+    console.log(`   ✅ PASSED: Platform owner found (${platformOwner.email})`);
 
     // Check 2: SaasCreator Profile
     console.log('\n2️⃣  Checking SaasCreator Profile...');
@@ -44,21 +41,18 @@ async function verifyPlatformSetup() {
     if (!saasCreator) {
       console.log('   ❌ FAILED: No SaasCreator profile found');
       console.log('   Action: Run npm run setup:platform');
+      console.log('\n❌ Cannot continue without SaasCreator profile. Run setup script first.\n');
+      allChecks = false;
+      return;
+    }
+    
+    console.log(`   ✅ PASSED: SaasCreator found (${saasCreator.businessName})`);
+    
+    if (!saasCreator.onboardingCompleted) {
+      console.log('   ⚠️  WARNING: Onboarding not completed');
       allChecks = false;
     } else {
-      console.log(`   ✅ PASSED: SaasCreator found (${saasCreator.businessName})`);
-      
-      if (!saasCreator.onboardingCompleted) {
-        console.log('   ⚠️  WARNING: Onboarding not completed');
-        allChecks = false;
-      } else {
-        console.log(`   ✅ Onboarding completed (step ${saasCreator.onboardingStep})`);
-      }
-    }
-
-    if (!saasCreator) {
-      console.log('\n❌ Cannot continue without SaasCreator profile. Run setup script first.\n');
-      return;
+      console.log(`   ✅ Onboarding completed (step ${saasCreator.onboardingStep})`);
     }
 
     // Check 3: Active Products
