@@ -29,13 +29,14 @@ When creating WhiteLabelConfig at onboarding completion:
 7. WhiteLabelConfig is created with deep scrape design tokens ✅
 
 **How to Test:**
-1. Start onboarding and enter a URL (e.g., https://example.com)
+1. Start onboarding and enter a URL with actual design tokens (e.g., https://stripe.com or https://vercel.com)
+   - Note: Use a real website with visible branding for realistic testing
 2. Wait 30-60 seconds for deep scrape to complete
 3. Check SaasCreator table - should have `crawlStatus: "completed"` and populated design token fields
 4. Complete onboarding (proceed to step 5)
 5. Check WhiteLabelConfig table - should have the design tokens from SaasCreator
 
-**Database Queries:**
+**Database Queries (PostgreSQL):**
 ```sql
 -- Check SaasCreator after deep scrape
 SELECT id, "crawlStatus", "primaryColor", "secondaryColor", "logoUrl", "faviconUrl" 
@@ -47,6 +48,7 @@ SELECT "saasCreatorId", "primaryColor", "secondaryColor", "logoUrl", "faviconUrl
 FROM "WhiteLabelConfig" 
 WHERE "saasCreatorId" = '<saas-creator-id>';
 ```
+*Note: These queries use PostgreSQL double-quote syntax for column names.*
 
 ### Scenario 2: Deep Scrape Completes AFTER Onboarding
 **Expected Flow:**
@@ -65,20 +67,21 @@ WHERE "saasCreatorId" = '<saas-creator-id>';
 4. Wait 30-60 seconds for deep scrape to complete
 5. Check WhiteLabelConfig again - should now have updated design tokens
 
-**Database Queries:**
+**Database Queries (PostgreSQL):**
 ```sql
 -- Check WhiteLabelConfig immediately after onboarding
-SELECT "saasCreatorId", "primaryColor", "secondaryColor", "createdAt" 
+SELECT "saasCreatorId", "primaryColor", "secondaryColor", "createdAt", "updatedAt" 
 FROM "WhiteLabelConfig" 
 WHERE "saasCreatorId" = '<saas-creator-id>';
 
 -- Wait 60 seconds, then check again
-SELECT "saasCreatorId", "primaryColor", "secondaryColor", "updatedAt" 
+SELECT "saasCreatorId", "primaryColor", "secondaryColor", "createdAt", "updatedAt" 
 FROM "WhiteLabelConfig" 
 WHERE "saasCreatorId" = '<saas-creator-id>';
 
 -- The updatedAt should be later than createdAt if deep scrape updated it
 ```
+*Note: These queries use PostgreSQL double-quote syntax for column names.*
 
 ### Scenario 3: Deep Scrape Fails
 **Expected Flow:**
