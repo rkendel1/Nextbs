@@ -36,7 +36,7 @@ Enhanced the Stripe OAuth callback to build a comprehensive account profile imme
 - **Country**: Account country code
 - **Currency**: Default currency for the account
 - **MCC (Merchant Category Code)**: Industry classification code
-- **Tax ID**: Company tax ID or individual SSN last 4 digits
+- **Tax ID**: Company tax ID (stored as `taxId`) or individual SSN last 4 (stored as `ssnLast4`)
 
 ### Account Status & Capabilities
 - **Charges Enabled**: Whether the account can accept charges
@@ -75,6 +75,7 @@ Enhanced the Stripe OAuth callback to build a comprehensive account profile imme
   "chargesEnabled": true,
   "payoutsEnabled": true,
   "taxId": "12-3456789",
+  "ssnLast4": "1234",
   "legalEntityName": "Example Corp",
   "ownerName": "John Doe",
   "ownerDob": {"year": 1980, "month": 5, "day": 15},
