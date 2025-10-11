@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Head from "next/head";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 import Image from "next/image";
@@ -29,6 +30,7 @@ interface CreatorData {
     primaryColor?: string;
     secondaryColor?: string;
     logoUrl?: string;
+    pageVisibility?: 'public' | 'private' | 'unlisted';
   };
   designTokens?: {
     fonts?: string[];
@@ -99,8 +101,14 @@ const WhiteLabelHomepage = () => {
   const gradientTo = `${primaryColor}15`; // 15% opacity of primary color for subtle branding
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen bg-white">
+    <>
+      {creator.whiteLabel?.pageVisibility === 'unlisted' && (
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+      )}
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen bg-white">
         {/* Hero Section */}
         <section 
           className="relative py-20"
@@ -249,6 +257,7 @@ const WhiteLabelHomepage = () => {
         </section>
       </div>
     </WhiteLabelLayout>
+    </>
   );
 };
 

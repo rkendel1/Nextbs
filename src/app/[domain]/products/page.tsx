@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Head from "next/head";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 
@@ -43,6 +44,7 @@ interface CreatorData {
     primaryColor?: string;
     secondaryColor?: string;
     logoUrl?: string;
+    pageVisibility?: 'public' | 'private' | 'unlisted';
   };
   designTokens?: {
     fonts?: string[];
@@ -145,8 +147,14 @@ const BrandedProducts = () => {
   const activeProducts = creator?.products?.filter(product => product.isActive && product.tiers.length > 0) || [];
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
+    <>
+      {creator?.whiteLabel?.pageVisibility === 'unlisted' && (
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+      )}
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">
@@ -284,6 +292,7 @@ const BrandedProducts = () => {
         </div>
       </div>
     </WhiteLabelLayout>
+    </>
   );
 };
 

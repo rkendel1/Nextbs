@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Head from "next/head";
 import WhiteLabelLayout from "@/components/WhiteLabel/WhiteLabelLayout";
 import Link from "next/link";
 
@@ -30,6 +31,7 @@ interface CreatorData {
   whiteLabel: {
     primaryColor?: string;
     secondaryColor?: string;
+    pageVisibility?: 'public' | 'private' | 'unlisted';
   };
 }
 
@@ -87,8 +89,14 @@ const WhiteLabelPricing = () => {
   const secondaryColor = creator.whiteLabel?.secondaryColor || '#f5f5f5';
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
+    <>
+      {creator.whiteLabel?.pageVisibility === 'unlisted' && (
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+      )}
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -181,6 +189,7 @@ const WhiteLabelPricing = () => {
         </div>
       </div>
     </WhiteLabelLayout>
+    </>
   );
 };
 

@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       subdomain,
       customCss,
       isActive,
+      pageVisibility,
     } = body;
 
     const user = await prisma.user.findUnique({
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // Check if config already exists
     const existingConfig = await prisma.whiteLabelConfig.findUnique({
-      where: { userId: user.id },
+      where: { saasCreatorId: user.saasCreator.id },
     });
 
     if (existingConfig) {
@@ -92,13 +93,14 @@ export async function POST(request: NextRequest) {
 
     const config = await prisma.whiteLabelConfig.create({
       data: {
-        userId: user.id,
+        saasCreatorId: user.saasCreator.id,
         brandName: brandName || null,
         primaryColor: primaryColor || null,
         logoUrl: logoUrl || null,
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
     });
 
@@ -125,21 +127,22 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandName, primaryColor, logoUrl, customDomain, subdomain, customCss } = body;
+    const { brandName, primaryColor, logoUrl, customDomain, subdomain, customCss, pageVisibility } = body;
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: { saasCreator: true },
     });
 
-    if (!user) {
+    if (!user || !user.saasCreator) {
       return NextResponse.json(
-        { message: "User not found" },
+        { message: "SaaS creator profile not found" },
         { status: 404 }
       );
     }
 
     const config = await prisma.whiteLabelConfig.upsert({
-      where: { userId: user.id },
+      where: { saasCreatorId: user.saasCreator.id },
       update: {
         brandName: brandName || null,
         primaryColor: primaryColor || null,
@@ -147,15 +150,17 @@ export async function PUT(request: NextRequest) {
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
       create: {
-        userId: user.id,
+        saasCreatorId: user.saasCreator.id,
         brandName: brandName || null,
         primaryColor: primaryColor || null,
         logoUrl: logoUrl || null,
         customDomain: customDomain || null,
         subdomain: subdomain || null,
         customCss: customCss || null,
+        pageVisibility: pageVisibility || 'public',
       },
     });
 

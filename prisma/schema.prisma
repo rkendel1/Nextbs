@@ -244,6 +244,7 @@ model WhiteLabelConfig {
   customCss       String?     @db.Text
   successRedirect String?
   isActive        Boolean     @default(true)
+  pageVisibility  String      @default("public") // "public", "private", "unlisted"
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }

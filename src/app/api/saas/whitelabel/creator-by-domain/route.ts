@@ -109,6 +109,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check visibility settings
+    if (whiteLabelConfig.pageVisibility === 'private') {
+      return NextResponse.json(
+        { error: "This white label page is currently private" },
+        { status: 403 }
+      );
+    }
+
+    // For unlisted pages, we still allow access but could add noindex meta tags in the frontend
+    // This is just a data check - the frontend can handle adding noindex meta tags
+
     // Parse design tokens from SaasCreator
     const fonts = whiteLabelConfig.saasCreator.fonts 
       ? JSON.parse(whiteLabelConfig.saasCreator.fonts) 
@@ -131,6 +142,7 @@ export async function GET(request: NextRequest) {
         customCss: whiteLabelConfig.customCss,
         successRedirect: whiteLabelConfig.successRedirect,
         isActive: whiteLabelConfig.isActive,
+        pageVisibility: whiteLabelConfig.pageVisibility,
       },
       designTokens: {
         fonts: fonts,
