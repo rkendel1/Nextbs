@@ -15,6 +15,10 @@ const stripe = new Stripe(stripeSecretKey, {
 
 type Prices = Record<string, { amount: number; stripePriceId: string }> | null;
 
+// Valid billing period values for tier creation
+const VALID_BILLING_PERIODS = ['monthly', 'yearly', 'quarterly', 'one-time'] as const;
+type BillingPeriod = typeof VALID_BILLING_PERIODS[number];
+
 // GET fetch active tiers from platform owner's products
 export async function GET() {
   try {
@@ -112,16 +116,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate billingPeriod is required and valid
-    const validBillingPeriods = ['monthly', 'yearly', 'quarterly', 'one-time'];
     if (!billingPeriod) {
       return NextResponse.json(
         { error: "billingPeriod is required" },
         { status: 400 }
       );
     }
-    if (!validBillingPeriods.includes(billingPeriod)) {
+    if (!VALID_BILLING_PERIODS.includes(billingPeriod)) {
       return NextResponse.json(
-        { error: `Invalid billingPeriod. Must be one of: ${validBillingPeriods.join(', ')}` },
+        { error: `Invalid billingPeriod. Must be one of: ${VALID_BILLING_PERIODS.join(', ')}` },
         { status: 400 }
       );
     }
