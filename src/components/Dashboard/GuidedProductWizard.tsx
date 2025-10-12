@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { X, Package, DollarSign, Tag, Sparkles, CheckCircle2, Zap, Clock, TrendingUp, Code, Rocket, Activity, Settings, Copy, CopyCheck, Eye, Webhook, Key, AlertTriangle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import toast from "react-hot-toast";
 import Loader from "@/components/Common/Loader";
 import ProductPreviewCard from "./ProductPreviewCard";
@@ -255,56 +256,60 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
               </p>
             </div>
 
-            <div className="grid gap-4">
-              {productTypeOptions.map((option) => {
-                const Icon = option.icon;
-                const isSelected = productType === option.type;
-                return (
-                  <button
-                    key={option.type}
-                    onClick={() => setProductType(option.type)}
-                    className={`relative p-6 rounded-xl border-2 transition-all text-left ${
-                      isSelected
-                        ? "border-primary bg-primary/5 dark:bg-primary/10"
-                        : "border-stroke hover:border-primary/50 dark:border-dark-3"
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Icon className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-dark dark:text-white mb-1">
-                          {option.title}
-                        </h4>
-                        <p className="text-sm text-body-color dark:text-dark-6 mb-2">
-                          {option.description}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-body-color dark:text-dark-6">
-                          <Sparkles className="h-3 w-3" />
-                          <span>Example: {option.example}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid gap-4">
+                {productTypeOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = productType === option.type;
+                  return (
+                    <button
+                      key={option.type}
+                      onClick={() => setProductType(option.type)}
+                      className={`relative p-6 rounded-xl border-2 transition-all text-left ${
+                        isSelected
+                          ? "border-primary bg-primary/5 dark:bg-primary/10"
+                          : "border-stroke hover:border-primary/50 dark:border-dark-3"
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 rounded-lg bg-primary/10">
+                          <Icon className="h-6 w-6 text-primary" />
                         </div>
+                        <div className="flex-1">
+                          <h4 className="text-lg font-semibold text-dark dark:text-white mb-1">
+                            {option.title}
+                          </h4>
+                          <p className="text-sm text-body-color dark:text-dark-6 mb-2">
+                            {option.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-body-color dark:text-dark-6">
+                            <Sparkles className="h-3 w-3" />
+                            <span>Example: {option.example}</span>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="h-6 w-6 text-primary" />
+                        )}
                       </div>
-                      {isSelected && (
-                        <CheckCircle2 className="h-6 w-6 text-primary" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Not sure which to choose?
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Most SaaS products start with <strong>Recurring Subscription</strong>. 
-                    You can always add more product types later!
-                  </p>
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="flex gap-2">
+                    <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Not sure which to choose?
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        Most SaaS products start with <strong>Recurring Subscription</strong>. 
+                        You can always add more product types later!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1517,7 +1522,11 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
         />
 
         {/* Modal panel */}
-        <div className="inline-block transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6 sm:align-middle dark:bg-dark-2 max-h-[90vh] overflow-y-auto">
+        <div className="inline-block transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-6xl sm:p-6 sm:align-middle dark:bg-dark-2 max-h-[90vh] overflow-y-auto">
+          <div className="mb-6">
+            <p className="text-center text-sm mb-2 text-muted-foreground">Step {step + 1} of 7</p>
+            <Progress value={(step / 6) * 100} className="w-full" />
+          </div>
           <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
             {renderStep()}
           </div>

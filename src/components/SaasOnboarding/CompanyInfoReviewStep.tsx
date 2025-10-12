@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Loader from "@/components/Common/Loader";
 import toast from "react-hot-toast";
 import { CheckCircle, Edit2, Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandData } from "@/types/saas";
 
 interface CompanyInfoReviewStepProps {
