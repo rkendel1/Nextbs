@@ -15,6 +15,10 @@ const stripe = new Stripe(stripeSecretKey, {
 
 type Prices = Record<string, { amount: number; stripePriceId: string }> | null;
 
+// Valid billing period values for tier creation
+const VALID_BILLING_PERIODS = ['monthly', 'yearly', 'quarterly', 'one-time'] as const;
+type BillingPeriod = typeof VALID_BILLING_PERIODS[number];
+
 // GET fetch active tiers from platform owner's products
 export async function GET() {
   try {
@@ -107,6 +111,20 @@ export async function POST(request: NextRequest) {
       console.log("Validation failed: Invalid fields");
       return NextResponse.json(
         { error: "Missing or invalid required fields: name, non-negative priceAmount, productId" },
+        { status: 400 }
+      );
+    }
+
+    // Validate billingPeriod is required and valid
+    if (!billingPeriod) {
+      return NextResponse.json(
+        { error: "billingPeriod is required" },
+        { status: 400 }
+      );
+    }
+    if (!VALID_BILLING_PERIODS.includes(billingPeriod)) {
+      return NextResponse.json(
+        { error: `Invalid billingPeriod. Must be one of: ${VALID_BILLING_PERIODS.join(', ')}` },
         { status: 400 }
       );
     }
@@ -271,7 +289,8 @@ export async function POST(request: NextRequest) {
           };
 
           if (billingPeriod === 'one-time') {
-            // One-time - no recurring
+            // One-time payment - no recurring
+            stripePriceData.type = 'one_time';
           } else {
             let interval: 'month' | 'year' = 'month';
             let intervalCount = 1;
@@ -299,6 +318,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (stripeError: any) {
         console.error("Stripe price creation error:", stripeError);
+        console.error("Price data attempted:", { priceAmount, billingPeriod, hasYearly, discount });
         return NextResponse.json(
           { error: "Failed to create price in Stripe: " + stripeError.message },
           { status: 500 }
