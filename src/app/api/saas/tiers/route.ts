@@ -111,9 +111,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate billingPeriod
+    // Validate billingPeriod is required and valid
     const validBillingPeriods = ['monthly', 'yearly', 'quarterly', 'one-time'];
-    if (billingPeriod && !validBillingPeriods.includes(billingPeriod)) {
+    if (!billingPeriod) {
+      return NextResponse.json(
+        { error: "billingPeriod is required" },
+        { status: 400 }
+      );
+    }
+    if (!validBillingPeriods.includes(billingPeriod)) {
       return NextResponse.json(
         { error: `Invalid billingPeriod. Must be one of: ${validBillingPeriods.join(', ')}` },
         { status: 400 }
