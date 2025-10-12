@@ -111,6 +111,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate billingPeriod
+    const validBillingPeriods = ['monthly', 'yearly', 'quarterly', 'one-time'];
+    if (billingPeriod && !validBillingPeriods.includes(billingPeriod)) {
+      return NextResponse.json(
+        { error: `Invalid billingPeriod. Must be one of: ${validBillingPeriods.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // Validate yearly option
     if (hasYearly) {
       if (billingPeriod !== 'monthly') {
