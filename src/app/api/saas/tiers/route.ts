@@ -290,7 +290,6 @@ export async function POST(request: NextRequest) {
 
           if (billingPeriod === 'one-time') {
             // One-time payment - no recurring
-            stripePriceData.type = 'one_time';
           } else {
             let interval: 'month' | 'year' = 'month';
             let intervalCount = 1;

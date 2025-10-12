@@ -270,120 +270,159 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   try {
     const metadata = session.metadata;
     
-    if (metadata?.onboarding && metadata.userId && metadata.tierId) {
-      // Onboarding subscription handling
-      const { userId, tierId, productId, saasCreatorId } = metadata;
-      const subscriptionId = session.subscription as string;
+      if (metadata?.onboarding && metadata.userId && metadata.tierId) {
+        // Onboarding subscription handling
+        const { userId, tierId, productId, saasCreatorId } = metadata;
+        const subscriptionId = session.subscription as string;
 
-      if (!subscriptionId) {
-        console.error("No subscription ID in checkout session");
-        return;
-      }
+        if (!subscriptionId) {
+          console.error("No subscription ID in checkout session");
+          return;
+        }
 
-      // Check if subscription already exists
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: {
-          userId: userId,
-          tierId: tierId,
-        },
-      });
-
-      if (existingSubscription) {
-        console.log("Subscription already exists, updating with Stripe ID");
-        await prisma.subscription.update({
-          where: { id: existingSubscription.id },
-          data: {
-            stripeSubscriptionId: subscriptionId,
-            status: 'active',
-          },
-        });
-      } else {
-        // Create new subscription
-        await prisma.subscription.create({
-          data: {
+        // Check if subscription already exists
+        const existingSubscription = await prisma.subscription.findFirst({
+          where: {
             userId: userId,
-            saasCreatorId: saasCreatorId,
-            productId: productId,
             tierId: tierId,
-            stripeSubscriptionId: subscriptionId,
-            status: 'active',
-            cancelAtPeriodEnd: false,
           },
         });
-      }
 
-      // Update user subscription status
-      await prisma.user.update({
-        where: { id: userId },
-        data: { subscriptionStatus: 'PAID' },
-      });
+        let sub;
+        if (existingSubscription) {
+          console.log("Subscription already exists, updating with Stripe ID");
+          sub = await prisma.subscription.update({
+            where: { id: existingSubscription.id },
+            data: {
+              stripeSubscriptionId: subscriptionId,
+              status: 'active',
+            },
+          });
+        } else {
+          // Create new subscription
+          sub = await prisma.subscription.create({
+            data: {
+              userId: userId,
+              saasCreatorId: saasCreatorId,
+              productId: productId,
+              tierId: tierId,
+              stripeSubscriptionId: subscriptionId,
+              status: 'active',
+              cancelAtPeriodEnd: false,
+            },
+          });
+        }
 
-      console.log("Successfully created/updated subscription for user:", userId);
-    } else if (metadata?.creatorId && metadata.productId && metadata.tierId) {
-      // Whitelabel external subscription handling
-      const { creatorId, productId, tierId } = metadata;
-      const subscriptionId = session.subscription as string;
-
-      if (!subscriptionId) {
-        console.log("No subscription ID for whitelabel session");
-        return;
-      }
-
-      const creator = await prisma.saasCreator.findUnique({
-        where: { id: creatorId },
-        include: { stripeAccount: true },
-      });
-
-      if (!creator || !creator.stripeAccount) {
-        console.error("Creator or Stripe account not found for whitelabel session");
-        return;
-      }
-
-      const stripeAccountId = creator.stripeAccount.stripeAccountId;
-      const stripeSub = await stripe.subscriptions.retrieve(subscriptionId, { stripeAccount: stripeAccountId });
-
-      // Check if subscription already exists
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: {
-          saasCreatorId: creatorId,
-          productId,
-          tierId,
-          stripeSubscriptionId: subscriptionId,
-        },
-      });
-
-      if (existingSubscription) {
-        console.log("Whitelabel subscription already exists, updating");
-        await prisma.subscription.update({
-          where: { id: existingSubscription.id },
-          data: {
-            status: 'active',
-            currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-            cancelAtPeriodEnd: stripeSub.cancel_at_period_end || false,
-          },
+        // Update user subscription status
+        await prisma.user.update({
+          where: { id: userId },
+          data: { subscriptionStatus: 'PAID' },
         });
-      } else {
-        // Create new external subscription
-        await prisma.subscription.create({
-          data: {
-            userId: null,
+
+        // Notify creator if saasCreatorId present
+        if (saasCreatorId) {
+          const creator = await prisma.saasCreator.findUnique({
+            where: { id: saasCreatorId },
+            include: { user: true, products: { where: { id: productId }, include: { tiers: { where: { id: tierId } } } } },
+          });
+          if (creator && creator.user) {
+            await prisma.notification.create({
+              data: {
+                userId: creator.user.id,
+                type: 'new_subscriber',
+                message: `New paid subscriber to ${creator.products[0]?.name}`,
+                metadata: {
+                  subscriptionId: sub.id,
+                  sessionId: session.id,
+                },
+              },
+            });
+          }
+        }
+
+        console.log("Successfully created/updated subscription for user:", userId);
+      } else if (metadata?.creatorId && metadata.productId && metadata.tierId) {
+        // Whitelabel external subscription handling
+        const { creatorId, productId, tierId, domain } = metadata;
+        const subscriptionId = session.subscription as string;
+
+        if (!subscriptionId) {
+          console.log("No subscription ID for whitelabel session");
+          return;
+        }
+
+        const creator = await prisma.saasCreator.findUnique({
+          where: { id: creatorId },
+          include: { stripeAccount: true, user: true, products: { where: { id: productId }, include: { tiers: { where: { id: tierId } } } } },
+        });
+
+        if (!creator || !creator.stripeAccount) {
+          console.error("Creator or Stripe account not found for whitelabel session");
+          return;
+        }
+
+        const stripeAccountId = creator.stripeAccount.stripeAccountId;
+        const stripeSub = await stripe.subscriptions.retrieve(subscriptionId, { stripeAccount: stripeAccountId });
+
+        // Check if subscription already exists
+        const existingSubscription = await prisma.subscription.findFirst({
+          where: {
             saasCreatorId: creatorId,
             productId,
             tierId,
             stripeSubscriptionId: subscriptionId,
-            status: 'active',
-            currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-            cancelAtPeriodEnd: stripeSub.cancel_at_period_end || false,
           },
         });
-      }
 
-      console.log("Successfully created/updated whitelabel subscription for creator:", creatorId);
-    } else {
-      console.log("Not a recognized checkout session type, skipping");
-    }
+        let sub;
+        if (existingSubscription) {
+          console.log("Whitelabel subscription already exists, updating");
+          sub = await prisma.subscription.update({
+            where: { id: existingSubscription.id },
+            data: {
+              status: 'active',
+              currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+              cancelAtPeriodEnd: stripeSub.cancel_at_period_end || false,
+            },
+          });
+        } else {
+          // Create new external subscription
+          sub = await prisma.subscription.create({
+            data: {
+              userId: null,
+              saasCreatorId: creatorId,
+              productId,
+              tierId,
+              stripeSubscriptionId: subscriptionId,
+              status: 'active',
+              currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+              cancelAtPeriodEnd: stripeSub.cancel_at_period_end || false,
+            },
+          });
+        }
+
+        // Notify creator
+        if (creator.user) {
+          await prisma.notification.create({
+            data: {
+              userId: creator.user.id,
+              type: 'new_subscriber',
+              message: `New paid subscriber to ${creator.products[0]?.name} from ${session.customer_email || 'guest'} via ${domain}`,
+              metadata: {
+                subscriptionId: sub.id,
+                sessionId: session.id,
+                domain,
+              },
+            },
+          });
+        }
+
+        console.log("Successfully created/updated whitelabel subscription for creator:", creatorId);
+      } else {
+        console.log("Not a recognized checkout session type, skipping");
+      }
   } catch (error) {
     console.error("Error handling checkout session completed:", error);
     throw error;

@@ -60,8 +60,37 @@ export async function POST(request: NextRequest) {
     if (successPath.startsWith(`/${domain}`)) {
       successPath = successPath.slice(domain.length + 1);
     }
-    const success_url = `${siteUrl}/${domain}${successPath}?session_id={CHECKOUT_SESSION_ID}`;
+    const success_url = `${siteUrl}/${domain}${successPath}`;
     const cancel_url = `${siteUrl}/${domain}/products`;
+
+    if (tier.priceAmount === 0) {
+      // Free tier: Create subscription directly and notify creator
+      const subscription = await prisma.subscription.create({
+        data: {
+          saasCreatorId: creator.id,
+          productId,
+          tierId,
+          status: 'active',
+          userId: null, // Anonymous for now
+        },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: creator.userId,
+          type: 'new_subscriber',
+          message: `New free subscriber to ${product.name} via ${domain}`,
+          metadata: {
+            subscriptionId: subscription.id,
+            productId,
+            tierId,
+            domain,
+          },
+        },
+      });
+
+      return NextResponse.json({ url: success_url });
+    }
 
     const lineItems = [{
       price_data: {
@@ -71,9 +100,9 @@ export async function POST(request: NextRequest) {
           description: tier.description ?? undefined,
         },
         unit_amount: tier.priceAmount,
-        recurring: tier.priceAmount > 0 ? {
+        recurring: {
           interval: tier.billingPeriod === 'monthly' ? ('month' as const) : tier.billingPeriod === 'yearly' ? ('year' as const) : ('month' as const),
-        } : undefined,
+        },
       },
       quantity: 1,
     }];
@@ -83,7 +112,7 @@ export async function POST(request: NextRequest) {
       {
         line_items: lineItems,
         mode: 'subscription',
-        success_url,
+        success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url,
         allow_promotion_codes: true,
         billing_address_collection: 'required',

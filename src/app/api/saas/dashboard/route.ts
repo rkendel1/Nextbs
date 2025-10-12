@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     let totalProducts, totalSubscribers, activeSubscriptions, monthlyRevenue, mrr, arr, totalRevenue, churnRate;
+    let creatorAggregates: { id: string; name: string; activeSubscribers: number }[] = [];
 
     if (user.role === 'platform_owner') {
       // Platform owner: Aggregate across all creators
@@ -44,6 +45,21 @@ export async function GET(request: NextRequest) {
       totalSubscribers = await prisma.subscription.count({
         where: { status: { in: ["active", "trialing"] } },
       });
+
+      // Per-creator subscriber aggregates
+      const creators = await prisma.saasCreator.findMany({
+        include: {
+          subscribers: {
+            where: { status: "active" },
+            select: { id: true },
+          },
+        },
+      });
+      creatorAggregates = creators.map((c) => ({
+        id: c.id,
+        name: c.businessName,
+        activeSubscribers: c.subscribers.length,
+      }));
 
       // MRR calculation
       mrr = allActiveSubs.reduce((sum, sub) => {
@@ -78,19 +94,13 @@ export async function GET(request: NextRequest) {
         where: { saasCreatorId: user.saasCreator.id },
       });
 
-      const uniqueSubscribers = await prisma.subscription.findMany({
-        where: { saasCreatorId: user.saasCreator.id },
-        select: { userId: true },
-        distinct: ['userId'] as any,
-      });
-      totalSubscribers = uniqueSubscribers.length;
-
       activeSubscriptions = await prisma.subscription.count({
         where: {
           saasCreatorId: user.saasCreator.id,
           status: "active",
         },
       });
+      totalSubscribers = activeSubscriptions; // Count all active subs, including anonymous
 
       const activeSubs = await prisma.subscription.findMany({
         where: {
@@ -138,7 +148,7 @@ export async function GET(request: NextRequest) {
       monthlyRevenue = mrr;
     }
 
-    return NextResponse.json({
+    const responseData: any = {
       stats: {
         totalProducts,
         totalSubscribers,
@@ -149,7 +159,13 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         churnRate,
       },
-    });
+    };
+
+    if (user.role === 'platform_owner') {
+      responseData.creators = creatorAggregates;
+    }
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error("Dashboard stats error:", error);
     return NextResponse.json(
