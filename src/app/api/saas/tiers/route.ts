@@ -271,7 +271,8 @@ export async function POST(request: NextRequest) {
           };
 
           if (billingPeriod === 'one-time') {
-            // One-time - no recurring
+            // One-time payment - no recurring
+            stripePriceData.type = 'one_time';
           } else {
             let interval: 'month' | 'year' = 'month';
             let intervalCount = 1;
@@ -299,6 +300,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (stripeError: any) {
         console.error("Stripe price creation error:", stripeError);
+        console.error("Price data attempted:", { priceAmount, billingPeriod, hasYearly, discount });
         return NextResponse.json(
           { error: "Failed to create price in Stripe: " + stripeError.message },
           { status: 500 }

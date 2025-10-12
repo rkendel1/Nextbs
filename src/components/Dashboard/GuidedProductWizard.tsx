@@ -101,7 +101,8 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
       });
 
       if (!productResponse.ok) {
-        throw new Error("Failed to create product");
+        const errorData = await productResponse.json().catch(() => ({ error: "Failed to create product" }));
+        throw new Error(errorData.error || "Failed to create product");
       }
 
       const product = await productResponse.json();
@@ -136,7 +137,8 @@ const GuidedProductWizard = ({ onClose }: GuidedProductWizardProps) => {
       });
 
       if (!tierResponse.ok) {
-        throw new Error("Failed to create pricing tier");
+        const errorData = await tierResponse.json().catch(() => ({ error: "Failed to create pricing tier" }));
+        throw new Error(errorData.error || "Failed to create pricing tier");
       }
 
       // Create metering config for metered/usage-based products
