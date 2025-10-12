@@ -13,6 +13,14 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'populst.com',
+      },
+    ],
+  },
   async headers() {
     return [
       {
