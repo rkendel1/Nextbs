@@ -383,11 +383,36 @@ Tone:`,
           spacingValues: uniqueSpacing,
         };
 
+        // Save lightweight data to individual fields
+        const primaryColor = uniqueColors[0] || "#3B82F6";
+        const secondaryColor = uniqueColors[1] || "#1D4ED8";
+        const logoUrl = images[0]?.src ? new URL(images[0].src, url).href : null;
+        const faviconUrl = images.find(img => img.src.includes('favicon'))?.src ? new URL(images.find(img => img.src.includes('favicon'))!.src, url).href : null;
+
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
           data: {
             lightweightScrape: feelData as any,
+            primaryColor,
+            secondaryColor,
+            fonts: JSON.stringify(uniqueFonts),
+            voiceAndTone: tone,
+            logoUrl,
+            faviconUrl,
             crawlStatus: "lightweight_completed",
+          },
+        });
+
+        // Create or update WhiteLabelConfig with subdomain from URL
+        const subdomain = extractDomainForSubdomain(url);
+        const whiteLabelConfig = await prisma.whiteLabelConfig.upsert({
+          where: { saasCreatorId: saasCreator.id },
+          update: { subdomain },
+          create: {
+            saasCreatorId: saasCreator.id,
+            subdomain,
+            isActive: true,
+            pageVisibility: "public",
           },
         });
 
