@@ -2,6 +2,7 @@
   "name": "play-nextjs",
   "version": "2.2.1",
   "private": true,
+  "type":"module",
   
   "scripts": {
     "dev": "concurrently \"next dev\" \"cd designtokens && PORT=3030 node server.js\"",
