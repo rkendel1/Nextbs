@@ -102,6 +102,7 @@ model SaasCreator {
   deepDesignTokens    Json?
   mergedScrapeData    Json?
   scrapedSite         ScrapedSite?        @relation("SaasCreatorToScrapedSite")
+  designVersions      DesignVersion[]    @relation("SaasCreatorDesignVersions")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   stripeAccount       StripeAccount?
@@ -465,4 +466,19 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@index([createdAt])
+}
+
+model DesignVersion {
+  id            String      @id @default(cuid())
+  saasCreatorId String
+  saasCreator   SaasCreator @relation("SaasCreatorDesignVersions", fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  version       Int         @default(1)
+  tokensJson    Json
+  whiteLabelJson Json
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([saasCreatorId])
+  @@index([isActive])
 }

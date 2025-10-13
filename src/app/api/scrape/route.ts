@@ -6,54 +6,309 @@ import * as cheerio from "cheerio";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import * as csstree from "css-tree";
-import type { Declaration, CssNode } from "css-tree";
 import { generateText } from "ai";
 import { openai } from '@ai-sdk/openai';
-import type { FeelData } from "@/types/saas";
+import puppeteer from "puppeteer";
 
-// Helper to extract domain name from URL for subdomain
-function extractDomainForSubdomain(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname;
-    // Remove 'www.' if present
-    const cleanHostname = hostname.replace(/^www\./, '');
-    // Get the main domain part (without TLD)
-    const parts = cleanHostname.split('.');
-    const domain = parts.length > 1 ? parts[0] : cleanHostname;
-    // Clean it to only allow alphanumeric and hyphens
-    const cleaned = domain.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    return cleaned.substring(0, 30) || 'mysite';
-  } catch (error) {
-    console.error('Error extracting domain:', error);
-    return 'mysite';
-  }
+interface FeelData {
+  url: string;
+  headings: string[];
+  mainText: string;
+  links: { href: string; text: string }[];
+  images: { src: string; alt: string }[];
+  colors: string[];
+  fonts: string[];
+  tone: string;
+  spacingValues: string[];
 }
 
-// Helper to fetch CSS content
-async function fetchCss(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.warn(`Failed to fetch CSS from ${url}: ${response.statusText}`);
-      return null;
+interface DeepData {
+  designTokens: Array<{
+    tokenKey: string;
+    tokenType: string;
+    tokenValue: string;
+    source: string;
+  }>;
+  brandVoice: {
+    tone: string;
+    personality: string[];
+    themes: string[];
+  };
+  screenshot: string;
+  majorColors: {
+    background: string;
+    text: string;
+    link: string;
+  };
+  majorFonts: string[];
+  spacingScale: string[];
+}
+
+async function lightweightScrape(url: string): Promise<FeelData> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch URL: ${response.statusText}`);
+  }
+  const html = await response.text();
+
+  const $ = cheerio.load(html);
+  const headings: string[] = [];
+  $("h1, h2, h3, h4, h5, h6").each((index, element) => {
+    const text = $(element).text().trim();
+    if (text) headings.push(text);
+  });
+
+  const links: { href: string; text: string }[] = [];
+  $("a").each((index, element) => {
+    const href = $(element).attr("href") || "";
+    const text = $(element).text().trim();
+    if (href && text) links.push({ href, text });
+  });
+
+  const images: { src: string; alt: string }[] = [];
+  $("img").each((index, element) => {
+    const src = $(element).attr("src") || "";
+    const alt = $(element).attr("alt") || "";
+    if (src) images.push({ src, alt });
+  });
+
+  const extractedColors = new Set<string>();
+  const extractedFonts = new Set<string>();
+  const extractedSpacing = new Set<string>();
+
+  // Process inline styles
+  $("[style]").each((index, element) => {
+    const style = $(element).attr("style");
+    if (style) {
+      try {
+        const ast = csstree.parse(style, { context: "declarationList" });
+        csstree.walk(ast, {
+          visit: "Declaration",
+          enter: (node: any) => {
+            if (node.type === 'Declaration') {
+              const rawValue = csstree.generate(node.value);
+              if (node.property === "color" || node.property === "background-color") {
+                if (isValidColor(rawValue)) {
+                  extractedColors.add(rawValue);
+                }
+              } else if (node.property === "font-family") {
+                const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
+                fontNames.forEach((fontName: string) => {
+                  if (isValidFont(fontName)) {
+                    extractedFonts.add(fontName);
+                  }
+                });
+              } else if (
+                node.property.startsWith("padding") ||
+                node.property.startsWith("margin") ||
+                node.property === "gap" ||
+                node.property === "line-height" ||
+                node.property.startsWith("border-width")
+              ) {
+                if (isValidSpacingValue(rawValue)) {
+                  extractedSpacing.add(rawValue);
+                }
+              }
+            }
+          },
+        });
+      } catch (e) {
+        console.warn("Error parsing inline style:", style, e);
+      }
     }
-    return response.text();
-  } catch (error) {
-    console.error(`Error fetching CSS from ${url}:`, error);
-    return null;
+  });
+
+  // Process <style> tags
+  $("style").each((index, element) => {
+    const styleContent = $(element).html() || "";
+    if (styleContent) {
+      try {
+        const ast = csstree.parse(styleContent);
+        csstree.walk(ast, {
+          visit: "Declaration",
+          enter: (node: any) => {
+            if (node.type === 'Declaration') {
+              const rawValue = csstree.generate(node.value);
+              if (node.property === "color" || node.property === "background-color") {
+                if (isValidColor(rawValue)) {
+                  extractedColors.add(rawValue);
+                }
+              } else if (node.property === "font-family") {
+                const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
+                fontNames.forEach((fontName: string) => {
+                  if (isValidFont(fontName)) {
+                    extractedFonts.add(fontName);
+                  }
+                });
+              } else if (
+                node.property.startsWith("padding") ||
+                node.property.startsWith("margin") ||
+                node.property === "gap" ||
+                node.property === "line-height" ||
+                node.property.startsWith("border-width")
+              ) {
+                if (isValidSpacingValue(rawValue)) {
+                  extractedSpacing.add(rawValue);
+                }
+              }
+            }
+          },
+        });
+      } catch (e) {
+        console.warn("Error parsing <style> content:", e);
+      }
+    }
+  });
+
+  const uniqueColors = Array.from(extractedColors).slice(0, 5);
+  const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
+  const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
+
+  let tone = "neutral";
+  if (headings.length > 0) {
+    const textForTone = headings.join(" ");
+    const { text: aiTone } = await generateText({
+      model: openai("gpt-4o-mini"),
+      messages: [
+        {
+          role: "system",
+          content: `Analyze the following text and determine its overall tone. Respond with a single word: casual, formal, friendly, professional, playful, serious, urgent, calm. If unsure, default to 'neutral'.
+
+Text: "${textForTone}"`,
+        },
+      ],
+    });
+    tone = aiTone.trim().toLowerCase();
+    if (!["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"].includes(tone)) {
+      tone = "neutral";
+    }
   }
+
+  const feelData: FeelData = {
+    url,
+    headings,
+    mainText: headings.join(" "),
+    links,
+    images,
+    colors: uniqueColors,
+    fonts: uniqueFonts,
+    tone,
+    spacingValues: uniqueSpacing,
+  };
+
+  return feelData;
 }
 
-// Helper to validate and clean color strings
+async function deepScrape(url: string): Promise<DeepData> {
+  let deepData: DeepData = {
+    designTokens: [],
+    brandVoice: { tone: 'neutral', personality: [], themes: [] },
+    screenshot: '',
+    majorColors: { background: 'white', text: 'black', link: 'blue' },
+    majorFonts: ['Inter'],
+    spacingScale: ['16px'],
+  };
+
+  try {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    // Get CSS variables from :root
+    const cssVars = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      const vars: Record<string, string> = {};
+      for (let i = 0; i < root.length; i++) {
+        const prop = root[i];
+        if (prop.startsWith('--')) {
+          vars[prop] = root.getPropertyValue(prop).trim();
+        }
+      }
+      return vars;
+    });
+
+    // Get major colors from body background and text
+    const majorColors = await page.evaluate(() => {
+      const body = getComputedStyle(document.body);
+      return {
+        background: body.backgroundColor,
+        text: body.color,
+        link: getComputedStyle(document.body).color, // approximate
+      };
+    });
+
+    // Get major fonts
+    const majorFonts = await page.evaluate(() => {
+      const body = getComputedStyle(document.body);
+      return body.fontFamily.split(',').map(f => f.trim().replace(/['"]/g, ''));
+    });
+
+    // Get spacing scale from common elements
+    const spacingScale = await page.evaluate(() => {
+      const elements = document.querySelectorAll('body, .container, .card, button, input');
+      const spacings = new Set();
+      elements.forEach(el => {
+        const style = getComputedStyle(el);
+        ['padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'gap'].forEach(prop => {
+          const value = style.getPropertyValue(prop);
+          if (value && value !== '0px' && !value.includes('calc')) {
+            spacings.add(value);
+          }
+        });
+      });
+      return Array.from(spacings).slice(0, 10);
+    });
+
+    // Screenshot
+    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshotBase64 = (screenshot as Buffer).toString('base64');
+
+    await browser.close();
+
+    // Design tokens from CSS vars and extracted
+    const designTokens = Object.entries(cssVars).map(([key, value]) => ({
+      tokenKey: key,
+      tokenType: 'css-variable',
+      tokenValue: value as string,
+      source: 'root'
+    }));
+
+    // Brand voice from main text (use headings or body text)
+    const mainText = await page.evaluate(() => document.body.innerText.substring(0, 2000));
+    const { text: brandVoiceText } = await generateText({
+      model: openai("gpt-4o-mini"),
+      messages: [
+        {
+          role: "system",
+          content: "Analyze this website content and describe the brand voice in JSON: { \"tone\": \"word\", \"personality\": [\"traits\"], \"themes\": [\"themes\"] }",
+        },
+        { role: "user", content: mainText },
+      ],
+    });
+    const brandVoice = JSON.parse(brandVoiceText);
+
+    deepData = {
+      designTokens,
+      brandVoice,
+      screenshot: `data:image/png;base64,${screenshotBase64}`,
+      majorColors,
+      majorFonts,
+      spacingScale: spacingScale as string[],
+    };
+  } catch (error) {
+    console.error('Deep scrape failed, using defaults:', error);
+    // deepData already set to defaults
+  }
+
+  return deepData;
+}
+
 function isValidColor(color: string): boolean {
   const trimmed = color.trim().toLowerCase();
-  // Exclude CSS keywords that are not actual colors
   const excludedKeywords = ["inherit", "initial", "unset", "revert", "revert-layer", "currentcolor", "transparent"];
   if (excludedKeywords.includes(trimmed)) {
     return false;
   }
-  // Basic check for hex, rgb, rgba, hsl, hsla, or common named colors
   return (
     trimmed.startsWith("#") ||
     trimmed.startsWith("rgb(") ||
@@ -64,96 +319,48 @@ function isValidColor(color: string): boolean {
   );
 }
 
-// Helper to validate and clean font strings
 function isValidFont(font: string): boolean {
   const trimmed = font.trim().toLowerCase();
-  // Exclude CSS keywords and generic font families
   const excludedKeywordsAndGenerics = [
     "inherit", "initial", "unset", "revert", "revert-layer",
     "serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui",
-    "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "ubuntu", "cantarell", "fira sans", "droid sans", "helvetica neue" // Common system fonts
+    "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "ubuntu", "cantarell", "fira sans", "droid sans", "helvetica neue"
   ];
   if (excludedKeywordsAndGenerics.includes(trimmed)) {
     return false;
   }
-  // Check if it contains at least one letter or a quote, indicating a specific font name
   return /[a-z]/.test(trimmed) || trimmed.includes("'") || trimmed.includes('"');
 }
 
-// Helper to validate and clean spacing values
 function isValidSpacingValue(value: string): boolean {
   const trimmed = value.trim().toLowerCase();
-  // Exclude CSS keywords and common non-token values
   const excluded = ["inherit", "initial", "unset", "revert", "revert-layer", "auto", "0", "0px", "0em", "0rem"];
   if (excluded.includes(trimmed)) {
     return false;
   }
-  // Check if it looks like a numerical value with a unit, or a variable
-  return /^-?(\d*\.?\d+)(px|em|rem|%|vh|vw|ch|ex|cap|ic|lh|rlh|svw|svh|lvw|lvh|dvw|dvh|vmin|vmax|fr|pt|pc|in|cm|mm)?$|^var\(--[\w-]+\)$/.test(trimmed);
+  return /^-?(\d*\.?\d+)(px|em|rem|%|vh|vw|ch|ex|cap|ic|lh|rlh|svw|svh|lvw|lvh|dvw|dvh|vmin|vmax|fr|pt|pc|in|cm|mm)?$/.test(trimmed);
 }
 
-// Function to process declarations
-function processDeclaration(node: Declaration, extractedColors: Set<string>, extractedFonts: Set<string>, extractedSpacing: Set<string>) {
-  const rawValue = csstree.generate(node.value);
-  const trimmedLowerValue = rawValue.trim().toLowerCase();
-
-  if (node.property === "color" || node.property === "background-color") {
-    if (isValidColor(rawValue)) {
-      extractedColors.add(rawValue);
-    }
-  } else if (node.property === "font-family") {
-    const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
-    fontNames.forEach((fontName: string) => {
-      if (isValidFont(fontName)) {
-        extractedFonts.add(fontName);
-      }
-    });
-  } else if (
-    node.property.startsWith("padding") ||
-    node.property.startsWith("margin") ||
-    node.property === "gap" ||
-    node.property === "line-height" ||
-    node.property.startsWith("border-width")
-  ) {
-    if (isValidSpacingValue(rawValue)) {
-      extractedSpacing.add(rawValue);
-    }
-  }
-}
-
-/**
- * POST /api/scrape
- * Triggers the designtokens crawler to scrape brand data from a URL
- */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const { url } = body;
 
     if (!url) {
-      return NextResponse.json(
-        { error: "URL is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
     // Validate URL format
     try {
       new URL(url);
     } catch {
-      return NextResponse.json(
-        { error: "Invalid URL format" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
     // Find user
@@ -163,10 +370,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Get or create SaaS creator profile
@@ -196,320 +400,73 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Kick off both lightweight and deep scraping in the background
-    // This allows the API to return immediately
+    // Kick off lightweight and deep scraping in parallel
     (async () => {
       try {
-        // Lightweight extraction
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch URL: ${response.statusText}`);
-        }
-        const html = await response.text();
+        // Lightweight scrape
+        const feelData = await lightweightScrape(url);
 
-        // Parse HTML with JSDOM for Readability
-        const dom = new JSDOM(html, { url });
-        const reader = new Readability(dom.window.document);
-        const article = reader.parse();
-
-        // Extract main text using Readability
-        const mainText = article?.textContent?.substring(0, 1000) || "";
-
-        // Parse HTML with Cheerio for structural elements
-        const $ = cheerio.load(html);
-
-        const headings: string[] = [];
-        $("h1, h2, h3, h4, h5, h6").each((index: number, element) => {
-          const text = $(element).text().trim();
-          if (text) headings.push(text);
-        });
-
-        const links: { href: string; text: string }[] = [];
-        $("a").each((index: number, element) => {
-          const href = $(element).attr("href") || "";
-          const text = $(element).text().trim();
-          if (href && text) links.push({ href, text });
-        });
-
-        const images: { src: string; alt: string }[] = [];
-        $("img").each((index: number, element) => {
-          const src = $(element).attr("src") || "";
-          const alt = $(element).attr("alt") || "";
-          if (src) images.push({ src, alt });
-        });
-
-        // Extract colors, fonts, and spacing using css-tree
-        const extractedColors = new Set<string>();
-        const extractedFonts = new Set<string>();
-        const extractedSpacing = new Set<string>();
-
-        // Process inline styles
-        $("[style]").each((index: number, element) => {
-          const style = $(element).attr("style");
-          if (style) {
-            try {
-              const ast = csstree.parse(style, { context: "declarationList" });
-              csstree.walk(ast, {
-                visit: "Declaration",
-                enter: (node: CssNode) => {
-                  if (node.type === 'Declaration') {
-                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-                  }
-                },
-              });
-            } catch (e) {
-              console.warn("Error parsing inline style:", style, e);
-            }
-          }
-        });
-
-        // Process <style> tags
-        $("style").each((index: number, element) => {
-          const styleContent = $(element).html() || "";
-          if (styleContent) {
-            try {
-              const ast = csstree.parse(styleContent);
-              csstree.walk(ast, {
-                visit: "Declaration",
-                enter: (node: CssNode) => {
-                  if (node.type === 'Declaration') {
-                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-                  }
-                },
-              });
-            } catch (e) {
-              console.warn("Error parsing <style> content:", e);
-            }
-          }
-        });
-
-        // Process <link rel="stylesheet"> tags
-        const cssUrls: string[] = [];
-        $('link[rel="stylesheet"]').each((index: number, element) => {
-          const href = $(element).attr("href") || "";
-          if (href) {
-            try {
-              const absoluteUrl = new URL(href, url).href;
-              cssUrls.push(absoluteUrl);
-            } catch (e) {
-              console.warn(`Invalid CSS link href: ${href}`, e);
-            }
-          }
-        });
-
-        const allCssContents = await Promise.all(cssUrls.map(fetchCss));
-        for (const cssContent of allCssContents) {
-          if (cssContent) {
-            try {
-              const ast = csstree.parse(cssContent);
-              csstree.walk(ast, {
-                visit: "Declaration",
-                enter: (node: CssNode) => {
-                  if (node.type === 'Declaration') {
-                    processDeclaration(node as Declaration, extractedColors, extractedFonts, extractedSpacing);
-                  }
-                },
-              });
-            } catch (e) {
-              console.warn("Error parsing linked CSS content:", e);
-            }
-          }
-        }
-
-        // Deduplicate and limit
-        const uniqueColors = Array.from(extractedColors).slice(0, 5);
-        const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
-        const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
-
-        // Infer tone using AI
-        let tone = "neutral";
-        if (mainText.length > 50) {
-          const { text: aiTone } = await generateText({
-            model: openai("gpt-4o-mini"),
-            messages: [
-              {
-            role: "system",
-            content: `Analyze the following text and determine its overall tone. Respond with a single word: casual, formal, friendly, professional, playful, serious, urgent, calm. If unsure, default to 'neutral'.
-
-Example:
-Text: "Hey there! Hope you're having a fantastic day. Just wanted to quickly check in."
-Tone: friendly
-
-Text: "We are pleased to announce the release of our Q3 earnings report, demonstrating robust growth."
-Tone: formal
-
-Text: "Don't miss out! Limited time offer ends tonight!"
-Tone: urgent
-
-Text: "The serene landscape offered a moment of quiet reflection."
-Tone: calm
-
-Text: "Our new product is super cool and will make your life awesome!"
-Tone: playful
-
-Text: "Please provide a detailed analysis of the market trends for the upcoming fiscal year."
-Tone: professional
-
-Text: "Just wanted to see how things are going."
-Tone: casual
-
-Text: "The situation requires immediate attention and a comprehensive strategy."
-Tone: serious
-
-Text: "This is a generic piece of text."
-Tone: neutral
-
-Text: "${mainText}"
-Tone:`,
-              },
-            ],
-          });
-          tone = aiTone.trim().toLowerCase();
-          const validTones = ["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"];
-          if (!validTones.includes(tone)) {
-            tone = "neutral";
-          }
-        }
-
-        const feelData: FeelData = {
-          url,
-          headings,
-          mainText,
-          links,
-          images,
-          colors: uniqueColors,
-          fonts: uniqueFonts,
-          tone,
-          spacingValues: uniqueSpacing,
-        };
-
-        // Save lightweight data to individual fields
-        const primaryColor = uniqueColors[0] || "#3B82F6";
-        const secondaryColor = uniqueColors[1] || "#1D4ED8";
-        const logoUrl = images[0]?.src ? new URL(images[0].src, url).href : null;
-        const faviconUrl = images.find(img => img.src.includes('favicon'))?.src ? new URL(images.find(img => img.src.includes('favicon'))!.src, url).href : null;
-
+        // Save lightweight
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
           data: {
-            lightweightScrape: feelData as any,
-            primaryColor,
-            secondaryColor,
-            fonts: JSON.stringify(uniqueFonts),
-            voiceAndTone: tone,
-            logoUrl,
-            faviconUrl,
+            lightweightScrape: JSON.stringify(feelData),
             crawlStatus: "lightweight_completed",
           },
         });
 
-        // Create or update WhiteLabelConfig with subdomain from URL
-        const subdomain = extractDomainForSubdomain(url);
-        const whiteLabelConfig = await prisma.whiteLabelConfig.upsert({
-          where: { saasCreatorId: saasCreator.id },
-          update: { subdomain },
-          create: {
-            saasCreatorId: saasCreator.id,
-            subdomain,
-            isActive: true,
-            pageVisibility: "public",
+        console.log(`Lightweight scrape for job ${jobId} completed`);
+      } catch (error) {
+        console.error("Lightweight scrape error:", error);
+        await prisma.saasCreator.update({
+          where: { id: saasCreator.id },
+          data: { crawlStatus: "lightweight_failed" },
+        });
+      }
+    })();
+
+    // Deep scrape in background
+    (async () => {
+      try {
+        const deepData = await deepScrape(url);
+
+        // Derive primary and secondary colors from deepData
+        const primaryColor = deepData.majorColors.text || deepData.majorColors.link || '#667eea';
+        const secondaryColor = deepData.majorColors.background || '#f5f5f5';
+
+        // Save deep and derived colors
+        await prisma.saasCreator.update({
+          where: { id: saasCreator.id },
+          data: {
+            deepDesignTokens: JSON.stringify(deepData),
+            primaryColor,
+            secondaryColor,
+            crawlStatus: "completed",
+            crawlCompletedAt: new Date(),
           },
         });
 
-        // Parallel deep trigger
-        const deepPromise = fetch("http://localhost:3030/api/crawl", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, depth: 1 }),
-        }).then((res) => {
-          if (!res.ok) throw new Error("Deep scrape failed");
-          return res.json();
-        }).then(async (deepData) => {
-          // Merge logic
-          const mergedColors = deepData.designTokens
-            ?.filter((t: any) => t.tokenType === "color")
-            .map((t: any) => t.tokenValue)
-            .slice(0, 5) || feelData.colors;
-          const mergedFonts = deepData.designTokens
-            ?.filter((t: any) => t.tokenType === "typography")
-            .map((t: any) => t.tokenValue)
-            .slice(0, 3) || feelData.fonts;
-          const mergedSpacing = deepData.designTokens
-            ?.filter((t: any) => t.tokenType === "spacing")
-            .map((t: any) => t.tokenValue)
-            .slice(0, 5) || feelData.spacingValues;
-          const mergedTone = deepData.brandVoice?.tone || feelData.tone;
-          const primaryColor = mergedColors[0] || "#1A73E8";
-          const secondaryColor = mergedColors[1] || "#F5F5F5";
-          const merged = {
-            colors: mergedColors,
-            fonts: mergedFonts,
-            tone: mergedTone,
-            spacingValues: mergedSpacing,
-          };
-          const voiceAndToneString = Array.isArray(mergedTone) ? JSON.stringify(mergedTone) : mergedTone;
-          await prisma.saasCreator.update({
-            where: { id: saasCreator.id },
-            data: {
-              deepDesignTokens: deepData,
-              mergedScrapeData: {
-                lightweight: feelData,
-                deep: deepData,
-                merged,
-              } as any,
-              primaryColor,
-              secondaryColor,
-              fonts: JSON.stringify(mergedFonts),
-              voiceAndTone: voiceAndToneString,
-              crawlStatus: "completed",
-              crawlCompletedAt: new Date(),
-            },
-          });
-
-          // Update WhiteLabelConfig with design tokens if it exists
-          const whiteLabelConfig = await prisma.whiteLabelConfig.findUnique({
-            where: { saasCreatorId: saasCreator.id },
-          });
-
-          if (whiteLabelConfig) {
-            await prisma.whiteLabelConfig.update({
-              where: { id: whiteLabelConfig.id },
-              data: {
-                primaryColor,
-                secondaryColor,
-                logoUrl: deepData.logo_url || whiteLabelConfig.logoUrl,
-                faviconUrl: deepData.favicon_url || whiteLabelConfig.faviconUrl,
-              },
-            });
-          }
-
-          console.log(`Deep job ${jobId} completed`);
-        }).catch(async (err) => {
-          console.error("Deep scrape error:", err);
-          await prisma.saasCreator.update({
-            where: { id: saasCreator.id },
-            data: { crawlStatus: "deep_failed" },
-          });
-        });
-      } catch (error: any) {
-        console.error("Background scrape error:", error);
+        console.log(`Deep scrape for job ${jobId} completed`);
+      } catch (error) {
+        console.error("Deep scrape error:", error);
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
-          data: { crawlStatus: "failed" },
-        }).catch(err => {
-          console.error("Failed to update crawl status after error:", err);
+          data: { 
+            crawlStatus: "deep_failed",
+            primaryColor: '#667eea',
+            secondaryColor: '#f5f5f5',
+          },
         });
       }
     })().catch(err => {
-      // Final catch to prevent unhandled promise rejection
-      console.error("Unhandled error in background scrape:", err);
+      console.error("Unhandled error in deep scrape:", err);
     });
 
     // Return immediately without waiting for scraping to complete
     return NextResponse.json({
       success: true,
       jobId,
-      message: "Scraping started in background. You can continue with onboarding.",
+      message: "Scraping started in background. Lightweight data available, deep processing continues.",
     });
   } catch (error: any) {
     console.error("Scrape API error:", error);

@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { extractDesignTokens } from "@/utils/designTokenExtractor";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 interface WhiteLabelConfig {
   brandName?: string;
@@ -47,6 +50,7 @@ const WhiteLabelLayout = ({ children, domain, config: propConfig, creator: propC
   const [config, setConfig] = useState<WhiteLabelConfig | null>(propConfig || null);
   const [creator, setCreator] = useState<CreatorData | null>(propCreator || null);
   const [designTokens, setDesignTokens] = useState<DesignTokens | null>(propDesignTokens || null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {

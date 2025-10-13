@@ -45,6 +45,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Exempt platform owners from requiring a subscription
+    if (user.role === 'platform_owner') {
+      return NextResponse.json({
+        isPlatformOwner: true,
+        subscription: null,
+        usage: {
+          total: 0,
+          limit: 'unlimited',
+          records: [],
+        },
+        stripeDetails: null,
+      });
+    }
+
     // Find platform subscription (subscription to platform owner's product)
     const platformSubscription = user.subscriptions.find(sub => 
       sub.saasCreator.user.role === 'platform_owner'

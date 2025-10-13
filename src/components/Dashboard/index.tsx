@@ -29,6 +29,14 @@ interface WhiteLabelConfig {
   successRedirect?: string;
 }
 
+interface DesignTokensState {
+  currentTokens: any;
+  currentConfig: any;
+  versions: any[];
+  editingToken: number | null;
+  editingValue: string;
+}
+
 const Dashboard = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -53,6 +61,15 @@ const Dashboard = () => {
     successRedirect: '',
   });
   const [saving, setSaving] = useState(false);
+  const [designTokens, setDesignTokens] = useState<DesignTokensState>({
+    currentTokens: null,
+    currentConfig: null,
+    versions: [],
+    editingToken: null,
+    editingValue: '',
+  });
+  const [showVersions, setShowVersions] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState('');
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -66,6 +83,7 @@ const Dashboard = () => {
     if (saasCreator) {
       fetchProducts();
       fetchWhiteLabelConfig();
+      fetchDesignTokens();
     }
   }, [saasCreator]);
 
@@ -78,6 +96,110 @@ const Dashboard = () => {
       });
     }
   }, [whiteLabelConfig]);
+
+  const fetchDesignTokens = async () => {
+    try {
+      const response = await fetch('/api/saas/design');
+      if (response.ok) {
+        const data = await response.json();
+        setDesignTokens({
+          currentTokens: data.currentTokens,
+          currentConfig: data.currentConfig,
+          versions: data.versions,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch design tokens:', error);
+    }
+  };
+
+  const handleRerunScrape = async () => {
+    if (!saasCreator?.website) {
+      toast.error('No website URL set. Please set your website URL in settings.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/saas/design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rerun', url: saasCreator.website }),
+      });
+
+      if (response.ok) {
+        toast.success('Scrape rerun started. Check back in a few minutes.');
+        // Refresh tokens after delay
+        setTimeout(fetchDesignTokens, 5000);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to rerun scrape');
+      }
+    } catch (error) {
+      toast.error('Failed to rerun scrape');
+    }
+  };
+
+  const handleSaveDesign = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/saas/design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tokens: designTokens.currentTokens,
+          config: designTokens.currentConfig,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success('Design saved successfully. New version created.');
+        fetchDesignTokens();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to save design');
+      }
+    } catch (error) {
+      toast.error('Failed to save design');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditToken = (index: number) => {
+    setDesignTokens({
+      ...designTokens,
+      editingToken: index,
+      editingValue: designTokens.currentTokens.deepTokens[index].tokenValue,
+    });
+  };
+
+  const handleTokenChange = (index: number, value: string) => {
+    setDesignTokens({
+      ...designTokens,
+      editingValue: value,
+    });
+  };
+
+  const handleRevertVersion = async (versionId: string) => {
+    try {
+      const response = await fetch('/api/saas/design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revert', versionId }),
+      });
+
+      if (response.ok) {
+        toast.success('Version reverted successfully.');
+        fetchDesignTokens();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to revert version');
+      }
+    } catch (error) {
+      toast.error('Failed to revert version');
+    }
+  };
 
   const handleSaveConfig = async () => {
     setSaving(true);
@@ -275,7 +397,7 @@ const Dashboard = () => {
       </div>
 
       {/* Onboarding Completion Tasks */}
-      {session?.onboardingCompleted && (products.length === 0 || !whiteLabelConfig?.subdomain) && (
+      {session?.user?.role !== 'platform_owner' && (products.length === 0 || !whiteLabelConfig?.subdomain) && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -508,6 +630,164 @@ const Dashboard = () => {
             <Button onClick={handleSaveConfig} disabled={saving} className="w-full">
               {saving ? 'Saving...' : 'Save Configuration'}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Design & Branding */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Design & Branding</CardTitle>
+          <CardDescription>Manage your design tokens, white-label configuration, and brand identity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Current Design Tokens */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Design Tokens</h3>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleRerunScrape}>
+                    Rerun Extraction
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowVersions(true)}>
+                    Manage Versions
+                  </Button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3">Token Key</th>
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-left p-3">Value</th>
+                      <th className="text-left p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {designTokens.currentTokens?.deepTokens?.map((token, index) => (
+                      <tr key={index} className="border-b">
+                        <td className="p-3">{token.tokenKey}</td>
+                        <td className="p-3">
+                          <Badge variant="secondary">{token.tokenType}</Badge>
+                        </td>
+                        <td className="p-3">
+                          <Input
+                            value={designTokens.editingToken === index ? designTokens.editingValue : token.tokenValue}
+                            onChange={(e) => handleTokenChange(index, e.target.value)}
+                            onBlur={() => setDesignTokens({ ...designTokens, editingToken: null })}
+                            className={designTokens.editingToken === index ? '' : 'bg-transparent'}
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Button variant="ghost" size="sm" onClick={() => handleEditToken(index)}>
+                            {designTokens.editingToken === index ? 'Save' : 'Edit'}
+                          </Button>
+                        </td>
+                      </tr>
+                    )) || (
+                      <tr>
+                        <td colSpan={4} className="p-3 text-center text-muted-foreground">
+                          No design tokens available. Run extraction to generate tokens.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* White-Label Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">White-Label Configuration</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="primaryColor">Primary Color</Label>
+                  <Input
+                    id="primaryColor"
+                    type="color"
+                    value={designTokens.currentTokens?.primaryColor || '#667eea'}
+                    onChange={(e) => handleConfigChange('primaryColor', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="secondaryColor">Secondary Color</Label>
+                  <Input
+                    id="secondaryColor"
+                    type="color"
+                    value={designTokens.currentTokens?.secondaryColor || '#764ba2'}
+                    onChange={(e) => handleConfigChange('secondaryColor', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customCss">Custom CSS</Label>
+                <textarea
+                  id="customCss"
+                  value={designTokens.currentConfig?.customCss || ''}
+                  onChange={(e) => handleConfigChange('customCss', e.target.value)}
+                  className="w-full h-32 p-2 border rounded-md"
+                  placeholder="Add custom CSS for your white-label pages"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brandName">Brand Name</Label>
+                <Input
+                  id="brandName"
+                  value={designTokens.currentConfig?.brandName || saasCreator?.businessName || ''}
+                  onChange={(e) => handleConfigChange('brandName', e.target.value)}
+                  placeholder="Your brand name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pageVisibility">Page Visibility</Label>
+                <select
+                  id="pageVisibility"
+                  value={designTokens.currentConfig?.pageVisibility || 'public'}
+                  onChange={(e) => handleConfigChange('pageVisibility', e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="unlisted">Unlisted</option>
+                </select>
+              </div>
+              <Button onClick={handleSaveDesign} disabled={saving} className="w-full">
+                {saving ? 'Saving...' : 'Save Design & Branding'}
+              </Button>
+            </div>
+
+            {/* Versions Management */}
+            {showVersions && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Design Versions</h3>
+                  <Button variant="outline" onClick={() => setShowVersions(false)}>
+                    Close
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedVersion}
+                      onChange={(e) => setSelectedVersion(e.target.value)}
+                      className="flex-1 p-2 border rounded-md"
+                    >
+                      {designTokens.versions?.map((version) => (
+                        <option key={version.id} value={version.id}>
+                          Version {version.version} - {new Date(version.createdAt).toLocaleDateString()}
+                          {version.isActive && ' (Active)'}
+                        </option>
+                      ))}
+                    </select>
+                    <Button onClick={() => handleRevertVersion(selectedVersion)}>
+                      Revert to this version
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
