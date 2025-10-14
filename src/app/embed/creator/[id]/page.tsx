@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/utils/prismaDB';
+import Image from 'next/image';
 
 interface SaasCreator {
   id: string;
@@ -19,9 +20,11 @@ const CreatorEmbed = ({ saasCreator }: { saasCreator: SaasCreator }) => {
       style={{ backgroundColor: bgColor }}
     >
       {saasCreator.logoUrl && (
-        <img 
+        <Image 
           src={saasCreator.logoUrl} 
           alt={saasCreator.businessName}
+          width={300}
+          height={200}
           className="w-full max-w-xs mb-6 rounded shadow-md"
         />
       )}

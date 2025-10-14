@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/utils/auth";
 import { prisma } from "@/utils/prismaDB";
-import * as cheerio from "cheerio";
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
-import * as csstree from "css-tree";
-import { generateText } from "ai";
-import { openai } from '@ai-sdk/openai';
-import puppeteer from "puppeteer";
+import { Buffer } from "buffer";
 
 interface FeelData {
   url: string;
@@ -22,326 +16,8 @@ interface FeelData {
   spacingValues: string[];
 }
 
-interface DeepData {
-  designTokens: Array<{
-    tokenKey: string;
-    tokenType: string;
-    tokenValue: string;
-    source: string;
-  }>;
-  brandVoice: {
-    tone: string;
-    personality: string[];
-    themes: string[];
-  };
-  screenshot: string;
-  majorColors: {
-    background: string;
-    text: string;
-    link: string;
-  };
-  majorFonts: string[];
-  spacingScale: string[];
-}
-
-async function lightweightScrape(url: string): Promise<FeelData> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch URL: ${response.statusText}`);
-  }
-  const html = await response.text();
-
-  const $ = cheerio.load(html);
-  const headings: string[] = [];
-  $("h1, h2, h3, h4, h5, h6").each((index, element) => {
-    const text = $(element).text().trim();
-    if (text) headings.push(text);
-  });
-
-  const links: { href: string; text: string }[] = [];
-  $("a").each((index, element) => {
-    const href = $(element).attr("href") || "";
-    const text = $(element).text().trim();
-    if (href && text) links.push({ href, text });
-  });
-
-  const images: { src: string; alt: string }[] = [];
-  $("img").each((index, element) => {
-    const src = $(element).attr("src") || "";
-    const alt = $(element).attr("alt") || "";
-    if (src) images.push({ src, alt });
-  });
-
-  const extractedColors = new Set<string>();
-  const extractedFonts = new Set<string>();
-  const extractedSpacing = new Set<string>();
-
-  // Process inline styles
-  $("[style]").each((index, element) => {
-    const style = $(element).attr("style");
-    if (style) {
-      try {
-        const ast = csstree.parse(style, { context: "declarationList" });
-        csstree.walk(ast, {
-          visit: "Declaration",
-          enter: (node: any) => {
-            if (node.type === 'Declaration') {
-              const rawValue = csstree.generate(node.value);
-              if (node.property === "color" || node.property === "background-color") {
-                if (isValidColor(rawValue)) {
-                  extractedColors.add(rawValue);
-                }
-              } else if (node.property === "font-family") {
-                const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
-                fontNames.forEach((fontName: string) => {
-                  if (isValidFont(fontName)) {
-                    extractedFonts.add(fontName);
-                  }
-                });
-              } else if (
-                node.property.startsWith("padding") ||
-                node.property.startsWith("margin") ||
-                node.property === "gap" ||
-                node.property === "line-height" ||
-                node.property.startsWith("border-width")
-              ) {
-                if (isValidSpacingValue(rawValue)) {
-                  extractedSpacing.add(rawValue);
-                }
-              }
-            }
-          },
-        });
-      } catch (e) {
-        console.warn("Error parsing inline style:", style, e);
-      }
-    }
-  });
-
-  // Process <style> tags
-  $("style").each((index, element) => {
-    const styleContent = $(element).html() || "";
-    if (styleContent) {
-      try {
-        const ast = csstree.parse(styleContent);
-        csstree.walk(ast, {
-          visit: "Declaration",
-          enter: (node: any) => {
-            if (node.type === 'Declaration') {
-              const rawValue = csstree.generate(node.value);
-              if (node.property === "color" || node.property === "background-color") {
-                if (isValidColor(rawValue)) {
-                  extractedColors.add(rawValue);
-                }
-              } else if (node.property === "font-family") {
-                const fontNames = rawValue.split(',').map(f => f.trim().replace(/['"]/g, ''));
-                fontNames.forEach((fontName: string) => {
-                  if (isValidFont(fontName)) {
-                    extractedFonts.add(fontName);
-                  }
-                });
-              } else if (
-                node.property.startsWith("padding") ||
-                node.property.startsWith("margin") ||
-                node.property === "gap" ||
-                node.property === "line-height" ||
-                node.property.startsWith("border-width")
-              ) {
-                if (isValidSpacingValue(rawValue)) {
-                  extractedSpacing.add(rawValue);
-                }
-              }
-            }
-          },
-        });
-      } catch (e) {
-        console.warn("Error parsing <style> content:", e);
-      }
-    }
-  });
-
-  const uniqueColors = Array.from(extractedColors).slice(0, 5);
-  const uniqueFonts = Array.from(extractedFonts).slice(0, 3);
-  const uniqueSpacing = Array.from(extractedSpacing).slice(0, 5);
-
-  let tone = "neutral";
-  if (headings.length > 0) {
-    const textForTone = headings.join(" ");
-    const { text: aiTone } = await generateText({
-      model: openai("gpt-4o-mini"),
-      messages: [
-        {
-          role: "system",
-          content: `Analyze the following text and determine its overall tone. Respond with a single word: casual, formal, friendly, professional, playful, serious, urgent, calm. If unsure, default to 'neutral'.
-
-Text: "${textForTone}"`,
-        },
-      ],
-    });
-    tone = aiTone.trim().toLowerCase();
-    if (!["casual", "formal", "friendly", "professional", "playful", "serious", "urgent", "calm", "neutral"].includes(tone)) {
-      tone = "neutral";
-    }
-  }
-
-  const feelData: FeelData = {
-    url,
-    headings,
-    mainText: headings.join(" "),
-    links,
-    images,
-    colors: uniqueColors,
-    fonts: uniqueFonts,
-    tone,
-    spacingValues: uniqueSpacing,
-  };
-
-  return feelData;
-}
-
-async function deepScrape(url: string): Promise<DeepData> {
-  let deepData: DeepData = {
-    designTokens: [],
-    brandVoice: { tone: 'neutral', personality: [], themes: [] },
-    screenshot: '',
-    majorColors: { background: 'white', text: 'black', link: 'blue' },
-    majorFonts: ['Inter'],
-    spacingScale: ['16px'],
-  };
-
-  try {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
-
-    // Get CSS variables from :root
-    const cssVars = await page.evaluate(() => {
-      const root = getComputedStyle(document.documentElement);
-      const vars: Record<string, string> = {};
-      for (let i = 0; i < root.length; i++) {
-        const prop = root[i];
-        if (prop.startsWith('--')) {
-          vars[prop] = root.getPropertyValue(prop).trim();
-        }
-      }
-      return vars;
-    });
-
-    // Get major colors from body background and text
-    const majorColors = await page.evaluate(() => {
-      const body = getComputedStyle(document.body);
-      return {
-        background: body.backgroundColor,
-        text: body.color,
-        link: getComputedStyle(document.body).color, // approximate
-      };
-    });
-
-    // Get major fonts
-    const majorFonts = await page.evaluate(() => {
-      const body = getComputedStyle(document.body);
-      return body.fontFamily.split(',').map(f => f.trim().replace(/['"]/g, ''));
-    });
-
-    // Get spacing scale from common elements
-    const spacingScale = await page.evaluate(() => {
-      const elements = document.querySelectorAll('body, .container, .card, button, input');
-      const spacings = new Set();
-      elements.forEach(el => {
-        const style = getComputedStyle(el);
-        ['padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'gap'].forEach(prop => {
-          const value = style.getPropertyValue(prop);
-          if (value && value !== '0px' && !value.includes('calc')) {
-            spacings.add(value);
-          }
-        });
-      });
-      return Array.from(spacings).slice(0, 10);
-    });
-
-    // Screenshot
-    const screenshot = await page.screenshot({ fullPage: true });
-    const screenshotBase64 = (screenshot as Buffer).toString('base64');
-
-    await browser.close();
-
-    // Design tokens from CSS vars and extracted
-    const designTokens = Object.entries(cssVars).map(([key, value]) => ({
-      tokenKey: key,
-      tokenType: 'css-variable',
-      tokenValue: value as string,
-      source: 'root'
-    }));
-
-    // Brand voice from main text (use headings or body text)
-    const mainText = await page.evaluate(() => document.body.innerText.substring(0, 2000));
-    const { text: brandVoiceText } = await generateText({
-      model: openai("gpt-4o-mini"),
-      messages: [
-        {
-          role: "system",
-          content: "Analyze this website content and describe the brand voice in JSON: { \"tone\": \"word\", \"personality\": [\"traits\"], \"themes\": [\"themes\"] }",
-        },
-        { role: "user", content: mainText },
-      ],
-    });
-    const brandVoice = JSON.parse(brandVoiceText);
-
-    deepData = {
-      designTokens,
-      brandVoice,
-      screenshot: `data:image/png;base64,${screenshotBase64}`,
-      majorColors,
-      majorFonts,
-      spacingScale: spacingScale as string[],
-    };
-  } catch (error) {
-    console.error('Deep scrape failed, using defaults:', error);
-    // deepData already set to defaults
-  }
-
-  return deepData;
-}
-
-function isValidColor(color: string): boolean {
-  const trimmed = color.trim().toLowerCase();
-  const excludedKeywords = ["inherit", "initial", "unset", "revert", "revert-layer", "currentcolor", "transparent"];
-  if (excludedKeywords.includes(trimmed)) {
-    return false;
-  }
-  return (
-    trimmed.startsWith("#") ||
-    trimmed.startsWith("rgb(") ||
-    trimmed.startsWith("rgba(") ||
-    trimmed.startsWith("hsl(") ||
-    trimmed.startsWith("hsla(") ||
-    ["red", "blue", "green", "black", "white", "gray", "cyan", "amber", "orange", "purple", "pink", "yellow", "teal", "indigo", "violet", "lime", "emerald", "rose"].includes(trimmed)
-  );
-}
-
-function isValidFont(font: string): boolean {
-  const trimmed = font.trim().toLowerCase();
-  const excludedKeywordsAndGenerics = [
-    "inherit", "initial", "unset", "revert", "revert-layer",
-    "serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui",
-    "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "ubuntu", "cantarell", "fira sans", "droid sans", "helvetica neue"
-  ];
-  if (excludedKeywordsAndGenerics.includes(trimmed)) {
-    return false;
-  }
-  return /[a-z]/.test(trimmed) || trimmed.includes("'") || trimmed.includes('"');
-}
-
-function isValidSpacingValue(value: string): boolean {
-  const trimmed = value.trim().toLowerCase();
-  const excluded = ["inherit", "initial", "unset", "revert", "revert-layer", "auto", "0", "0px", "0em", "0rem"];
-  if (excluded.includes(trimmed)) {
-    return false;
-  }
-  return /^-?(\d*\.?\d+)(px|em|rem|%|vh|vw|ch|ex|cap|ic|lh|rlh|svw|svh|lvw|lvh|dvw|dvh|vmin|vmax|fr|pt|pc|in|cm|mm)?$/.test(trimmed);
-}
-
 export async function POST(request: NextRequest) {
+  let saasCreator: any = null;
   try {
     const session = await getServerSession(authOptions);
 
@@ -374,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create SaaS creator profile
-    let saasCreator = user.saasCreator;
+    saasCreator = user.saasCreator;
     if (!saasCreator) {
       saasCreator = await prisma.saasCreator.create({
         data: {
@@ -396,49 +72,171 @@ export async function POST(request: NextRequest) {
       data: {
         website: url,
         crawlJobId: jobId,
-        crawlStatus: "processing",
+        crawlStatus: "queued",
       },
     });
 
-    // Kick off lightweight and deep scraping in parallel
+    // Return immediately
+    const response = NextResponse.json({
+      success: true,
+      jobId,
+      message: "Crawl queued for background processing. You'll be notified when complete.",
+    });
+
+    // Background crawl
     (async () => {
       try {
-        // Lightweight scrape
-        const feelData = await lightweightScrape(url);
+        // Call brandmanager for crawl
+        const bmUrl = process.env.BRANDMANAGER_URL || 'http://localhost:3030';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
 
-        // Save lightweight
-        await prisma.saasCreator.update({
-          where: { id: saasCreator.id },
-          data: {
-            lightweightScrape: JSON.stringify(feelData),
-            crawlStatus: "lightweight_completed",
+        const bmResponse = await fetch(`${bmUrl}/api/brand-manager/crawl`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!bmResponse.ok) {
+          const errorData = await bmResponse.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorData.message || `Brandmanager failed: ${bmResponse.statusText}`);
+        }
+
+        const bmData = await bmResponse.json();
+
+        // Upsert ScrapedSite
+        const scrapedSite = await prisma.scrapedSite.upsert({
+          where: { saasCreatorId: saasCreator.id },
+          update: {
+            url,
+            domain: bmData.site.domain,
+            title: bmData.site.title,
+            description: bmData.site.description,
+            rawHtml: bmData.site.raw_html,
+            crawledAt: new Date(),
+          },
+          create: {
+            saasCreatorId: saasCreator.id,
+            url,
+            domain: bmData.site.domain,
+            title: bmData.site.title,
+            description: bmData.site.description,
+            rawHtml: bmData.site.raw_html,
+            crawledAt: new Date(),
           },
         });
 
-        console.log(`Lightweight scrape for job ${jobId} completed`);
-      } catch (error) {
-        console.error("Lightweight scrape error:", error);
-        await prisma.saasCreator.update({
-          where: { id: saasCreator.id },
-          data: { crawlStatus: "lightweight_failed" },
+        // Create or update CompanyInfo (delete old if exists)
+        await prisma.companyInfo.deleteMany({ where: { scrapedSiteId: scrapedSite.id } });
+        await prisma.companyInfo.create({
+          data: {
+            scrapedSiteId: scrapedSite.id,
+            companyName: bmData.companyInfo.company_name || null,
+            legalName: bmData.companyInfo.legal_name || null,
+            contactEmails: bmData.companyInfo.contact_emails || [],
+            contactPhones: bmData.companyInfo.contact_phones || [],
+            addresses: bmData.companyInfo.addresses || [],
+            structuredJson: bmData.companyInfo,
+          },
         });
-      }
-    })();
 
-    // Deep scrape in background
-    (async () => {
-      try {
-        const deepData = await deepScrape(url);
+        // Screenshot as Bytes
+        if (bmData.site.screenshot) {
+          try {
+            const screenshotBuffer = Buffer.from(bmData.site.screenshot, 'base64');
+            await prisma.scrapedSite.update({
+              where: { id: scrapedSite.id },
+              data: { screenshot: screenshotBuffer },
+            });
+          } catch (e) {
+            console.warn('Screenshot decode failed:', e);
+          }
+        }
 
-        // Derive primary and secondary colors from deepData
-        const primaryColor = deepData.majorColors.text || deepData.majorColors.link || '#667eea';
-        const secondaryColor = deepData.majorColors.background || '#f5f5f5';
+        // Delete existing DesignTokens
+        await prisma.designToken.deleteMany({ where: { scrapedSiteId: scrapedSite.id } });
 
-        // Save deep and derived colors
+        // Create DesignTokens from bmData.designTokens
+        const designTokensData = bmData.designTokens.map((token: any) => ({
+          scrapedSiteId: scrapedSite.id,
+          tokenKey: token.token_key,
+          tokenType: token.token_type,
+          tokenValue: JSON.stringify(token.token_value),
+          source: 'brandmanager',
+          meta: token.meta || {},
+        }));
+
+        await prisma.designToken.createMany({ data: designTokensData });
+
+        // Create BrandVoice
+        await prisma.brandVoice.deleteMany({ where: { scrapedSiteId: scrapedSite.id } });
+        await prisma.brandVoice.create({
+          data: {
+            scrapedSiteId: scrapedSite.id,
+            summary: bmData.brandVoice.summary || null,
+            guidelines: JSON.stringify({
+              tone: bmData.brandVoice.tone,
+              personality: bmData.brandVoice.personality || [],
+              themes: bmData.brandVoice.themes || [],
+            }),
+          },
+        });
+
+        // Create ScrapedProducts if available
+        if (bmData.companyInfo.products && Array.isArray(bmData.companyInfo.products)) {
+          await prisma.scrapedProduct.deleteMany({ where: { scrapedSiteId: scrapedSite.id } });
+          const productsData = bmData.companyInfo.products.map((p: any) => ({
+            scrapedSiteId: scrapedSite.id,
+            name: p.name,
+            slug: p.slug,
+            price: p.price,
+            description: p.description,
+            productUrl: p.product_url,
+            metadata: p.metadata || {},
+          }));
+          await prisma.scrapedProduct.createMany({ data: productsData });
+        }
+
+        // Extract for FeelData adaptation
+        const colors = designTokensData
+          .filter((t: any) => t.tokenType === 'color')
+          .slice(0, 5)
+          .map((t: any) => t.tokenValue.replace(/"/g, ''));
+        const fonts = designTokensData
+          .filter((t: any) => t.tokenType === 'typography' || t.tokenType === 'font')
+          .slice(0, 3)
+          .map((t: any) => t.tokenValue.replace(/"/g, ''));
+        const spacingValues = designTokensData
+          .filter((t: any) => t.tokenType === 'spacing')
+          .slice(0, 5)
+          .map((t: any) => t.tokenValue.replace(/"/g, ''));
+        const socialLinks = bmData.companyInfo.socialLinks || [];
+        const links = socialLinks.map((s: any) => ({ href: s.url, text: s.platform }));
+
+        const adaptedFeelData: FeelData = {
+          url,
+          headings: [],
+          mainText: bmData.site.description || '',
+          links,
+          images: [],
+          colors,
+          fonts,
+          tone: bmData.brandVoice.tone || 'neutral',
+          spacingValues,
+        };
+
+        // Update saasCreator
+        const primaryColor = colors[0] || '#667eea';
+        const secondaryColor = colors[1] || '#f5f5f5';
+
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
           data: {
-            deepDesignTokens: JSON.stringify(deepData),
+            lightweightScrape: JSON.stringify(adaptedFeelData),
+            deepDesignTokens: JSON.stringify(bmData),
             primaryColor,
             secondaryColor,
             crawlStatus: "completed",
@@ -446,32 +244,28 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        console.log(`Deep scrape for job ${jobId} completed`);
+        console.log(`Background brandmanager crawl completed for job ${jobId}`);
       } catch (error) {
-        console.error("Deep scrape error:", error);
+        console.error(`Background crawl failed for job ${jobId}:`, error);
         await prisma.saasCreator.update({
           where: { id: saasCreator.id },
-          data: { 
-            crawlStatus: "deep_failed",
-            primaryColor: '#667eea',
-            secondaryColor: '#f5f5f5',
-          },
+          data: { crawlStatus: "failed" },
         });
       }
-    })().catch(err => {
-      console.error("Unhandled error in deep scrape:", err);
-    });
+    })();
 
-    // Return immediately without waiting for scraping to complete
-    return NextResponse.json({
-      success: true,
-      jobId,
-      message: "Scraping started in background. Lightweight data available, deep processing continues.",
-    });
+    return response;
   } catch (error: any) {
     console.error("Scrape API error:", error);
+    // Update status to failed
+    if (saasCreator) {
+      await prisma.saasCreator.update({
+        where: { id: saasCreator.id },
+        data: { crawlStatus: "failed" },
+      });
+    }
     return NextResponse.json(
-      { error: error.message || "Failed to start crawler" },
+      { error: error.message || "Failed to integrate with BrandManager" },
       { status: 500 }
     );
   }

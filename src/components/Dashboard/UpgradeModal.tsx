@@ -37,7 +37,7 @@ const UpgradeModal = ({ onClose, limitType }: UpgradeModalProps) => {
               </button>
             </div>
             <p className="mb-6 text-base text-body-color dark:text-dark-6">
-              You've reached the free plan limit for {limitType}. Upgrade to Pro to {limitText} and unlock unlimited features.
+              You&apos;ve reached the free plan limit for {limitType}. Upgrade to Pro to {limitText} and unlock unlimited features.
             </p>
             <div className="space-y-3">
               <Link

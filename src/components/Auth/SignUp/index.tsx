@@ -64,7 +64,7 @@ const SignUp = () => {
       }
 
       toast.success("Account created successfully!");
-      router.push("/signin");
+      router.push("/?auth=signin");
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
     } finally {
@@ -202,7 +202,7 @@ const SignUp = () => {
               </p>
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/signin" className="text-primary hover:underline">
+                <Link href="/?auth=signin" className="text-primary hover:underline">
                   Sign In
                 </Link>
               </p>

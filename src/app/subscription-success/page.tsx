@@ -6,7 +6,7 @@ export default async function SubscriptionSuccessPage() {
   const session = await getServerSession();
 
   if (!session) {
-    redirect(`/auth/signin?callbackUrl=%2Fpayment-success`);
+    redirect(`/?auth=signin&callbackUrl=%2Fpayment-success`);
   }
 
   return (
@@ -20,7 +20,7 @@ export default async function SubscriptionSuccessPage() {
             Subscription Successful!
           </h1>
           <p className="mb-8 text-base text-body-color dark:text-body-color-dark">
-            Congratulations! Your subscription is now active. You're one step away from launching as a creator.
+            Congratulations! Your subscription is now active. You&apos;re one step away from launching as a creator.
           </p>
           
           <div className="mb-12 rounded-lg bg-white p-8 shadow-lg dark:bg-dark-3">
@@ -42,7 +42,7 @@ export default async function SubscriptionSuccessPage() {
               </li>
             </ul>
             <p className="text-base text-body-color dark:text-body-color-dark">
-              Total time: ~10 minutes. Once complete, you'll unlock full creator tools in your dashboard.
+              Total time: ~10 minutes. Once complete, you&apos;ll unlock full creator tools in your dashboard.
             </p>
           </div>
 

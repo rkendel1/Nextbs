@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -9,19 +9,215 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
+  Accordion, 
+  AccordionItem, 
+  AccordionTrigger, 
+  AccordionContent 
+} from "@/components/ui/accordion";
+import { 
   TrendingUp, 
-  Users, 
+  Users,
   DollarSign, 
   Package,
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle,
   CreditCard,
-  BarChart3
+  BarChart3,
+  Copy,
+  User,
+  MapPin,
+  Mail,
+  Phone,
+  MessageCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Loader from "@/components/Common/Loader";
 import GuidedProductWizard from "./GuidedProductWizard";
+
+interface DesignToken {
+  tokenKey: string;
+  tokenType: string;
+  tokenValue: string;
+  source?: string;
+  meta?: any;
+}
+
+const ReviewSection = ({ designTokens, saasCreator, onRerunScrape, onSaveDesign, saving }: {
+  designTokens: {
+    currentTokens: {
+      groupedTokens?: Record<string, DesignToken[]>;
+      deepTokens?: DesignToken[];
+      primaryColor?: string;
+      secondaryColor?: string;
+      logoUrl?: string;
+      companyName?: string;
+      companyInfo?: {
+        emails?: string[];
+      };
+      brandVoice?: {
+        summary?: string;
+      };
+      confidenceScores?: {
+        colors?: number;
+        logo?: number;
+        fonts?: number;
+      };
+    } | null;
+    currentConfig: any;
+    versions: any[];
+    editingToken: number | null;
+    editingValue: string;
+  };
+  saasCreator: any;
+  onRerunScrape: () => void;
+  onSaveDesign: () => void;
+  saving: boolean;
+}) => {
+  const tokens = designTokens.currentTokens;
+  if (!tokens) {
+    return (
+      <Card className="border-dashed border-primary/30">
+        <CardHeader>
+          <CardTitle className="text-primary">Review Your Captured Setup</CardTitle>
+          <CardDescription>No brand data captured yet. Run a scrape to analyze your site.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center pt-4">
+          <Button onClick={onRerunScrape} variant="outline">
+            Scrape My Website
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const primaryColor = tokens.primaryColor || '#667eea';
+  const secondaryColor = tokens.secondaryColor || '#f5f5f5';
+  const logoUrl = tokens.logoUrl || '/placeholder-logo.svg';
+  const companyName = tokens.companyName || saasCreator?.businessName || 'Your Company';
+  const brandSummary = tokens.brandVoice?.summary || 'Professional and innovative SaaS brand.';
+  const confidence = tokens.confidenceScores || { colors: 0.8, logo: 0.5, fonts: 0.7 };
+
+  return (
+    <Card className="border-0 shadow-lg">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl">Review Your Captured Setup</CardTitle>
+        <CardDescription className="text-sm">
+          See your brand data from the site analysis and profile. We analyzed your website and Stripe profile to capture your visual identity.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Left: Brand Info */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-lg mb-2">Your Brand</h4>
+              <p className="text-muted-foreground mb-3">{brandSummary}</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Company: {companyName}</Badge>
+                {tokens.companyInfo?.emails?.[0] && <Badge>{tokens.companyInfo.emails[0]}</Badge>}
+              </div>
+            </div>
+            {/* Confidence Scores */}
+            <div>
+              <h5 className="font-medium mb-2">Analysis Confidence</h5>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={confidence.colors! > 0.7 ? "default" : "secondary"}>Colors: {Math.round((confidence.colors || 0) * 100)}%</Badge>
+                <Badge variant={confidence.logo! > 0.7 ? "default" : "secondary"}>Logo: {Math.round((confidence.logo || 0) * 100)}%</Badge>
+                <Badge variant={confidence.fonts! > 0.7 ? "default" : "secondary"}>Fonts: {Math.round((confidence.fonts || 0) * 100)}%</Badge>
+              </div>
+            </div>
+          </div>
+          {/* Right: Palette & Preview */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-lg mb-2" style={{ color: primaryColor }}>Your Palette</h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Primary Color</span>
+                  <div 
+                    className="w-16 h-16 rounded-lg border shadow-sm flex items-center justify-center text-xs font-mono hover:scale-105 transition-transform duration-200 cursor-pointer"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {primaryColor}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Secondary Color</span>
+                  <div 
+                    className="w-16 h-16 rounded-lg border shadow-sm flex items-center justify-center text-xs font-mono hover:scale-105 transition-transform duration-200 cursor-pointer"
+                    style={{ backgroundColor: secondaryColor }}
+                  >
+                    {secondaryColor}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Preview */}
+            <div className="text-center">
+              <h5 className="font-medium mb-2">Brand Preview</h5>
+              <div 
+                className="w-full h-48 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg border flex items-center justify-center p-4"
+                style={{ 
+                  '--primary': primaryColor, 
+                  '--secondary': secondaryColor 
+                } as React.CSSProperties}
+              >
+                <div className="text-center">
+                  {logoUrl !== '/placeholder-logo.svg' ? (
+                    <img src={logoUrl} alt="Logo" className="h-12 w-auto mx-auto mb-2 rounded" />
+                  ) : (
+                    <div className="h-12 w-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <Package className="h-6 w-6 text-primary" />
+                    </div>
+                  )}
+                  <p className="font-semibold text-primary" style={{ color: primaryColor }}>Welcome to {companyName}</p>
+                  <p className="text-sm text-muted-foreground">Your SaaS Platform</p>
+                  <p className="text-base font-medium mt-2" style={{ 
+                    fontFamily: tokens.deepTokens?.find(t => t.tokenType === 'typography')?.tokenValue || 'sans-serif',
+                    color: primaryColor 
+                  }}>
+                    Sample text in your font
+                  </p>
+                  <p className="text-sm italic mt-2" style={{ color: primaryColor }}>
+                    "{brandSummary}"
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-3" 
+                    style={{ 
+                      padding: tokens.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('md'))?.tokenValue || '1rem 2rem',
+                      borderColor: primaryColor 
+                    }}
+                  >
+                    Example CTA
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Buttons */}
+        <div className="flex gap-3 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={onRerunScrape}
+            className="flex-1"
+          >
+            Back - Edit & Rescrape
+          </Button>
+          <Button 
+            onClick={onSaveDesign} 
+            disabled={saving}
+            className="flex-1 bg-primary hover:bg-primary/90"
+          >
+            {saving ? 'Completing...' : 'Complete Setup'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 interface WhiteLabelConfig {
   subdomain?: string;
@@ -41,6 +237,7 @@ const Dashboard = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saasCreator, setSaasCreator] = useState<any>(null);
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -71,13 +268,58 @@ const Dashboard = () => {
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState('');
 
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const response = await fetch("/api/saas/dashboard");
+      const data = await response.json();
+      
+      setStats({
+        totalProducts: data.stats?.totalProducts || 0,
+        totalSubscribers: data.stats?.totalSubscribers || 0,
+        activeSubscriptions: data.stats?.activeSubscriptions || 0,
+        monthlyRevenue: data.stats?.monthlyRevenue || 0,
+        growthRate: data.stats?.growthRate || 0,
+        churnRate: data.stats?.churnRate || 0,
+      });
+
+      setRecentActivity(data.recentActivity || []);
+      setTopProducts(data.topProducts || []);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    }
+  }, [setStats, setRecentActivity, setTopProducts]);
+
+  const checkOnboardingStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/saas/onboarding");
+      const data = await response.json();
+
+      if (!data.saasCreator) {
+        router.push("/onboarding");
+        return;
+      }
+
+      if (!data.onboardingCompleted) {
+        router.push("/onboarding");
+        return;
+      }
+
+      setSaasCreator(data.saasCreator);
+      await fetchDashboardData();
+    } catch (error: any) {
+      toast.error("Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, [router, fetchDashboardData, setSaasCreator, setLoading, toast]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/signin");
+      router.push("/?auth=signin");
     } else if (status === "authenticated") {
       checkOnboardingStatus();
     }
-  }, [status]);
+  }, [status, router]);
 
   useEffect(() => {
     if (saasCreator) {
@@ -106,6 +348,8 @@ const Dashboard = () => {
           currentTokens: data.currentTokens,
           currentConfig: data.currentConfig,
           versions: data.versions,
+          editingToken: null,
+          editingValue: '',
         });
       }
     } catch (error) {
@@ -181,6 +425,16 @@ const Dashboard = () => {
     });
   };
 
+  const handleConfigChange = (key: string, value: string) => {
+    setDesignTokens(prev => ({
+      ...prev,
+      currentConfig: {
+        ...prev.currentConfig,
+        [key]: value,
+      },
+    }));
+  };
+
   const handleRevertVersion = async (versionId: string) => {
     try {
       const response = await fetch('/api/saas/design', {
@@ -228,30 +482,6 @@ const Dashboard = () => {
     }
   };
 
-  const checkOnboardingStatus = async () => {
-    try {
-      const response = await fetch("/api/saas/onboarding");
-      const data = await response.json();
-
-      if (!data.saasCreator) {
-        router.push("/onboarding");
-        return;
-      }
-
-      if (!data.onboardingCompleted) {
-        router.push("/onboarding");
-        return;
-      }
-
-      setSaasCreator(data.saasCreator);
-      await fetchDashboardData();
-    } catch (error: any) {
-      toast.error("Failed to load dashboard");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchWhiteLabelConfig = async () => {
     try {
       const response = await fetch("/api/saas/white-label/config");
@@ -264,27 +494,6 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Failed to fetch white label config:', error);
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch("/api/saas/dashboard");
-      const data = await response.json();
-      
-      setStats({
-        totalProducts: data.stats?.totalProducts || 0,
-        totalSubscribers: data.stats?.totalSubscribers || 0,
-        activeSubscriptions: data.stats?.activeSubscriptions || 0,
-        monthlyRevenue: data.stats?.monthlyRevenue || 0,
-        growthRate: data.stats?.growthRate || 0,
-        churnRate: data.stats?.churnRate || 0,
-      });
-
-      setRecentActivity(data.recentActivity || []);
-      setTopProducts(data.topProducts || []);
-    } catch (error) {
-      console.error("Failed to fetch dashboard data:", error);
     }
   };
 
@@ -352,7 +561,7 @@ const Dashboard = () => {
             Welcome back, {saasCreator?.businessName || "Creator"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Here's what's happening with your SaaS business today
+            Here&apos;s what&apos;s happening with your SaaS business today
           </p>
         </div>
         <Button 
@@ -640,153 +849,795 @@ const Dashboard = () => {
           <CardTitle>Design & Branding</CardTitle>
           <CardDescription>Manage your design tokens, white-label configuration, and brand identity</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Current Design Tokens */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Design Tokens</h3>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleRerunScrape}>
-                    Rerun Extraction
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setShowVersions(true)}>
-                    Manage Versions
-                  </Button>
-                </div>
+        <CardContent className="p-0">
+          <div className="p-6 bg-gradient-to-br from-background to-muted/50 rounded-lg">
+            {/* Design System Header */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
+                Your Design System
+              </h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Showcase your brand professionally with captured design tokens. This is your prideful representation – let it shine!
+              </p>
+              <div className="flex justify-center gap-4 mt-4">
+                <Button variant="outline" size="sm" onClick={handleRerunScrape} className="border-primary/50">
+                  🔄 Rerun Extraction
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowVersions(true)}>
+                  📋 Manage Versions
+                </Button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3">Token Key</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">Value</th>
-                      <th className="text-left p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {designTokens.currentTokens?.deepTokens?.map((token, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="p-3">{token.tokenKey}</td>
-                        <td className="p-3">
-                          <Badge variant="secondary">{token.tokenType}</Badge>
-                        </td>
-                        <td className="p-3">
-                          <Input
-                            value={designTokens.editingToken === index ? designTokens.editingValue : token.tokenValue}
-                            onChange={(e) => handleTokenChange(index, e.target.value)}
-                            onBlur={() => setDesignTokens({ ...designTokens, editingToken: null })}
-                            className={designTokens.editingToken === index ? '' : 'bg-transparent'}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditToken(index)}>
-                            {designTokens.editingToken === index ? 'Save' : 'Edit'}
-                          </Button>
-                        </td>
-                      </tr>
-                    )) || (
-                      <tr>
-                        <td colSpan={4} className="p-3 text-center text-muted-foreground">
-                          No design tokens available. Run extraction to generate tokens.
-                        </td>
-                      </tr>
+            </div>
+
+            {/* Brand Identity Section */}
+            {designTokens.currentTokens && (
+              <div className="grid md:grid-cols-2 gap-8 mb-8">
+                <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5 hover:shadow-xl transition-all duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold" style={{ color: designTokens.currentTokens.primaryColor || '#667eea' }}>
+                      Brand Identity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-center mb-4">
+                      {designTokens.currentTokens.logoUrl ? (
+                        <img
+                          src={designTokens.currentTokens.logoUrl}
+                          alt="Brand Logo"
+                          className="h-20 w-auto rounded-xl shadow-lg object-contain border-2 border-primary/20"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="h-20 w-20 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center text-white font-bold shadow-lg border-2 border-primary/20">
+                          Logo
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold mb-2" style={{ 
+                        color: designTokens.currentTokens.primaryColor || '#667eea',
+                        fontFamily: designTokens.currentTokens.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('heading'))?.tokenValue || 'Inter, sans-serif'
+                      }}>
+                        {designTokens.currentTokens.companyName || saasCreator?.businessName || 'Your Brand'}
+                      </h3>
+                      {designTokens.currentTokens.brandVoice?.summary && (
+                        <p className="text-muted-foreground italic text-sm" style={{ 
+                          fontFamily: designTokens.currentTokens.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'serif',
+                          fontStyle: 'italic'
+                        }}>
+                          "{designTokens.currentTokens.brandVoice.summary}"
+                        </p>
+                      )}
+                      <div className="flex flex-wrap justify-center gap-2 mt-4">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          {designTokens.currentTokens.companyInfo?.name || 'Company'}
+                        </Badge>
+                        {designTokens.currentTokens.companyInfo?.emails?.[0] && (
+                          <Badge variant="outline">{designTokens.currentTokens.companyInfo.emails[0]}</Badge>
+                        )}
+                        {designTokens.currentTokens.brandVoice?.tone && (
+                          <Badge variant="default" className="bg-secondary text-secondary-foreground">
+                            {designTokens.currentTokens.brandVoice.tone} Tone
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-secondary/20 bg-gradient-to-br from-secondary/5 to-muted/5 hover:shadow-xl transition-all duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-bold text-secondary-foreground">
+                      Company Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {designTokens.currentTokens.companyInfo ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                          <Mail className="h-4 w-4 text-primary" />
+                          <div>
+                            <span className="font-medium">Emails:</span>
+                            {designTokens.currentTokens.companyInfo.emails.length > 0 ? (
+                              designTokens.currentTokens.companyInfo.emails.map((email: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="mr-1 mt-1">{email}</Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground">No emails</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                          <Phone className="h-4 w-4 text-primary" />
+                          <div>
+                            <span className="font-medium">Phones:</span>
+                            {designTokens.currentTokens.companyInfo.phones.length > 0 ? (
+                              designTokens.currentTokens.companyInfo.phones.map((phone: string, i: number) => (
+                                <Badge key={i} variant="outline" className="mr-1 mt-1">{phone}</Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground">No phones</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                          <MessageCircle className="h-4 w-4 text-primary" />
+                          <div>
+                            <span className="font-medium">Social:</span>
+                            {designTokens.currentTokens.companyInfo.socialLinks.length > 0 ? (
+                              designTokens.currentTokens.companyInfo.socialLinks.map((link: {url: string, platform: string}, i: number) => (
+                                <Badge key={i} variant="secondary" className="mr-1 mt-1">
+                                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-inherit no-underline hover:underline">{link.platform}</a>
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground">No social links</span>
+                            )}
+                          </div>
+                        </div>
+                        {designTokens.currentTokens.brandVoice && (
+                          <div className="p-3 rounded-lg bg-primary/5">
+                            <span className="font-medium block mb-1">Personality Traits:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {designTokens.currentTokens.brandVoice.personality.map((trait: string, i: number) => (
+                                <Badge key={i} variant="outline" size="sm">{trait}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-8">No company details captured yet.</p>
                     )}
-                  </tbody>
-                </table>
+                  </CardContent>
+                </Card>
               </div>
+            )}
+
+            {/* Colors & Typography Sections */}
+            <div className="grid lg:grid-cols-2 gap-8 mb-8">
+              {/* Color Palette */}
+              <Card className="border-primary/20 hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="bg-primary/5">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>
+                    <span className="text-2xl">🎨</span> Color Palette
+                  </CardTitle>
+                  <CardDescription>Primary, secondary, and extracted colors from your brand</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* Primary & Secondary */}
+                    {designTokens.currentTokens?.primaryColor && (
+                      <div 
+                        className="group relative w-full h-20 rounded-xl border-2 border-primary/20 cursor-pointer hover:scale-105 transition-all duration-300 shadow-lg"
+                        style={{ backgroundColor: designTokens.currentTokens.primaryColor }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(designTokens.currentTokens.primaryColor);
+                          toast.success('Primary color copied!');
+                        }}
+                        title="Click to copy"
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="absolute bottom-2 right-2 text-xs font-mono text-white/90 bg-black/20 rounded px-1">
+                          Primary
+                        </div>
+                      </div>
+                    )}
+                    {designTokens.currentTokens?.secondaryColor && (
+                      <div 
+                        className="group relative w-full h-20 rounded-xl border-2 border-secondary/20 cursor-pointer hover:scale-105 transition-all duration-300 shadow-lg"
+                        style={{ backgroundColor: designTokens.currentTokens.secondaryColor }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(designTokens.currentTokens.secondaryColor);
+                          toast.success('Secondary color copied!');
+                        }}
+                        title="Click to copy"
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy className="h-4 w-4 text-black" />
+                        </div>
+                        <div className="absolute bottom-2 right-2 text-xs font-mono text-black/90 bg-white/20 rounded px-1">
+                          Secondary
+                        </div>
+                      </div>
+                    )}
+                    {/* Grouped Colors */}
+                    {designTokens.currentTokens?.groupedTokens?.color && designTokens.currentTokens.groupedTokens.color.slice(0, 6).map((token: DesignToken, i: number) => (
+                      <div 
+                        key={i}
+                        className="group relative w-full h-16 rounded-lg border cursor-pointer hover:scale-105 transition-all duration-300 shadow-md"
+                        style={{ backgroundColor: token.tokenValue }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(token.tokenValue);
+                          toast.success(`${token.tokenKey} copied!`);
+                        }}
+                        title={`${token.tokenKey}: Click to copy`}
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
+                          <Copy className="h-3 w-3 text-white" />
+                        </div>
+                        <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-mono bg-background/90 backdrop-blur-sm rounded px-2 py-1 text-white/90">
+                          {token.tokenKey}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {designTokens.currentTokens?.groupedTokens?.color?.length > 6 && (
+                    <Button variant="link" className="mt-4 p-0 h-auto text-primary">
+                      View all {designTokens.currentTokens.groupedTokens.color.length} colors
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Typography */}
+              <Card className="border-secondary/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="bg-secondary/5">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2 text-secondary-foreground">
+                    <span className="text-2xl">📝</span> Typography
+                  </CardTitle>
+                  <CardDescription>Font families, sizes, and weights from your design</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    {/* Heading Demo */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Heading (H1)</Label>
+                      <h1 className="text-3xl font-bold" style={{ 
+                        fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('heading'))?.tokenValue || 'Inter, sans-serif',
+                        color: designTokens.currentTokens?.primaryColor || '#667eea'
+                      }}>
+                        Your Brand Heading
+                      </h1>
+                      <p className="text-xs text-muted-foreground">Applied: {designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('heading'))?.tokenValue || 'Default'}</p>
+                    </div>
+                    {/* Body Demo */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Body Text</Label>
+                      <p className="text-base leading-relaxed" style={{ 
+                        fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'serif'
+                      }}>
+                        This is sample body text showcasing your brand's typography. It should feel professional and aligned with your voice.
+                      </p>
+                      <p className="text-xs text-muted-foreground">Applied: {designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'Default'}</p>
+                    </div>
+                    {/* Accent Demo */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Accent / Caption</Label>
+                      <p className="text-sm italic font-light" style={{ 
+                        fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('caption'))?.tokenValue || 'serif',
+                        color: designTokens.currentTokens?.secondaryColor || '#764ba2'
+                      }}>
+                        This is an italic caption or quote style.
+                      </p>
+                      <p className="text-xs text-muted-foreground">Applied: {designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('caption'))?.tokenValue || 'Default'}</p>
+                    </div>
+                  </div>
+                  {/* Token List if many */}
+                  {designTokens.currentTokens?.groupedTokens?.typography && (
+                    <div className="mt-6 pt-4 border-t">
+                      <h5 className="font-medium mb-3">All Typography Tokens ({designTokens.currentTokens.groupedTokens.typography.length})</h5>
+                      <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                        {designTokens.currentTokens.groupedTokens.typography.map((token: DesignToken, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                            <span className="text-sm font-medium">{token.tokenKey}</span>
+                            <span className="text-xs" style={{ fontFamily: token.tokenValue }}>Aa {token.tokenValue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
-            {/* White-Label Configuration */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">White-Label Configuration</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="primaryColor">Primary Color</Label>
-                  <Input
-                    id="primaryColor"
-                    type="color"
-                    value={designTokens.currentTokens?.primaryColor || '#667eea'}
-                    onChange={(e) => handleConfigChange('primaryColor', e.target.value)}
-                  />
+            {/* Icons & Components Sections */}
+            <div className="grid lg:grid-cols-2 gap-8 mb-8">
+              {/* Icons */}
+              <Card className="border-accent/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="bg-accent/5">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <span className="text-2xl">🖼️</span> Icons & Elements
+                  </CardTitle>
+                  <CardDescription>Styled icons using your color and spacing tokens</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {[
+                      { icon: TrendingUp, name: 'Growth' },
+                      { icon: Users, name: 'Users' },
+                      { icon: DollarSign, name: 'Revenue' },
+                      { icon: Package, name: 'Product' },
+                      { icon: CheckCircle, name: 'Success' },
+                      { icon: CreditCard, name: 'Payment' },
+                      { icon: BarChart3, name: 'Analytics' },
+                      { icon: Copy, name: 'Copy' }
+                    ].map(({ icon: Icon, name }, i) => (
+                      <div 
+                        key={i}
+                        className="group flex flex-col items-center p-3 rounded-lg bg-muted/50 hover:bg-primary/5 transition-all duration-300 cursor-pointer hover:scale-105"
+                        style={{ 
+                          '--icon-color': designTokens.currentTokens?.primaryColor || '#667eea',
+                          padding: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('sm'))?.tokenValue || '0.5rem'
+                        } as React.CSSProperties}
+                      >
+                        <Icon className="h-6 w-6 mb-1 group-hover:text-primary transition-colors" style={{ color: 'var(--icon-color)' }} />
+                        <span className="text-xs text-center text-muted-foreground">{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-4 text-center">
+                    Icons styled with your primary color and spacing. Expandable to custom SVGs if captured.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Components */}
+              <Card className="border-primary/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="bg-primary/5">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>
+                    <span className="text-2xl">⚛️</span> UI Components
+                  </CardTitle>
+                  <CardDescription>Button and card variants powered by your tokens</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  {/* Buttons */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Button Variants</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        className="bg-primary hover:bg-primary/90 transition-all duration-300" 
+                        style={{ 
+                          backgroundColor: designTokens.currentTokens?.primaryColor || '#667eea',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem',
+                          padding: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('md'))?.tokenValue || '0.5rem 1rem'
+                        }}
+                      >
+                        Primary Action
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        style={{ 
+                          borderColor: designTokens.currentTokens?.primaryColor || '#667eea',
+                          color: designTokens.currentTokens?.primaryColor || '#667eea',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem'
+                        }}
+                      >
+                        Outline
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        className="bg-secondary hover:bg-secondary/90" 
+                        style={{ 
+                          backgroundColor: designTokens.currentTokens?.secondaryColor || '#764ba2',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem'
+                        }}
+                      >
+                        Secondary
+                      </Button>
+                      <Button variant="destructive" size="sm">
+                        Destructive
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Card Demo */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Sample Card</Label>
+                    <Card className="border-primary/20" style={{ 
+                      boxShadow: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'shadow' && t.tokenKey.includes('md'))?.tokenValue || '0 1px 3px rgba(0,0,0,0.1)',
+                      borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('lg'))?.tokenValue || '0.5rem'
+                    }}>
+                      <CardContent className="p-4" style={{ 
+                        padding: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('lg'))?.tokenValue || '1rem'
+                      }}>
+                        <h4 className="font-semibold mb-1" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>Product Card</h4>
+                        <p className="text-sm text-muted-foreground">This card uses your shadow, border radius, and spacing tokens.</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Forms & Preview Sections */}
+            <div className="grid lg:grid-cols-2 gap-8 mb-8">
+              {/* Forms */}
+              <Card className="border-accent/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="bg-accent/5">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <span className="text-2xl">📋</span> Form Elements
+                  </CardTitle>
+                  <CardDescription>Inputs, selects, and labels styled with your tokens</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="demo-input" className="text-sm font-medium" style={{ 
+                        color: designTokens.currentTokens?.primaryColor || '#667eea',
+                        fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('label'))?.tokenValue || 'Inter, sans-serif'
+                      }}>
+                        Sample Input
+                      </Label>
+                      <Input
+                        id="demo-input"
+                        placeholder="Enter your email..."
+                        className="border-primary/30 focus:border-primary focus:ring-primary/20"
+                        style={{ 
+                          borderColor: designTokens.currentTokens?.primaryColor || '#667eea',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('sm'))?.tokenValue || '0.25rem',
+                          padding: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('sm'))?.tokenValue || '0.5rem'
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="demo-select" className="text-sm font-medium">Sample Select</Label>
+                      <select
+                        id="demo-select"
+                        className="w-full p-3 border rounded-md focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        style={{ 
+                          borderColor: designTokens.currentTokens?.primaryColor || '#667eea',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem',
+                          fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'Inter, sans-serif'
+                        }}
+                      >
+                        <option>Option 1</option>
+                        <option>Option 2</option>
+                        <option>Option 3</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Textarea</Label>
+                      <textarea
+                        placeholder="Add your description..."
+                        className="w-full h-20 p-3 border rounded-md resize-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        style={{ 
+                          borderColor: designTokens.currentTokens?.secondaryColor || '#764ba2',
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Forms use your border, color, and typography tokens for consistent branding.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Enhanced Preview */}
+              <Card className="border-primary/20 hover:shadow-2xl transition-all duration-500 col-span-1 lg:col-span-1">
+                <CardHeader className="bg-gradient-to-r from-primary/10 to-secondary/10">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>
+                    <span className="text-2xl">✨</span> Live Brand Preview
+                  </CardTitle>
+                  <CardDescription>Your white-label page mockup with all tokens applied</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div 
+                    className="relative w-full h-96 bg-gradient-to-br from-background to-muted rounded-xl border-2 border-primary/20 shadow-2xl overflow-hidden flex flex-col"
+                    style={{ 
+                      '--primary': designTokens.currentTokens?.primaryColor || '#667eea',
+                      '--secondary': designTokens.currentTokens?.secondaryColor || '#764ba2',
+                      '--font-heading': designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('heading'))?.tokenValue || 'Inter, sans-serif',
+                      '--font-body': designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'serif',
+                      '--spacing-md': designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'spacing' && t.tokenKey.includes('md'))?.tokenValue || '1rem',
+                      '--border-radius': designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('lg'))?.tokenValue || '0.5rem',
+                      '--shadow': designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'shadow' && t.tokenKey.includes('lg'))?.tokenValue || '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    } as React.CSSProperties}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-6 border-b" style={{ 
+                      padding: 'var(--spacing-md)',
+                      borderColor: 'var(--primary)',
+                      boxShadow: 'var(--shadow)'
+                    }}>
+                      <div className="flex items-center gap-4">
+                        {designTokens.currentTokens?.logoUrl ? (
+                          <img
+                            src={designTokens.currentTokens.logoUrl}
+                            alt="Logo"
+                            className="h-12 w-auto rounded-lg object-contain"
+                            style={{ borderRadius: 'var(--border-radius)' }}
+                          />
+                        ) : (
+                          <div className="h-12 w-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center text-white font-bold" style={{ 
+                            backgroundColor: 'var(--primary)',
+                            borderRadius: 'var(--border-radius)'
+                          }}>
+                            Logo
+                          </div>
+                        )}
+                        <div>
+                          <h1 className="text-2xl font-bold" style={{ 
+                            color: 'var(--primary)',
+                            fontFamily: 'var(--font-heading)'
+                          }}>
+                            {designTokens.currentTokens?.companyName || saasCreator?.businessName || 'Your Brand'}
+                          </h1>
+                          <p className="text-sm text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
+                            Professional SaaS Platform
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" style={{ 
+                        borderColor: 'var(--primary)',
+                        color: 'var(--primary)',
+                        borderRadius: 'var(--border-radius)'
+                      }}>
+                        Login
+                      </Button>
+                    </div>
+
+                    {/* Hero Content */}
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                      <h2 className="text-4xl font-bold mb-4" style={{ 
+                        color: 'var(--primary)',
+                        fontFamily: 'var(--font-heading)'
+                      }}>
+                        Welcome to Your Platform
+                      </h2>
+                      <p className="text-lg text-muted-foreground mb-6 max-w-md leading-relaxed" style={{ 
+                        fontFamily: 'var(--font-body)',
+                        lineHeight: '1.6',
+                        marginBottom: 'var(--spacing-md)'
+                      }}>
+                        Discover how your brand comes to life with captured design tokens. Professional, polished, and perfectly you.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button 
+                          className="bg-primary hover:bg-primary/90 px-8 py-3" 
+                          style={{ 
+                            backgroundColor: 'var(--primary)',
+                            borderRadius: 'var(--border-radius)',
+                            padding: 'var(--spacing-md)',
+                            fontFamily: 'var(--font-body)'
+                          }}
+                        >
+                          Get Started
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="px-8 py-3" 
+                          style={{ 
+                            borderColor: 'var(--secondary)',
+                            color: 'var(--secondary)',
+                            borderRadius: 'var(--border-radius)'
+                          }}
+                        >
+                          Learn More
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-4 border-t text-center text-sm text-muted-foreground" style={{ 
+                      padding: 'var(--spacing-md)',
+                      borderColor: 'var(--secondary)',
+                      fontFamily: 'var(--font-body)'
+                    }}>
+                      Powered by your design system • {designTokens.currentTokens?.brandVoice?.tone || 'Professional'} tone
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-4 text-center">
+                    This interactive preview applies all your tokens in real-time. Hover and interact to see the magic!
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Collapsible Edit & Config */}
+            <Accordion type="single" collapsible className="w-full mb-8">
+              <AccordionItem value="edit">
+                <AccordionTrigger className="text-lg font-semibold hover:no-underline" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>
+                  <span className="mr-2">✏️</span> Edit Design Tokens
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="overflow-x-auto mt-4">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left p-3 font-medium">Token Key</th>
+                          <th className="text-left p-3 font-medium">Type</th>
+                          <th className="text-left p-3 font-medium">Value</th>
+                          <th className="text-left p-3 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {designTokens.currentTokens?.deepTokens?.map((token, index) => (
+                          <tr key={index} className="border-b hover:bg-muted/50 transition-colors">
+                            <td className="p-3 font-medium">{token.tokenKey}</td>
+                            <td className="p-3">
+                              <Badge variant="secondary">{token.tokenType}</Badge>
+                            </td>
+                            <td className="p-3">
+                              <Input
+                                value={designTokens.editingToken === index ? designTokens.editingValue : token.tokenValue}
+                                onChange={(e) => handleTokenChange(index, e.target.value)}
+                                onBlur={() => setDesignTokens({ ...designTokens, editingToken: null })}
+                                className={cn(
+                                  "bg-transparent border-transparent focus:border-primary focus:ring-primary/20",
+                                  designTokens.editingToken === index && "border-primary/50"
+                                )}
+                                style={{ borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('sm'))?.tokenValue || '0.25rem' }}
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleEditToken(index)}
+                                className="h-8 px-2"
+                              >
+                                {designTokens.editingToken === index ? '💾 Save' : '✏️ Edit'}
+                              </Button>
+                            </td>
+                          </tr>
+                        )) || (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                              No design tokens available. Run extraction to generate tokens.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            {/* White-Label Configuration - Polished */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold flex items-center gap-2" style={{ color: designTokens.currentTokens?.primaryColor || '#667eea' }}>
+                  <span className="text-2xl">⚙️</span> White-Label Configuration
+                </CardTitle>
+                <CardDescription>Finalize your branding and visibility settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="primaryColor" className="font-medium">Primary Color</Label>
+                    <Input
+                      id="primaryColor"
+                      type="color"
+                      value={designTokens.currentTokens?.primaryColor || '#667eea'}
+                      onChange={(e) => handleConfigChange('primaryColor', e.target.value)}
+                      className="h-12 border-2 border-primary/30 hover:border-primary/50 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="secondaryColor" className="font-medium">Secondary Color</Label>
+                    <Input
+                      id="secondaryColor"
+                      type="color"
+                      value={designTokens.currentTokens?.secondaryColor || '#764ba2'}
+                      onChange={(e) => handleConfigChange('secondaryColor', e.target.value)}
+                      className="h-12 border-2 border-secondary/30 hover:border-secondary/50 transition-colors"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="secondaryColor">Secondary Color</Label>
-                  <Input
-                    id="secondaryColor"
-                    type="color"
-                    value={designTokens.currentTokens?.secondaryColor || '#764ba2'}
-                    onChange={(e) => handleConfigChange('secondaryColor', e.target.value)}
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brandName" className="font-medium">Brand Name Override</Label>
+                    <Input
+                      id="brandName"
+                      value={designTokens.currentConfig?.brandName || saasCreator?.businessName || ''}
+                      onChange={(e) => handleConfigChange('brandName', e.target.value)}
+                      placeholder="Override captured brand name"
+                      className="border-primary/30 focus:border-primary"
+                      style={{ borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem' }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customCss" className="font-medium">Custom CSS (Advanced)</Label>
+                    <textarea
+                      id="customCss"
+                      value={designTokens.currentConfig?.customCss || ''}
+                      onChange={(e) => handleConfigChange('customCss', e.target.value)}
+                      className="w-full h-24 p-3 border rounded-md focus:border-primary focus:ring-primary/20 resize-vertical"
+                      placeholder="/* Add custom styles for white-label pages */ body { font-family: 'Your Font'; }"
+                      style={{ borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem' }}
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="pageVisibility" className="font-medium">Page Visibility</Label>
+                      <select
+                        id="pageVisibility"
+                        value={designTokens.currentConfig?.pageVisibility || 'public'}
+                        onChange={(e) => handleConfigChange('pageVisibility', e.target.value)}
+                        className="w-full p-3 border rounded-md focus:border-primary focus:ring-primary/20 bg-background"
+                        style={{ 
+                          borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem',
+                          fontFamily: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'typography' && t.tokenKey.includes('body'))?.tokenValue || 'Inter, sans-serif'
+                        }}
+                      >
+                        <option value="public">🌐 Public</option>
+                        <option value="private">🔒 Private</option>
+                        <option value="unlisted">🔗 Unlisted</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label className="font-medium">Confidence Scores</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: 'colors', label: 'Colors', score: designTokens.currentTokens?.confidenceScores?.colors },
+                          { key: 'logo', label: 'Logo', score: designTokens.currentTokens?.confidenceScores?.logo },
+                          { key: 'fonts', label: 'Fonts', score: designTokens.currentTokens?.confidenceScores?.fonts }
+                        ].map(({ key, label, score }) => (
+                          <Badge 
+                            key={key} 
+                            variant={score && score > 0.7 ? "default" : "secondary"} 
+                            className={score && score > 0.7 ? "bg-green-500" : "bg-yellow-500"}
+                          >
+                            {label}: {score ? Math.round(score * 100) + '%' : 'N/A'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customCss">Custom CSS</Label>
-                <textarea
-                  id="customCss"
-                  value={designTokens.currentConfig?.customCss || ''}
-                  onChange={(e) => handleConfigChange('customCss', e.target.value)}
-                  className="w-full h-32 p-2 border rounded-md"
-                  placeholder="Add custom CSS for your white-label pages"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="brandName">Brand Name</Label>
-                <Input
-                  id="brandName"
-                  value={designTokens.currentConfig?.brandName || saasCreator?.businessName || ''}
-                  onChange={(e) => handleConfigChange('brandName', e.target.value)}
-                  placeholder="Your brand name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pageVisibility">Page Visibility</Label>
-                <select
-                  id="pageVisibility"
-                  value={designTokens.currentConfig?.pageVisibility || 'public'}
-                  onChange={(e) => handleConfigChange('pageVisibility', e.target.value)}
-                  className="w-full p-2 border rounded-md"
+                <Button 
+                  onClick={handleSaveDesign} 
+                  disabled={saving} 
+                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white font-semibold py-3 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  style={{ 
+                    backgroundColor: designTokens.currentTokens?.primaryColor || '#667eea',
+                    borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('lg'))?.tokenValue || '0.5rem'
+                  }}
                 >
-                  <option value="public">Public</option>
-                  <option value="private">Private</option>
-                  <option value="unlisted">Unlisted</option>
-                </select>
-              </div>
-              <Button onClick={handleSaveDesign} disabled={saving} className="w-full">
-                {saving ? 'Saving...' : 'Save Design & Branding'}
-              </Button>
-            </div>
+                  {saving ? '💾 Saving Your Shine...' : '✨ Save Design & Make It Live'}
+                </Button>
+              </CardContent>
+            </Card>
 
-            {/* Versions Management */}
+            {/* Versions Management - Integrated */}
             {showVersions && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Design Versions</h3>
-                  <Button variant="outline" onClick={() => setShowVersions(false)}>
-                    Close
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
+              <Card className="border-warning/20 bg-warning/5">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <span className="text-xl">📚</span> Design Versions History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-3 items-center">
                     <select
                       value={selectedVersion}
                       onChange={(e) => setSelectedVersion(e.target.value)}
-                      className="flex-1 p-2 border rounded-md"
+                      className="flex-1 p-3 border rounded-md focus:border-primary focus:ring-primary/20"
+                      style={{ borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem' }}
                     >
+                      <option value="">Select a version to revert</option>
                       {designTokens.versions?.map((version) => (
                         <option key={version.id} value={version.id}>
-                          Version {version.version} - {new Date(version.createdAt).toLocaleDateString()}
-                          {version.isActive && ' (Active)'}
+                          v{version.version} - {new Date(version.createdAt).toLocaleDateString()} {version.isActive && '(Active)'} • {version.confidence || 'N/A'}% confidence
                         </option>
                       ))}
                     </select>
-                    <Button onClick={() => handleRevertVersion(selectedVersion)}>
-                      Revert to this version
+                    <Button 
+                      onClick={() => handleRevertVersion(selectedVersion)} 
+                      variant="destructive" 
+                      disabled={!selectedVersion}
+                      className="px-6"
+                      style={{ borderRadius: designTokens.currentTokens?.deepTokens?.find(t => t.tokenType === 'border' && t.tokenKey.includes('md'))?.tokenValue || '0.375rem' }}
+                    >
+                      🔄 Revert
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowVersions(false)}
+                      className="px-6"
+                    >
+                      ❌ Close
                     </Button>
                   </div>
-                </div>
-              </div>
+                  {designTokens.versions?.length === 0 && (
+                    <p className="text-muted-foreground text-center py-4">No versions yet. Save your first design to create one.</p>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
         </CardContent>

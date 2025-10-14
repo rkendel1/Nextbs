@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { prisma } from "@/utils/prismaDB";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch product to get saasCreatorId
+    const product = await prisma.product.findFirst({
+      where: { stripePriceId: priceId },
+      select: { id: true, saasCreatorId: true },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { error: "Product not found for price ID" },
+        { status: 404 }
+      );
+    }
+
     // Create checkout session with specific success and cancel URLs
     const session = await stripe.checkout.sessions.create({
       line_items: [
@@ -38,6 +52,11 @@ export async function POST(request: NextRequest) {
       cancel_url: `${siteUrl}/#pricing`, // Return to pricing section
       allow_promotion_codes: true,
       billing_address_collection: "required",
+      metadata: {
+        saasCreatorId: product.saasCreatorId,
+        productId: product.id,
+        tierId: priceId,
+      },
     });
 
     if (!session.url) {

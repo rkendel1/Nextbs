@@ -2,8 +2,11 @@
 import { useState, useEffect } from "react";
 import Loader from "@/components/Common/Loader";
 import toast from "react-hot-toast";
-import { CheckCircle, Edit2, Sparkles } from "lucide-react";
+import { CheckCircle, Edit2, Sparkles, User, MapPin, Mail, Phone, MessageCircle, Copy, Twitter, Linkedin, Facebook, Palette, Quote } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { BrandData } from "@/types/saas";
 
 interface CompanyInfoReviewStepProps {
@@ -268,12 +271,12 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                 {/* Color Palette Showcase */}
                 {(editedData.primaryColor || editedData.secondaryColor) && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">🎨 Your Color Palette</h3>
+                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>🎨 Your Color Palette</h3>
                     <div className="flex gap-6 mb-4">
                       {editedData.primaryColor && (
                         <div className="flex-1">
                           <div
-                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2"
+                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2 hover:scale-105 transition-transform duration-200 cursor-pointer"
                             style={{ backgroundColor: editedData.primaryColor }}
                           ></div>
                           <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Primary Color</p>
@@ -283,7 +286,7 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                       {editedData.secondaryColor && (
                         <div className="flex-1">
                           <div
-                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2"
+                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2 hover:scale-105 transition-transform duration-200 cursor-pointer"
                             style={{ backgroundColor: editedData.secondaryColor }}
                           ></div>
                           <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Secondary Color</p>
@@ -301,10 +304,10 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                 {/* Typography Showcase */}
                 {editedData.fonts && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">✍️ Your Typography</h3>
+                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>✍️ Your Typography</h3>
                     <div className="space-y-3 mb-4">
                       {JSON.parse(editedData.fonts || '[]').slice(0, 3).map((font: string, i: number) => (
-                        <div key={i} className="p-4 bg-white rounded-lg shadow-sm dark:bg-dark-2 border border-stroke dark:border-dark-3">
+                        <div key={i} className="p-4 bg-white rounded-lg shadow-sm dark:bg-dark-2 border border-stroke dark:border-dark-3 hover:scale-105 transition-transform duration-200 cursor-pointer">
                           <p className="text-xs text-body-color dark:text-dark-6 mb-1">Font {i + 1}</p>
                           <p style={{ fontFamily: font }} className="text-2xl font-medium text-dark dark:text-white">
                             The quick brown fox jumps
@@ -331,12 +334,12 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                 {/* Spacing Tokens */}
                 {editedData.spacingValues && JSON.parse(editedData.spacingValues || '[]').length > 0 && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold text-dark dark:text-white mb-4">📏 Spacing System</h3>
+                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>📏 Spacing System</h3>
                     <div className="grid grid-cols-4 gap-3 mb-4">
                       {JSON.parse(editedData.spacingValues || '[]').slice(0, 8).map((spacing: string, i: number) => (
                         <div
                           key={i}
-                          className="p-3 border-2 border-stroke rounded-lg dark:border-dark-3 bg-white dark:bg-dark-2 flex flex-col items-center justify-center"
+                          className="p-3 border-2 border-stroke rounded-lg dark:border-dark-3 bg-white dark:bg-dark-2 flex flex-col items-center justify-center hover:scale-105 transition-transform duration-200 cursor-pointer"
                         >
                           <div
                             className="bg-primary/20 rounded"

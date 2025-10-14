@@ -62,7 +62,6 @@ const WhiteLabelProducts = () => {
   const domain = params.domain as string;
   const [creator, setCreator] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   const handleSubscribe = async (productId: string, tierId: string) => {
     try {
@@ -145,30 +144,51 @@ const WhiteLabelProducts = () => {
 
   const primaryColor = creator.whiteLabel?.primaryColor || creator.designTokens?.primaryColor || '#667eea';
   const secondaryColor = creator.whiteLabel?.secondaryColor || creator.designTokens?.secondaryColor || '#f5f5f5';
-  // TEMP: Bypass filter to always render all products (fallback commented per user request)
-  const activeProducts = creator?.products || [];
+  const activeProducts = creator.products?.filter(p => p.isActive) || [];
 
-  // Temporary debug info
-  console.log('Debug - Domain:', domain);
-  console.log('Debug - Creator loaded:', !!creator);
-  console.log('Debug - Products count:', creator?.products?.length || 0);
-  console.log('Debug - Products shown (bypassed):', activeProducts.length);
+  if (activeProducts.length === 0) {
+    return (
+      <WhiteLabelLayout domain={domain}>
+        <div className="min-h-screen py-8 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center py-12">
+              <div className="bg-gray-100 rounded-lg shadow-lg p-8 max-w-md mx-auto">
+                <div className="text-gray-500 mb-4">
+                  <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Products Available</h3>
+                <p className="text-gray-600">
+                  This creator has not published any products yet. Please check back later!
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Have Questions?
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Contact us for more information about our products and pricing.
+              </p>
+              <a
+                href={`mailto:${creator.user?.email}`}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Contact Us
+              </a>
+            </div>
+          </div>
+        </div>
+      </WhiteLabelLayout>
+    );
+  }
 
   return (
-    <WhiteLabelLayout domain={domain}>
-      <div className="min-h-screen py-12" style={{ backgroundColor: secondaryColor }}>
+    <WhiteLabelLayout domain={domain} creator={creator} designTokens={creator.designTokens} config={creator.whiteLabel}>
+      <div className="min-h-screen py-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Debug Info - Remove after verification */}
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-            <strong>Debug Info (Bypassed):</strong><br />
-            Domain: {domain}<br />
-            Creator loaded: {creator ? 'Yes' : 'No'}<br />
-            Total products: {creator?.products?.length || 0}<br />
-            Products shown: {activeProducts.length}<br />
-            <small>Note: Temporarily showing all products, fallback commented out.</small>
-          </div>
-
-          {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
               Our Products
@@ -178,16 +198,14 @@ const WhiteLabelProducts = () => {
             </p>
           </div>
 
-          {/* Products Grid - TEMP: Always render */}
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-12">
             {activeProducts.map((product) => (
               <div 
                 key={product.id} 
-                className="bg-white rounded-lg shadow-lg overflow-hidden border-t-4"
-                style={{ borderTopColor: primaryColor }}
+                className="bg-white rounded-lg shadow-lg overflow-hidden border-t-4 border-blue-500"
               >
                 <div className="p-6">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
                     {product.name}
                   </h3>
                   {product.imageUrl ? (
@@ -210,7 +228,6 @@ const WhiteLabelProducts = () => {
                     </p>
                   )}
                   
-                  {/* Pricing Tiers */}
                   <div className="space-y-4 mb-6">
                     {product.tiers.map((tier) => (
                       <div key={tier.id} className="border border-gray-200 rounded-lg p-4">
@@ -220,35 +237,32 @@ const WhiteLabelProducts = () => {
                             <span className="text-2xl font-bold text-gray-900">
                               ${(tier.priceAmount / 100).toFixed(0)}
                             </span>
-                            <span className="text-gray-600 text-sm ml-1">
+                            <span className="text-gray-500 text-sm ml-1">
                               /{tier.billingPeriod}
                             </span>
                           </div>
                         </div>
                         
                         {tier.description && (
-                          <p className="text-sm text-gray-600 mb-3">{tier.description}</p>
+                          <p className="text-sm text-gray-600 mb-2">{tier.description}</p>
                         )}
                         
-                        {/* Features */}
                         {tier.features.length > 0 && (
-                          <ul className="space-y-1">
+                          <ul className="space-y-1 mb-4">
                             {tier.features.map((feature, index) => (
                               <li key={index} className="flex items-start">
-                                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
-                                <span className="text-sm text-gray-700">{feature}</span>
+                                <span className="text-sm text-gray-600">{feature}</span>
                               </li>
                             ))}
                           </ul>
                         )}
 
-                        {/* Subscribe Button */}
                         <Button
                           onClick={() => handleSubscribe(product.id, tier.id)}
-                          className="w-full mt-3"
-                          style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
+                          className="w-full"
                           variant="default"
                         >
                           Subscribe to {tier.name} - ${(tier.priceAmount / 100).toFixed(0)}/{tier.billingPeriod}
@@ -257,26 +271,23 @@ const WhiteLabelProducts = () => {
                     ))}
                   </div>
 
-                  {/* CTA Button */}
                   <Link
                     href={`/whitelabel/${domain}/products/${product.id}`}
-                    className="block w-full text-center px-4 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: primaryColor }}
+                    className="block w-full text-center px-4 py-2 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     View Details
                   </Link>
 
-                  {/* Embed Section */}
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">Embed this product</h4>
-                    <p className="text-sm text-gray-600 mb-3">Copy the embed code to add this product to your site.</p>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Embed this product</h4>
+                    <p className="text-sm text-gray-600 mb-2">Copy the embed code to add this product to your site.</p>
                     <textarea
                       readOnly
                       value={`<iframe src="/embed/product/${product.id}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`}
-                      className="w-full p-2 border border-gray-300 rounded-md text-sm mb-3 resize-none bg-gray-50"
+                      className="w-full p-2 border border-gray-300 rounded-md text-sm mb-2 resize-none bg-gray-50"
                       rows={3}
                     />
-                    <div className="border rounded-md overflow-hidden">
+                    <div className="border rounded-lg overflow-hidden">
                       <iframe
                         src={`/embed/product/${product.id}`}
                         width="100%"
@@ -292,26 +303,6 @@ const WhiteLabelProducts = () => {
             ))}
           </div>
 
-          {/* TEMP: Commented fallback per user request */}
-          {/* 
-          ) : (
-            <div className="text-center py-12">
-              <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto">
-                <div className="text-gray-400 mb-4">
-                  <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Products Available</h3>
-                <p className="text-gray-600">
-                  This creator hasn&apos;t published any products yet. Please check back later!
-                </p>
-              </div>
-            </div>
-          ) 
-          */}
-
-          {/* Contact Section */}
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-4">
               Have Questions?
@@ -321,8 +312,7 @@ const WhiteLabelProducts = () => {
             </p>
             <a
               href={`mailto:${creator.user?.email}`}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: primaryColor }}
+              className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
             >
               Contact Us
             </a>

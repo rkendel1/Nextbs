@@ -213,6 +213,11 @@ export async function GET(request: NextRequest) {
       include: {
         saasCreator: {
           include: {
+            scrapedSite: {
+              include: {
+                designTokens: true,
+              },
+            },
             stripeAccount: true,
             products: true,
           },
@@ -240,10 +245,24 @@ export async function GET(request: NextRequest) {
           },
         });
         
+        const fullSaasCreator = await prisma.saasCreator.findUnique({
+          where: { id: saasCreator.id },
+          include: {
+            scrapedSite: {
+              include: {
+                designTokens: true,
+              },
+            },
+            stripeAccount: true,
+            products: true,
+          },
+        });
+        
         return NextResponse.json({
-          saasCreator,
+          saasCreator: fullSaasCreator,
           onboardingCompleted: true,
           currentStep: 5,
+          designTokens: fullSaasCreator!.scrapedSite?.designTokens || [],
         });
       }
       
@@ -251,6 +270,7 @@ export async function GET(request: NextRequest) {
         saasCreator: user.saasCreator,
         onboardingCompleted: true,
         currentStep: user.saasCreator?.onboardingStep || 5,
+        designTokens: user.saasCreator.scrapedSite?.designTokens || [],
       });
     }
 
@@ -272,6 +292,11 @@ export async function GET(request: NextRequest) {
       saasCreator = await prisma.saasCreator.findUnique({
         where: { id: newCreator.id },
         include: {
+          scrapedSite: {
+            include: {
+              designTokens: true,
+            },
+          },
           stripeAccount: true,
           products: true,
         },
@@ -285,6 +310,7 @@ export async function GET(request: NextRequest) {
       saasCreator,
       onboardingCompleted,
       currentStep,
+      designTokens: saasCreator.scrapedSite?.designTokens || [],
     });
   } catch (error: any) {
     console.error("Get onboarding status error:", error);

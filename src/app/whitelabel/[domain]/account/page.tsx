@@ -70,16 +70,8 @@ const WhiteLabelAccount = () => {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchCreatorData();
-  }, [domain]);
-
-  useEffect(() => {
-    if (status === "authenticated" && creator) {
-      fetchAccountData();
-    }
-  }, [status, creator]);
+  const [unifiedData, setUnifiedData] = useState<any>(null);
+  const [deepTokens, setDeepTokens] = useState<any>(null);
 
   const fetchCreatorData = async () => {
     try {
@@ -102,6 +94,14 @@ const WhiteLabelAccount = () => {
   const fetchAccountData = async () => {
     try {
       setLoading(true);
+
+      // Fetch unified data for tokens
+      const creatorRes = await fetch(`/api/saas/whitelabel/creator-by-domain?domain=${encodeURIComponent(domain)}`);
+      if (creatorRes.ok) {
+        const creatorData = await creatorRes.json();
+        setUnifiedData(creatorData.unifiedData);
+        setDeepTokens(creatorData.unifiedData?.deepDesignTokens);
+      }
 
       // Fetch subscription and usage for this creator's products
       const accountRes = await fetch(`/api/saas/my-subscriptions`);
@@ -140,6 +140,16 @@ const WhiteLabelAccount = () => {
     }
   };
 
+  useEffect(() => {
+    fetchCreatorData();
+  }, [domain]);
+
+  useEffect(() => {
+    if (status === "authenticated" && creator) {
+      fetchAccountData();
+    }
+  }, [status, creator]);
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: any; icon: any }> = {
       active: { variant: "default", icon: CheckCircle },
@@ -175,13 +185,15 @@ const WhiteLabelAccount = () => {
     });
   };
 
-  const primaryColor = creator?.whiteLabel?.primaryColor || '#667eea';
+  const primaryColor = deepTokens?.color?.brand.primary || creator?.whiteLabel?.primaryColor || '#667eea';
+  const textColor = deepTokens?.color?.text.primary || '#111';
+  const bgColor = deepTokens?.color?.background.default || '#fff';
   const brandName = creator?.whiteLabel?.brandName || creator?.businessName || 'Service';
 
   if (loading) {
     return (
-      <WhiteLabelLayout domain={domain}>
-        <div className="flex items-center justify-center min-h-screen">
+      <WhiteLabelLayout domain={domain} unifiedData={unifiedData}>
+        <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: bgColor, color: textColor }}>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: primaryColor }}></div>
         </div>
       </WhiteLabelLayout>
@@ -192,12 +204,12 @@ const WhiteLabelAccount = () => {
     return (
       <WhiteLabelLayout domain={domain}>
         <div className="min-h-screen flex items-center justify-center">
-          <Card>
+          <Card style={{ backgroundColor: bgColor, color: textColor }}>
             <CardContent className="pt-6">
               <div className="text-center">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Creator Not Found</h3>
-                <p className="text-muted-foreground">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" style={{ color: textColor }} />
+                <h3 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Creator Not Found</h3>
+                <p className="text-muted-foreground" style={{ color: textColor }}>
                   This domain is not associated with any creator.
                 </p>
               </div>
@@ -212,23 +224,23 @@ const WhiteLabelAccount = () => {
     return (
       <WhiteLabelLayout domain={domain}>
         <div className="container mx-auto px-4 py-16">
-          <Card className="max-w-md mx-auto">
-            <CardHeader>
-              <CardTitle>Sign In Required</CardTitle>
-              <CardDescription>
-                Please sign in to view your account and manage your subscription
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => window.location.href = '/auth/signin'}
-                className="w-full"
-                style={{ backgroundColor: primaryColor }}
-              >
-                Sign In
-              </Button>
-            </CardContent>
-          </Card>
+            <Card className="max-w-md mx-auto" style={{ backgroundColor: bgColor, color: textColor }}>
+              <CardHeader>
+                <CardTitle style={{ color: textColor }}>Sign In Required</CardTitle>
+                <CardDescription style={{ color: textColor }}>
+                  Please sign in to view your account and manage your subscription
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => window.location.href = '/?auth=signin'}
+                  className="w-full"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Sign In
+                </Button>
+              </CardContent>
+            </Card>
         </div>
       </WhiteLabelLayout>
     );
@@ -238,15 +250,15 @@ const WhiteLabelAccount = () => {
     return (
       <WhiteLabelLayout domain={domain}>
         <div className="container mx-auto px-4 py-8">
-          <Card>
+          <Card style={{ backgroundColor: bgColor, color: textColor }}>
             <CardContent className="pt-6">
               <div className="text-center">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Subscription Found</h3>
-                <p className="text-muted-foreground mb-4">
-                  You don't have an active subscription to {brandName}.
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" style={{ color: textColor }} />
+                <h3 className="text-lg font-semibold mb-2" style={{ color: textColor }}>No Subscription Found</h3>
+                <p className="text-muted-foreground mb-4" style={{ color: textColor }}>
+                  You don&apos;t have an active subscription to {brandName}.
                 </p>
-                <Button 
+                <Button
                   onClick={() => window.location.href = `/whitelabel/${domain}/products`}
                   style={{ backgroundColor: primaryColor }}
                 >
@@ -267,39 +279,39 @@ const WhiteLabelAccount = () => {
   return (
     <WhiteLabelLayout domain={domain}>
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">My Account</h1>
-          <p className="text-muted-foreground">
+        <div className="mb-8" style={{ color: textColor }}>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: textColor }}>My Account</h1>
+          <p className="text-muted-foreground" style={{ color: textColor }}>
             Manage your subscription to {brandName}
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 mb-6">
           {/* Subscription Card */}
-          <Card>
+          <Card style={{ backgroundColor: bgColor, color: textColor }}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Current Plan</CardTitle>
+                <CardTitle style={{ color: textColor }}>Current Plan</CardTitle>
                 {getStatusBadge(subscription.status)}
               </div>
-              <CardDescription>{subscription.productName}</CardDescription>
+              <CardDescription style={{ color: textColor }}>{subscription.productName}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent style={{ color: textColor }}>
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-2xl font-bold">{subscription.tierName}</h3>
+                  <h3 className="text-2xl font-bold" style={{ color: textColor }}>{subscription.tierName}</h3>
                   {subscription.tierDescription && (
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1" style={{ color: textColor }}>
                       {subscription.tierDescription}
                     </p>
                   )}
                 </div>
 
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">
+                  <span className="text-3xl font-bold" style={{ color: textColor }}>
                     {formatCurrency(subscription.priceAmount)}
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground" style={{ color: textColor }}>
                     / {subscription.billingPeriod}
                   </span>
                 </div>
@@ -307,10 +319,10 @@ const WhiteLabelAccount = () => {
                 <Separator />
 
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Features</h4>
+                  <h4 className="font-semibold text-sm" style={{ color: textColor }}>Features</h4>
                   <ul className="space-y-1">
                     {subscription.features.map((feature, index) => (
-                      <li key={index} className="flex items-center text-sm">
+                      <li key={index} className="flex items-center text-sm" style={{ color: textColor }}>
                         <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
                         {feature}
                       </li>
@@ -320,7 +332,7 @@ const WhiteLabelAccount = () => {
 
                 {subscription.currentPeriodEnd && (
                   <div className="pt-4">
-                    <div className="flex items-center text-sm text-muted-foreground">
+                    <div className="flex items-center text-sm text-muted-foreground" style={{ color: textColor }}>
                       <Calendar className="h-4 w-4 mr-2" />
                       {subscription.cancelAtPeriodEnd ? (
                         <span>Cancels on {formatDate(subscription.currentPeriodEnd)}</span>
@@ -335,20 +347,20 @@ const WhiteLabelAccount = () => {
           </Card>
 
           {/* Usage Card */}
-          <Card>
+          <Card style={{ backgroundColor: bgColor, color: textColor }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2" style={{ color: textColor }}>
+                <TrendingUp className="h-5 w-5" style={{ color: textColor }} />
                 Usage
               </CardTitle>
-              <CardDescription>Your usage this billing period</CardDescription>
+              <CardDescription style={{ color: textColor }}>Your usage this billing period</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent style={{ color: textColor }}>
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Total Usage</span>
-                    <span className="text-2xl font-bold">{usage?.total || 0}</span>
+                    <span className="text-sm font-medium" style={{ color: textColor }}>Total Usage</span>
+                    <span className="text-2xl font-bold" style={{ color: textColor }}>{usage?.total || 0}</span>
                   </div>
                   {usage?.limit && (
                     <>
@@ -361,7 +373,7 @@ const WhiteLabelAccount = () => {
                           }}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1" style={{ color: textColor }}>
                         {usage.total} of {usage.limit} used ({usagePercentage.toFixed(1)}%)
                       </p>
                     </>
@@ -372,14 +384,14 @@ const WhiteLabelAccount = () => {
                   <>
                     <Separator />
                     <div>
-                      <h4 className="font-semibold text-sm mb-2">Recent Activity</h4>
+                      <h4 className="font-semibold text-sm mb-2" style={{ color: textColor }}>Recent Activity</h4>
                       <div className="space-y-2">
                         {usage.records.slice(0, 5).map((record: any, index: number) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">
+                          <div key={index} className="flex justify-between text-sm" style={{ color: textColor }}>
+                            <span className="text-muted-foreground" style={{ color: textColor }}>
                               {new Date(record.timestamp).toLocaleDateString()}
                             </span>
-                            <span className="font-medium">{record.quantity} units</span>
+                            <span className="font-medium" style={{ color: textColor }}>{record.quantity} units</span>
                           </div>
                         ))}
                       </div>
@@ -392,17 +404,17 @@ const WhiteLabelAccount = () => {
         </div>
 
         {/* Invoices Card */}
-        <Card>
+        <Card style={{ backgroundColor: bgColor, color: textColor }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2" style={{ color: textColor }}>
+              <CreditCard className="h-5 w-5" style={{ color: textColor }} />
               Billing History
             </CardTitle>
-            <CardDescription>View and download your invoices</CardDescription>
+            <CardDescription style={{ color: textColor }}>View and download your invoices</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent style={{ color: textColor }}>
             {invoices.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
+              <p className="text-center text-muted-foreground py-8" style={{ color: textColor }}>
                 No invoices found
               </p>
             ) : (
@@ -411,22 +423,23 @@ const WhiteLabelAccount = () => {
                   <div
                     key={invoice.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                    style={{ color: textColor }}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <h4 className="font-semibold">
+                        <h4 className="font-semibold" style={{ color: textColor }}>
                           {invoice.number || `Invoice ${invoice.id.slice(-8)}`}
                         </h4>
-                        <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                        <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'} style={{ color: textColor }}>
                           {invoice.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted-foreground mt-1" style={{ color: textColor }}>
                         {formatDate(invoice.created)}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="font-semibold">
+                      <span className="font-semibold" style={{ color: textColor }}>
                         {formatCurrency(invoice.amount, invoice.currency)}
                       </span>
                       {invoice.invoicePdf && (
@@ -434,8 +447,9 @@ const WhiteLabelAccount = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => window.open(invoice.invoicePdf, '_blank')}
+                          style={{ color: textColor }}
                         >
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="h-4 w-4 mr-2" style={{ color: textColor }} />
                           PDF
                         </Button>
                       )}
@@ -444,6 +458,7 @@ const WhiteLabelAccount = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => window.open(invoice.hostedInvoiceUrl, '_blank')}
+                          style={{ color: textColor }}
                         >
                           View
                         </Button>

@@ -6,7 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Globe, AlertCircle } from "lucide-react";
+
+interface FeelData {
+  url: string;
+  headings: string[];
+  mainText: string;
+  links: { href: string; text: string }[];
+  images: { src: string; alt: string }[];
+  colors: string[];
+  fonts: string[];
+  tone: string;
+  spacingValues: string[];
+}
 
 interface URLScrapeStepProps {
   data: any;
@@ -18,6 +31,10 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
   const [url, setUrl] = useState(data.website || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scrapeData, setScrapeData] = useState<FeelData | null>(null);
+  const [designTokens, setDesignTokens] = useState<any[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [activeTab, setActiveTab] = useState<'input' | 'design'>('input');
   const router = useRouter();
 
   const validateURL = (urlString: string): boolean => {
@@ -57,6 +74,7 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: normalizedUrl }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -64,19 +82,31 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
         throw new Error(errorData.error || `Failed to start scraping: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const resData = await response.json();
       
-      if (!data.success) {
-        throw new Error(data.error || "Failed to start scraping");
+      if (!resData.success) {
+        throw new Error(resData.error || "Failed to start scraping");
       }
 
-      toast.success("Scraping started in the background! Moving to next step...", {
-        duration: 4000,
-        icon: "🔍",
-      });
-
-      // Pass normalized URL as website so it can be used for subdomain extraction
-      onComplete({ website: normalizedUrl });
+      if (resData.lightweightScrape) {
+        setScrapeData(resData.lightweightScrape);
+        // Fetch full onboarding data for designTokens
+        const onboardingRes = await fetch("/api/saas/onboarding", { credentials: 'include' });
+        const onboardingData = await onboardingRes.json();
+        setDesignTokens(onboardingData.designTokens || []);
+        setShowResults(true);
+        toast.success("Analysis complete! View your brand profile below.", {
+          duration: 4000,
+          icon: "🔍",
+        });
+      } else {
+        toast.success("Scraping started in the background! Moving to next step...", {
+          duration: 4000,
+          icon: "🔍",
+        });
+        // Pass normalized URL as website so it can be used for subdomain extraction
+        onComplete({ website: normalizedUrl });
+      }
 
     } catch (err) {
       console.error("Error triggering scrapes:", err);
@@ -88,54 +118,77 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
     }
   };
 
-  return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Globe className="h-6 w-6" />
-          Enter Your Site URL
-        </CardTitle>
-        <CardDescription>
-          We&apos;ll automatically analyze your website in the background to prepopulate your profile and branding details.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="website">Website URL</Label>
-            <Input
-              id="website"
-              type="text"
-              placeholder="example.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={isSubmitting || loading}
-              className="w-full"
-            />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="h-4 w-4" />
-              {error}
-            </div>
-          )}
-          <Button type="submit" disabled={isSubmitting || loading || !url.trim()} className="w-full">
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Starting scrape...
-              </>
-            ) : (
-              "Start Analysis & Continue"
-            )}
-          </Button>
-        </form>
-        <p className="text-xs text-muted-foreground">
-          We&apos;ll analyze your site for branding details and design tokens automatically.
-        </p>
-      </CardContent>
-    </Card>
+  const form = (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="website">Website URL</Label>
+        <Input
+          id="website"
+          type="text"
+          placeholder="example.com"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          disabled={isSubmitting || loading}
+          className="w-full"
+        />
+      </div>
+      {error && (
+        <div className="flex items-center gap-2 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
+      <Button type="submit" disabled={isSubmitting || loading || !url.trim()} className="w-full">
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Starting scrape...
+          </>
+        ) : (
+          "Start Analysis & Continue"
+        )}
+      </Button>
+    </form>
   );
+
+  if (!showResults) {
+    return (
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-6 w-6" />
+            Enter Your Site URL
+          </CardTitle>
+          <CardDescription>
+            We&apos;ll automatically analyze your website in the background to prepopulate your profile and branding details.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {form}
+          <p className="text-xs text-muted-foreground"></p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // TODO: Add return for showResults case if needed, e.g.:
+  // if (showResults) {
+  //   return (
+  //     <Card className="w-full max-w-4xl">
+  //       <CardHeader>
+  //         <CardTitle>Brand Analysis Results</CardTitle>
+  //         ...
+  //       </CardHeader>
+  //       <CardContent>
+  //         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'input' | 'design')}>
+  //           ...
+  //         </Tabs>
+  //       </CardContent>
+  //     </Card>
+  //   );
+  // }
+
+  return null; // Fallback
 };
 
 export default URLScrapeStep;

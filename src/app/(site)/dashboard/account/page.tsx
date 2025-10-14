@@ -19,7 +19,7 @@ export default function AccountPage() {
   useEffect(() => {
     async function fetchAccountData() {
       if (!session) {
-        router.push('/auth/signin');
+        router.push('/?auth=signin');
         return;
       }
 
