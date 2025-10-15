@@ -2,6 +2,7 @@ const { chromium, firefox, webkit } = require('playwright');
 const cheerio = require('cheerio');
 const robotsParser = require('robots-parser');
 const axios = require('axios');
+const { Buffer } = require('buffer');
 const config = require('../config');
 
 // User agent pool for rotation
@@ -427,6 +428,9 @@ class Crawler {
         // Use Cheerio for structured data extraction
         const structuredData = this.extractStructuredData(html);
 
+        // Extract logos
+        const logos = await this.extractLogos(page, urlObj.origin, structuredData.meta);
+
         // Get text content for analysis
         const textContent = await page.evaluate(() => {
           return document.body.innerText;
@@ -444,6 +448,7 @@ class Crawler {
           structuredData,
           textContent,
           meta: structuredData.meta,
+          logos,
           browserUsed: this.browserType,
           captchaDetected: hasCaptcha
         };
@@ -452,6 +457,97 @@ class Crawler {
         throw error;
       }
     });
+  }
+
+  // Extract logos: favicon, og:image, and DOM-based
+  async extractLogos(page, origin, meta) {
+    const logos = [];
+
+    try {
+      // 1. Favicon
+      try {
+        const faviconRes = await axios.get(`${origin}/favicon.ico`, {
+          responseType: 'arraybuffer',
+          timeout: 5000,
+          validateStatus: () => true // Accept any status
+        });
+        if (faviconRes.status === 200 && faviconRes.data) {
+          const base64 = Buffer.from(faviconRes.data).toString('base64');
+          logos.push({
+            type: 'favicon',
+            src: `data:image/x-icon;base64,${base64}`,
+            alt: 'Favicon',
+            width: 16,
+            height: 16
+          });
+        }
+      } catch (e) {
+        console.warn('Favicon fetch failed:', e.message);
+      }
+
+      // 2. og:image from meta
+      const ogImage = meta.ogImage;
+      if (ogImage) {
+        // Resolve relative URL
+        const ogSrc = ogImage.startsWith('http') ? ogImage : new URL(ogImage, origin).href;
+        logos.push({
+          type: 'og:image',
+          src: ogSrc,
+          alt: 'Open Graph Image',
+          width: 1200, // Typical OG size
+          height: 630
+        });
+      }
+
+      // 3. DOM-based logos
+      const domLogos = await page.evaluate((originUrl) => {
+        const logoSelectors = [
+          'img[alt*="logo" i]',
+          'img[src*="logo" i]',
+          '.logo img',
+          '.header-logo img',
+          'header .logo img',
+          'nav .logo img',
+          '[class*="logo"] img',
+          'img[src$=".png"][width="100" i][height="100" i]' // Common logo sizes
+        ];
+
+        const candidates = [];
+        logoSelectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach(img => {
+            const src = img.src;
+            const alt = img.alt || '';
+            const width = img.naturalWidth || img.width || 0;
+            const height = img.naturalHeight || img.height || 0;
+
+            if (src && (width > 50 || height > 50) && !src.includes('social') && !src.includes('icon')) {
+              const resolvedSrc = src.startsWith('http') ? src : new URL(src, originUrl).href;
+              candidates.push({ src: resolvedSrc, alt, width: parseInt(width), height: parseInt(height), selector });
+            }
+          });
+        });
+
+        // Dedupe by src and sort by size (area)
+        const unique = [...new Map(candidates.map(item => [item.src, item])).values()];
+        unique.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+        return unique.slice(0, 3); // Top 3
+      }, origin);
+
+      domLogos.forEach(logo => {
+        logos.push({
+          type: 'site-logo',
+          ...logo
+        });
+      });
+
+      // Dedupe logos by src
+      const uniqueLogos = [...new Map(logos.map(l => [l.src, l])).values()];
+      return uniqueLogos.slice(0, 5); // Limit to 5 total
+
+    } catch (error) {
+      console.warn('Logo extraction failed:', error);
+      return [];
+    }
   }
 
   // Extract major colors from computed styles

@@ -1,7 +1,33 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import fs from 'fs';
+import path from 'path';
 
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Serve embed.js with proper headers
+  if (pathname === '/embed.js') {
+    try {
+      // Read the embed.js file from the public directory
+      const embedPath = path.join(process.cwd(), 'public', 'embed.js');
+      const embedScript = fs.readFileSync(embedPath, 'utf-8');
+
+      return new NextResponse(embedScript, {
+        headers: {
+          'Content-Type': 'application/javascript',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        },
+      });
+    } catch (error) {
+      console.error('Error serving embed.js:', error);
+      return new NextResponse('Embed script not found', { status: 404 });
+    }
+  }
+
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   
@@ -68,5 +94,6 @@ export const config = {
      * - embed (public embed viewer)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|whitelabel|embed).*)',
+    '/embed.js'
   ],
 }

@@ -73,6 +73,7 @@ interface CreatorData {
   businessName: string;
   businessDescription?: string;
   website?: string;
+  primaryLogo?: string;
   products: Product[];
   user?: {
     id: string;
@@ -141,10 +142,6 @@ const WhiteLabelHomepage = () => {
   const [unifiedData, setUnifiedData] = useState<UnifiedData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCreatorData();
-  }, [domain, fetchCreatorData]);
-
   const fetchCreatorData = async () => {
     try {
       const response = await fetch(`/api/saas/whitelabel/creator-by-domain?domain=${encodeURIComponent(domain)}`);
@@ -164,6 +161,10 @@ const WhiteLabelHomepage = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCreatorData();
+  }, [domain]);
 
   if (loading) {
     return (
@@ -188,8 +189,8 @@ const WhiteLabelHomepage = () => {
     );
   }
 
-  const primaryColor = whiteLabel?.primaryColor || designTokens?.primaryColor || '#667eea';
-  const secondaryColor = whiteLabel?.secondaryColor || designTokens?.secondaryColor || '#f5f5f5';
+  let primaryColor = whiteLabel?.primaryColor || designTokens?.primaryColor || '#667eea';
+  let secondaryColor = whiteLabel?.secondaryColor || designTokens?.secondaryColor || '#f5f5f5';
   const brandName = whiteLabel?.brandName || creator.businessName;
 
   // Create a gradient color based on primary and secondary colors
@@ -200,6 +201,12 @@ const WhiteLabelHomepage = () => {
     const { hero, sections } = unifiedData.structure;
     const theme = unifiedData.deepDesignTokens;
     const brandVoice = theme?.brandVoice;
+
+    // Extract tokens for CSS vars
+    const primaryLogo = creator.primaryLogo || designTokens?.logoUrl;
+    primaryColor = theme.color?.brand.primary || whiteLabel?.primaryColor || '#667eea';
+    const fontFamily = theme.font?.family.primary || designTokens?.fonts?.[0] || 'sans-serif';
+    const spacingSm = theme.spacing?.scale?.[0] || '1rem';
 
     // Adapt hero subtitle based on tone
     let adaptedSubtitle = hero.subtitle;
@@ -214,6 +221,18 @@ const WhiteLabelHomepage = () => {
             <meta name="robots" content="noindex, nofollow" />
           </Head>
         )}
+        <style jsx global>{`
+          :root {
+            --primary-color: ${primaryColor};
+            --brand-font: ${fontFamily};
+            --spacing-sm: ${spacingSm};
+            --brand-logo: url(${primaryLogo});
+          }
+          .brand-logo {
+            max-width: 150px;
+            height: auto;
+          }
+        `}</style>
         <WhiteLabelLayout domain={domain} unifiedData={unifiedData}>
           <div className="min-h-screen">
             {/* Dynamic Hero */}
@@ -243,6 +262,9 @@ const WhiteLabelHomepage = () => {
     staticSubtitle = designTokens.voiceAndTone + '!';
   }
 
+  const primaryLogo = creator.primaryLogo || designTokens?.logoUrl;
+  const fontFamily = designTokens?.fonts?.[0] || 'sans-serif';
+
   return (
     <>
       {whiteLabel?.pageVisibility === 'unlisted' && (
@@ -250,18 +272,35 @@ const WhiteLabelHomepage = () => {
           <meta name="robots" content="noindex, nofollow" />
         </Head>
       )}
+      <style jsx global>{`
+        :root {
+          --primary-color: ${primaryColor};
+          --secondary-color: ${secondaryColor};
+          --brand-font: ${fontFamily};
+          --brand-logo: url(${primaryLogo});
+        }
+        .brand-logo {
+          max-width: 150px;
+          height: auto;
+        }
+      `}</style>
       <WhiteLabelLayout domain={domain} config={whiteLabel} creator={{ ...creator, user: creator.user || { id: creator.id, name: creator.businessName, email: `contact@${domain}` } }} designTokens={designTokens}>
         <div className="min-h-screen bg-[var(--color-background-default)]">
         {/* Hero Section */}
         <section 
           className="relative py-[var(--space-3)]"
           style={{
-            background: `linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%)`
+            background: `linear-gradient(135deg, ${secondaryColor} 0%, ${primaryColor}15 100%)`
           }}
         >
           <div className="max-w-7xl mx-auto px-[var(--space-3)] sm:px-[var(--space-3)] lg:px-[var(--space-3)]">
             <div className="text-center">
-              <h1 className="text-[var(--font-size-heading)] md:text-[calc(var(--font-size-heading)*1.5)] font-[var(--font-weight-heading)] text-[var(--color-text-primary)] mb-[var(--space-2)]">
+              {primaryLogo && (
+                <div className="mb-[var(--space-2)] mx-auto">
+                  <img src={primaryLogo} alt={brandName} className="brand-logo mx-auto" />
+                </div>
+              )}
+              <h1 className="text-[var(--font-size-heading)] md:text-[calc(var(--font-size-heading)*1.5)] font-[var(--font-weight-heading)] text-[var(--color-text-primary)] mb-[var(--space-2)]" style={{ fontFamily: 'var(--brand-font)' }}>
                 Welcome to {brandName}
               </h1>
               {staticSubtitle && (

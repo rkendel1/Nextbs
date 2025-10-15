@@ -46,7 +46,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await fetch("/api/saas/dashboard");
+      const response = await fetch("/api/dashboard");
       const data = await response.json();
       
       setStats({

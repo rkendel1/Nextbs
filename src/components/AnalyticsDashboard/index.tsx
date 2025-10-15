@@ -74,7 +74,7 @@ const AnalyticsDashboard = () => {
         }
 
         // Fetch dashboard data for metrics and top products
-        const dashboardResponse = await fetch("/api/saas/dashboard");
+        const dashboardResponse = await fetch("/api/dashboard");
         const dashboardData = await dashboardResponse.json();
         
         if (dashboardResponse.ok && dashboardData) {

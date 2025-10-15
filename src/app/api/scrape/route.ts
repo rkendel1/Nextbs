@@ -14,6 +14,7 @@ interface FeelData {
   fonts: string[];
   tone: string;
   spacingValues: string[];
+  logos: { src: string; alt: string; type: string; }[];
 }
 
 export async function POST(request: NextRequest) {
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
 
         const bmData = await bmResponse.json();
 
+        const logos = bmData.site?.logos || [];
+
         // Upsert ScrapedSite
         const scrapedSite = await prisma.scrapedSite.upsert({
           where: { saasCreatorId: saasCreator.id },
@@ -116,6 +119,8 @@ export async function POST(request: NextRequest) {
             title: bmData.site.title,
             description: bmData.site.description,
             rawHtml: bmData.site.raw_html,
+            logoUrls: JSON.stringify(logos.map((l: any) => l.src)),
+            primaryLogo: logos[0]?.src || null,
             crawledAt: new Date(),
           },
           create: {
@@ -125,6 +130,8 @@ export async function POST(request: NextRequest) {
             title: bmData.site.title,
             description: bmData.site.description,
             rawHtml: bmData.site.raw_html,
+            logoUrls: JSON.stringify(logos.map((l: any) => l.src)),
+            primaryLogo: logos[0]?.src || null,
             crawledAt: new Date(),
           },
         });
@@ -139,7 +146,11 @@ export async function POST(request: NextRequest) {
             contactEmails: bmData.companyInfo.contact_emails || [],
             contactPhones: bmData.companyInfo.contact_phones || [],
             addresses: bmData.companyInfo.addresses || [],
-            structuredJson: bmData.companyInfo,
+            structuredJson: {
+              ...bmData.companyInfo,
+              logoUrls: logos.map((l: any) => l.src),
+              primaryLogo: logos[0]?.src || null,
+            },
           },
         });
 
@@ -226,6 +237,7 @@ export async function POST(request: NextRequest) {
           fonts,
           tone: bmData.brandVoice.tone || 'neutral',
           spacingValues,
+          logos: logos.slice(0, 3).map((l: any) => ({ src: l.src, alt: l.alt, type: l.type })),
         };
 
         // Update saasCreator
@@ -239,6 +251,7 @@ export async function POST(request: NextRequest) {
             deepDesignTokens: JSON.stringify(bmData),
             primaryColor,
             secondaryColor,
+            primaryLogo: logos[0]?.src || null,
             crawlStatus: "completed",
             crawlCompletedAt: new Date(),
           },

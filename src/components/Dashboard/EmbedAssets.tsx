@@ -12,23 +12,23 @@ import toast from "react-hot-toast";
 
 const mockAssets = {
   pages: [
-    { id: "pricing", name: "Pricing Page", description: "Full pricing portal with tiers and subscribe button", previewUrl: "/embed/page/pricing" },
-    { id: "account", name: "Customer Account", description: "User account portal for managing subscriptions", previewUrl: "/embed/page/account" },
+    { id: "pricing", name: "Pricing Page", description: "Full pricing portal with tiers and subscribe button", previewUrl: "/embed/platform" },
+    { id: "account", name: "Customer Account", description: "User account portal for managing subscriptions", previewUrl: "/embed/platform" },
   ],
   collections: [
-    { id: "product-grid", name: "Product Grid", description: "Multi-product showcase grid", previewUrl: "/embed/collection/product-grid" },
-    { id: "featured", name: "Featured Sections", description: "Highlighted features or testimonials", previewUrl: "/embed/collection/featured" },
+    { id: "product-grid", name: "Product Grid", description: "Multi-product showcase grid", previewUrl: "/embed/product/1" },
+    { id: "featured", name: "Featured Sections", description: "Highlighted features or testimonials", previewUrl: "/embed/product/1" },
   ],
   components: [
-    { id: "button", name: "Subscribe Button", description: "Single subscribe CTA button", previewUrl: "/embed/component/button" },
-    { id: "header", name: "Header", description: "Branded header with logo and nav", previewUrl: "/embed/component/header" },
-    { id: "footer", name: "Footer", description: "Branded footer with links", previewUrl: "/embed/component/footer" },
-    { id: "navbar", name: "Navbar", description: "Navigation bar", previewUrl: "/embed/component/navbar" },
+    { id: "button", name: "Subscribe Button", description: "Single subscribe CTA button", previewUrl: "/embed/platform" },
+    { id: "header", name: "Header", description: "Branded header with logo and nav", previewUrl: "/embed/platform" },
+    { id: "footer", name: "Footer", description: "Branded footer with links", previewUrl: "/embed/platform" },
+    { id: "navbar", name: "Navbar", description: "Navigation bar", previewUrl: "/embed/platform" },
   ],
   widgets: [
-    { id: "checkout", name: "Checkout Modal", description: "Popup for subscription checkout", previewUrl: "/embed/widget/checkout" },
-    { id: "usage", name: "Usage Tracker", description: "Real-time usage monitoring widget", previewUrl: "/embed/widget/usage" },
-    { id: "upsell", name: "Upsell Modal", description: "Upgrade or add-on suggestions", previewUrl: "/embed/widget/upsell" },
+    { id: "checkout", name: "Checkout Modal", description: "Popup for subscription checkout", previewUrl: "/embed/product/1" },
+    { id: "usage", name: "Usage Tracker", description: "Real-time usage monitoring widget", previewUrl: "/embed/product/1" },
+    { id: "upsell", name: "Upsell Modal", description: "Upgrade or add-on suggestions", previewUrl: "/embed/product/1" },
   ],
 };
 

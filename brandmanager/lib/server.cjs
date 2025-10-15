@@ -76,6 +76,8 @@ app.post(`${basePath}/crawl`, async (req, res) => {
   console.log(`Crawling ${url}...`);
   const crawlData = await crawler.crawl(url, { depth, takeScreenshot: true });
 
+  const logos = crawlData.logos || [];
+
   // Extract design tokens from CSS variables and computed styles
   const designTokens = [];
 
@@ -126,6 +128,21 @@ app.post(`${basePath}/crawl`, async (req, res) => {
   console.log('Normalizing design tokens with AI...');
   const normalizedTokens = await llm.normalizeDesignTokens(designTokens.slice(0, 50)); // Limit for API
 
+  // Add logo tokens
+  logos.forEach((logo, index) => {
+    designTokens.push({
+      tokenKey: `logo-${index + 1}`,
+      tokenType: 'logo',
+      tokenValue: JSON.stringify(logo),
+      source: 'crawl',
+      meta: {
+        type: logo.type,
+        alt: logo.alt,
+        dimensions: { width: logo.width, height: logo.height }
+      }
+    });
+  });
+
   // Analyze brand voice
   console.log('Analyzing brand voice...');
   const brandVoiceAnalysis = await llm.summarizeBrandVoice(crawlData.textContent);
@@ -175,7 +192,7 @@ app.post(`${basePath}/crawl`, async (req, res) => {
     }
   });
 
-  // Store design tokens
+  // Store design tokens including logos
   const tokensToStore = normalizedTokens.map(token => ({
     siteId: site.id,
     tokenKey: token.normalizedKey || token.originalKey,
@@ -187,6 +204,22 @@ app.post(`${basePath}/crawl`, async (req, res) => {
       description: token.description
     }
   }));
+
+  // Add logo tokens to store
+  const logoTokensToStore = logos.map((logo, index) => ({
+    siteId: site.id,
+    tokenKey: `logo-${index + 1}`,
+    tokenType: 'logo',
+    tokenValue: JSON.stringify(logo),
+    source: 'crawl',
+    meta: {
+      type: logo.type,
+      alt: logo.alt,
+      dimensions: { width: logo.width, height: logo.height }
+    }
+  }));
+
+  tokensToStore.push(...logoTokensToStore);
 
   const storedTokens = await store.createDesignTokensBulk(tokensToStore);
 
@@ -220,13 +253,16 @@ app.post(`${basePath}/crawl`, async (req, res) => {
       url: site.url,
       domain: site.domain,
       title: site.title,
-      description: site.description
+      description: site.description,
+      logos
     },
     companyInfo: {
       name: companyInfo.company_name,
       emails: companyInfo.contact_emails,
       phones: companyInfo.contact_phones,
-      socialLinks: companyInfo.structured_json?.socialLinks || []
+      socialLinks: companyInfo.structured_json?.socialLinks || [],
+      logoUrls: logos.map(l => l.src),
+      primaryLogo: logos[0]?.src || null
     },
     designTokens: storedTokens.slice(0, 20), // Return sample
     brandVoice: {

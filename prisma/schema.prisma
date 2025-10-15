@@ -89,6 +89,7 @@ model SaasCreator {
   faviconUrl          String?
   primaryColor        String?
   secondaryColor      String?
+  primaryLogo         String?
   fonts               String?             @db.Text // JSON array of fonts
   companyAddress      String?
   contactInfo         String?             @db.Text // JSON object with contact details
@@ -345,6 +346,8 @@ model ScrapedSite {
   crawledAt       DateTime         @default(now())
   rawHtml         String?
   screenshot      Bytes?
+  logoUrls        Json?
+  primaryLogo     String?
   companyInfo     CompanyInfo?     @relation("ScrapedSiteToCompanyInfo")
   designTokens    DesignToken[]    @relation("ScrapedSiteToDesignToken")
   scrapedProducts ScrapedProduct[] @relation("ScrapedSiteToScrapedProduct")
@@ -481,4 +484,243 @@ model DesignVersion {
 
   @@index([saasCreatorId])
   @@index([isActive])
+}
+
+// prisma/schema.prisma
+// Database schema for production embed system with URL shortening
+
+// Short codes for ultra-compact embeds
+model ShortCode {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(12)
+  config      String   @db.Text // Base64 encoded config
+  widgetId    String   @db.VarChar(100)
+  widget      Widget?  @relation(fields: [widgetId], references: [id])
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime?
+  
+  // Analytics
+  clicks      Int      @default(0)
+  lastUsedAt  DateTime?
+  
+  // Optional user association
+  userId      String?  @db.VarChar(100)
+  
+  @@index([code])
+  @@index([widgetId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("short_codes")
+}
+
+// Widget configurations
+model Widget {
+  id              String      @id @default(cuid())
+  widgetId        String      @unique @db.VarChar(100)
+  name            String      @db.VarChar(255)
+  contentType     WidgetType
+  
+  // Design tokens (stored as JSON)
+  designTokens    Json
+  
+  // Configuration
+  apiEndpoint     String      @default("/api/embed/content")
+  customCSS       String?     @db.Text
+  customJS        String?     @db.Text
+  
+  // Status
+  isActive        Boolean     @default(true)
+  isPublic        Boolean     @default(false)
+  
+  // Metadata
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  userId          String?     @db.VarChar(100)
+  shortCodes      ShortCode[]
+  analytics       WidgetAnalytics[]
+  submissions     FormSubmission[]
+  chatMessages    ChatMessage[]
+  
+  @@index([widgetId])
+  @@index([userId])
+  @@index([contentType])
+  @@index([isActive])
+  @@map("widgets")
+}
+
+// Widget types enum
+enum WidgetType {
+  CHAT
+  FORM
+  NOTIFICATION
+  CUSTOM
+}
+
+// Analytics tracking
+model WidgetAnalytics {
+  id              String   @id @default(cuid())
+  widgetId        String
+  widget          Widget   @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  
+  // Event data
+  eventType       AnalyticsEvent
+  eventData       Json?
+  
+  // User info (anonymized)
+  sessionId       String?  @db.VarChar(100)
+  userAgent       String?  @db.VarChar(500)
+  ipHash          String?  @db.VarChar(64) // Hashed IP for privacy
+  referrer        String?  @db.VarChar(500)
+  
+  // Location (optional)
+  country         String?  @db.VarChar(2)
+  city            String?  @db.VarChar(100)
+  
+  // Timestamp
+  createdAt       DateTime @default(now())
+  
+  @@index([widgetId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("widget_analytics")
+}
+
+enum AnalyticsEvent {
+  LOAD
+  VIEW
+  CLICK
+  SUBMIT
+  CLOSE
+  MINIMIZE
+  ERROR
+}
+
+// Form submissions
+model FormSubmission {
+  id              String   @id @default(cuid())
+  widgetId        String
+  widget          Widget   @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  
+  // Form data (stored as JSON for flexibility)
+  formData        Json
+  
+  // Contact info
+  name            String?  @db.VarChar(255)
+  email           String?  @db.VarChar(255)
+  phone           String?  @db.VarChar(50)
+  
+  // Status
+  status          SubmissionStatus @default(NEW)
+  assignedTo      String?  @db.VarChar(100)
+  notes           String?  @db.Text
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Source tracking
+  referrer        String?  @db.VarChar(500)
+  userAgent       String?  @db.VarChar(500)
+  
+  @@index([widgetId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
+  @@map("form_submissions")
+}
+
+enum SubmissionStatus {
+  NEW
+  IN_PROGRESS
+  COMPLETED
+  SPAM
+  ARCHIVED
+}
+
+// Chat messages
+model ChatMessage {
+  id              String   @id @default(cuid())
+  widgetId        String
+  widget          Widget   @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  
+  // Message content
+  message         String   @db.Text
+  sender          MessageSender
+  
+  // Session tracking
+  sessionId       String   @db.VarChar(100)
+  
+  // AI/Agent info
+  agentId         String?  @db.VarChar(100)
+  aiModel         String?  @db.VarChar(50)
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  
+  // Optional: parent message for threading
+  parentId        String?
+  
+  @@index([widgetId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+enum MessageSender {
+  USER
+  BOT
+  AGENT
+}
+
+// User/account model (optional - if you have authentication)
+model EmbedUser {
+  id              String   @id @default(cuid())
+  email           String   @unique @db.VarChar(255)
+  name            String?  @db.VarChar(255)
+  
+  // Plan/limits
+  plan            UserPlan @default(FREE)
+  widgetLimit     Int      @default(3)
+  
+  // API access
+  apiKey          String?  @unique @db.VarChar(64)
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLoginAt     DateTime?
+  
+  @@index([email])
+  @@index([apiKey])
+  @@map("users")
+}
+
+enum UserPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// Rate limiting (optional)
+model RateLimit {
+  id              String   @id @default(cuid())
+  identifier      String   @unique @db.VarChar(255) // IP, API key, or user ID
+  
+  // Limits
+  requestCount    Int      @default(0)
+  windowStart     DateTime @default(now())
+  
+  // Metadata
+  updatedAt       DateTime @updatedAt
+  
+  @@index([identifier])
+  @@index([windowStart])
+  @@map("rate_limits")
 }
