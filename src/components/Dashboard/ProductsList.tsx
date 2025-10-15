@@ -267,9 +267,7 @@ const ProductsList = ({ onUpdate }: ProductsListProps) => {
                     
                     {/* Show first 3 tiers as preview */}
                     <div className="space-y-2">
-                      {products
-                        .find(p => p.id === product.id)
-                        ?.tiers?.slice(0, 3)
+                      {product.tiers?.slice(0, 3)
                         .map((tier: any) => (
                           <div
                             key={tier.id}
