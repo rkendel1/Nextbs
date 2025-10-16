@@ -119,26 +119,28 @@ export async function POST(request: NextRequest) {
           // Refetch the latest SaasCreator data to ensure we have any updates from background scraping
           const latestSaasCreator = await prisma.saasCreator.findUnique({
             where: { id: saasCreator.id },
+            include: { scrapedSite: true },
           });
 
-          // Generate a subdomain from website URL (preferred) or business name as fallback
+          // Generate a subdomain from scraped site domain (preferred) or website URL fallback
           let subdomain: string;
-          const websiteUrl = website || latestSaasCreator?.website;
-          if (websiteUrl) {
-            // Extract domain from URL (e.g., vibe-fix.com -> vibe-fix)
-            try {
-              const urlObj = new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`);
-              const hostname = urlObj.hostname;
-              const cleanHostname = hostname.replace(/^www\./, '');
-              const parts = cleanHostname.split('.');
-              const domain = parts.length > 1 ? parts[0] : cleanHostname;
-              subdomain = domain.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
-            } catch (error) {
-              console.error('Error parsing website URL:', error);
-              subdomain = businessName 
-                ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
-                : `creator-${saasCreator.id.substring(0, 8)}`;
+          let baseDomain = latestSaasCreator?.scrapedSite?.domain;
+          if (!baseDomain) {
+            const websiteUrl = website || latestSaasCreator?.website;
+            if (websiteUrl) {
+              try {
+                baseDomain = new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`).hostname.replace(/^www\./, '');
+              } catch (error) {
+                console.error('Error parsing website URL:', error);
+                baseDomain = null;
+              }
             }
+          }
+          if (baseDomain) {
+            // Extract first part of domain (e.g., mycompany.com -> mycompany)
+            const parts = baseDomain.split('.');
+            const domainPart = parts.length > 1 ? parts[0] : baseDomain;
+            subdomain = domainPart.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
           } else {
             subdomain = businessName 
               ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 30)
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest) {
               brandName: businessName || latestSaasCreator?.businessName,
               primaryColor: latestSaasCreator?.primaryColor || primaryColor || '#667eea',
               secondaryColor: latestSaasCreator?.secondaryColor || secondaryColor || '#764ba2',
-              logoUrl: latestSaasCreator?.logoUrl || logoUrl,
+              logoUrl: latestSaasCreator?.primaryLogo || logoUrl,
               faviconUrl: latestSaasCreator?.faviconUrl || faviconUrl,
               subdomain: subdomain,
               isActive: true,

@@ -104,6 +104,7 @@ model SaasCreator {
   mergedScrapeData    Json?
   scrapedSite         ScrapedSite?        @relation("SaasCreatorToScrapedSite")
   designVersions      DesignVersion[]    @relation("SaasCreatorDesignVersions")
+  embeds              Embed[]            @relation("SaasCreatorEmbeds")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   stripeAccount       StripeAccount?
@@ -339,7 +340,7 @@ model ScrapedSite {
   id              String           @id @default(cuid())
   saasCreatorId   String           @unique
   saasCreator     SaasCreator      @relation("SaasCreatorToScrapedSite", fields: [saasCreatorId], references: [id], onDelete: Cascade)
-  url             String           @unique
+  url             String
   domain          String?
   title           String?
   description     String?
@@ -479,11 +480,40 @@ model DesignVersion {
   tokensJson    Json
   whiteLabelJson Json
   isActive      Boolean     @default(true)
+  embeds        Embed[]     @relation("DesignVersionEmbeds")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   @@index([saasCreatorId])
   @@index([isActive])
+}
+
+model Embed {
+  id               String        @id @default(cuid())
+  saasCreatorId    String
+  saasCreator      SaasCreator   @relation("SaasCreatorEmbeds", fields: [saasCreatorId], references: [id], onDelete: Cascade)
+  name             String
+  type             EmbedType
+  description      String?
+  features         Json?
+  config           Json          // {style, customDomain, previewUrl}
+  designVersionId  String?
+  designVersion    DesignVersion? @relation("DesignVersionEmbeds", fields: [designVersionId], references: [id])
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([saasCreatorId])
+  @@index([type])
+  @@index([designVersionId])
+  @@index([isActive])
+}
+
+enum EmbedType {
+  PAGE
+  COLLECTION
+  COMPONENT
+  WIDGET
 }
 
 // prisma/schema.prisma

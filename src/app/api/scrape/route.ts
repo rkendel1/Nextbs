@@ -114,7 +114,6 @@ export async function POST(request: NextRequest) {
         const scrapedSite = await prisma.scrapedSite.upsert({
           where: { saasCreatorId: saasCreator.id },
           update: {
-            url,
             domain: bmData.site.domain,
             title: bmData.site.title,
             description: bmData.site.description,
@@ -164,6 +163,53 @@ export async function POST(request: NextRequest) {
             });
           } catch (e) {
             console.warn('Screenshot decode failed:', e);
+          }
+        }
+
+        // Download and store primary logo image locally
+        let downloadedLogo: string | null = null;
+        const primaryLogoUrl = logos[0]?.src;
+        if (primaryLogoUrl) {
+          try {
+            const response = await fetch(primaryLogoUrl);
+            if (response.ok) {
+              const buffer = Buffer.from(await response.arrayBuffer());
+              const url = new URL(primaryLogoUrl);
+              let ext = 'png'; // default
+              const pathMatch = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|tiff)$/i);
+              if (pathMatch) {
+                ext = pathMatch[1].toLowerCase();
+                if (ext === 'jpeg') ext = 'jpg';
+              } else {
+                // Fallback to content-type
+                const contentType = response.headers.get('content-type');
+                if (contentType?.startsWith('image/')) {
+                  const type = contentType.split('/')[1];
+                  const typeMap: { [key: string]: string } = {
+                    'jpeg': 'jpg',
+                    'jpg': 'jpg',
+                    'png': 'png',
+                    'gif': 'gif',
+                    'svg+xml': 'svg',
+                    'webp': 'webp',
+                    'tiff': 'tiff',
+                  };
+                  ext = typeMap[type] || 'png';
+                }
+              }
+              const fs = require('fs/promises');
+              const pathModule = require('path');
+              const logoDir = pathModule.join(process.cwd(), 'public', 'logos');
+              await fs.mkdir(logoDir, { recursive: true });
+              const filename = `${saasCreator.id}.${ext}`;
+              const logoPath = pathModule.join(logoDir, filename);
+              await fs.writeFile(logoPath, buffer);
+              downloadedLogo = `/logos/${filename}`;
+              console.log(`Logo downloaded and stored: ${filename}`);
+            }
+          } catch (e) {
+            console.warn('Logo download failed:', e);
+            // Keep original URL as fallback
           }
         }
 
@@ -251,7 +297,7 @@ export async function POST(request: NextRequest) {
             deepDesignTokens: JSON.stringify(bmData),
             primaryColor,
             secondaryColor,
-            primaryLogo: logos[0]?.src || null,
+            primaryLogo: downloadedLogo || logos[0]?.src || null,
             crawlStatus: "completed",
             crawlCompletedAt: new Date(),
           },

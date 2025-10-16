@@ -1,59 +1,68 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Copy } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
 import AssetBuilderModal from "./AssetBuilderModal";
 import toast from "react-hot-toast";
 
-const mockAssets = {
-  pages: [
-    { id: "pricing", name: "Pricing Page", description: "Full pricing portal with tiers and subscribe button", previewUrl: "/embed/platform" },
-    { id: "account", name: "Customer Account", description: "User account portal for managing subscriptions", previewUrl: "/embed/platform" },
-  ],
-  collections: [
-    { id: "product-grid", name: "Product Grid", description: "Multi-product showcase grid", previewUrl: "/embed/product/1" },
-    { id: "featured", name: "Featured Sections", description: "Highlighted features or testimonials", previewUrl: "/embed/product/1" },
-  ],
-  components: [
-    { id: "button", name: "Subscribe Button", description: "Single subscribe CTA button", previewUrl: "/embed/platform" },
-    { id: "header", name: "Header", description: "Branded header with logo and nav", previewUrl: "/embed/platform" },
-    { id: "footer", name: "Footer", description: "Branded footer with links", previewUrl: "/embed/platform" },
-    { id: "navbar", name: "Navbar", description: "Navigation bar", previewUrl: "/embed/platform" },
-  ],
-  widgets: [
-    { id: "checkout", name: "Checkout Modal", description: "Popup for subscription checkout", previewUrl: "/embed/product/1" },
-    { id: "usage", name: "Usage Tracker", description: "Real-time usage monitoring widget", previewUrl: "/embed/product/1" },
-    { id: "upsell", name: "Upsell Modal", description: "Upgrade or add-on suggestions", previewUrl: "/embed/product/1" },
-  ],
-};
+const typeMap = {
+  pages: 'PAGE',
+  collections: 'COLLECTION',
+  components: 'COMPONENT',
+  widgets: 'WIDGET',
+} as const;
 
 interface EmbedAssetsProps {
   onCreateEmbed?: () => void;
 }
 
 const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
+  const { data: session } = useSession();
   const [openModal, setOpenModal] = useState(false);
+  const [embeds, setEmbeds] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (session) {
+      fetch('/api/saas/embeds')
+        .then(res => res.json())
+        .then(setEmbeds)
+        .catch(err => toast.error('Failed to load embeds'))
+        .finally(() => setLoading(false));
+    }
+  }, [session]);
 
   const copySnippet = (snippet: string) => {
     navigator.clipboard.writeText(snippet);
     toast.success("Snippet copied!");
   };
 
-  const generateSnippet = (type: string, id?: string) => {
+  const generateSnippet = (embed: any) => {
     const baseUrl = window.location.origin;
-    const snippet = `<script src="${baseUrl}/embed.js" data-type="${type}" data-id="${id || ''}"></script>`;
+    const designId = embed.designVersionId || '';
+    const snippet = `<script src="${baseUrl}/embed.js" data-type="${embed.type.toLowerCase()}" data-id="${embed.id}" data-design="${designId}"></script>`;
     copySnippet(snippet);
   };
 
-  const generateIframe = (url: string) => {
+  const generateIframe = (embed: any) => {
+    const designId = embed.designVersionId || '';
+    const url = `${embed.config?.previewUrl || `/embed/${embed.type.toLowerCase()}/${embed.id}`}?design=${designId}`;
     const iframe = `<iframe src="${url}" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen></iframe>`;
     copySnippet(iframe);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -74,22 +83,21 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
           <TabsTrigger value="playground">Playground</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
-
         <TabsContent value="pages" className="space-y-4">
-          <h2 className="text-xl font-semibold mb-4">Prebuilt Pages</h2>
+          <h2 className="text-xl font-semibold mb-4">Pages</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockAssets.pages.map((asset) => (
-              <Card key={asset.id}>
+            {embeds.filter(e => e.type === 'PAGE').map((embed) => (
+              <Card key={embed.id}>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    {asset.name}
-                    <Badge variant="secondary">Page</Badge>
+                    {embed.name}
+                    <Badge variant="secondary">{embed.type}</Badge>
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">{asset.description}</p>
+                  <p className="text-sm text-muted-foreground">{embed.description}</p>
                 </CardHeader>
                 <CardContent className="p-4">
                   <iframe
-                    src={asset.previewUrl}
+                    src={`/embed/${embed.type.toLowerCase()}/${embed.id}?design=${embed.designVersionId || ''}`}
                     width="100%"
                     height="200"
                     className="w-full rounded border"
@@ -98,14 +106,14 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateSnippet("page", asset.id)}
+                      onClick={() => generateSnippet(embed)}
                     >
                       Copy JS
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateIframe(asset.previewUrl)}
+                      onClick={() => generateIframe(embed)}
                     >
                       Copy iFrame
                     </Button>
@@ -113,24 +121,30 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                 </CardContent>
               </Card>
             ))}
+            {embeds.filter(e => e.type === 'PAGE').length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-muted-foreground">No pages created yet. Create your first page embed.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
-
         <TabsContent value="collections" className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Collections</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockAssets.collections.map((asset) => (
-              <Card key={asset.id}>
+            {embeds.filter(e => e.type === 'COLLECTION').map((embed) => (
+              <Card key={embed.id}>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    {asset.name}
-                    <Badge variant="secondary">Collection</Badge>
+                    {embed.name}
+                    <Badge variant="secondary">{embed.type}</Badge>
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">{asset.description}</p>
+                  <p className="text-sm text-muted-foreground">{embed.description}</p>
                 </CardHeader>
                 <CardContent className="p-4">
                   <iframe
-                    src={asset.previewUrl}
+                    src={`/embed/${embed.type.toLowerCase()}/${embed.id}?design=${embed.designVersionId || ''}`}
                     width="100%"
                     height="200"
                     className="w-full rounded border"
@@ -139,14 +153,14 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateSnippet("collection", asset.id)}
+                      onClick={() => generateSnippet(embed)}
                     >
                       Copy JS
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateIframe(asset.previewUrl)}
+                      onClick={() => generateIframe(embed)}
                     >
                       Copy iFrame
                     </Button>
@@ -154,24 +168,30 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                 </CardContent>
               </Card>
             ))}
+            {embeds.filter(e => e.type === 'COLLECTION').length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-muted-foreground">No collections created yet.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
-
         <TabsContent value="components" className="space-y-4">
-          <h2 className="text-xl font-semibold mb-4">Atomic Components</h2>
+          <h2 className="text-xl font-semibold mb-4">Components</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockAssets.components.map((asset) => (
-              <Card key={asset.id}>
+            {embeds.filter(e => e.type === 'COMPONENT').map((embed) => (
+              <Card key={embed.id}>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    {asset.name}
-                    <Badge variant="secondary">Component</Badge>
+                    {embed.name}
+                    <Badge variant="secondary">{embed.type}</Badge>
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">{asset.description}</p>
+                  <p className="text-sm text-muted-foreground">{embed.description}</p>
                 </CardHeader>
                 <CardContent className="p-4">
                   <iframe
-                    src={asset.previewUrl}
+                    src={`/embed/${embed.type.toLowerCase()}/${embed.id}?design=${embed.designVersionId || ''}`}
                     width="100%"
                     height="150"
                     className="w-full rounded border"
@@ -180,14 +200,14 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateSnippet("component", asset.id)}
+                      onClick={() => generateSnippet(embed)}
                     >
                       Copy JS
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateIframe(asset.previewUrl)}
+                      onClick={() => generateIframe(embed)}
                     >
                       Copy iFrame
                     </Button>
@@ -195,24 +215,30 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                 </CardContent>
               </Card>
             ))}
+            {embeds.filter(e => e.type === 'COMPONENT').length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-muted-foreground">No components created yet.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
-
         <TabsContent value="widgets" className="space-y-4">
-          <h2 className="text-xl font-semibold mb-4">Dynamic Widgets</h2>
+          <h2 className="text-xl font-semibold mb-4">Widgets</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockAssets.widgets.map((asset) => (
-              <Card key={asset.id}>
+            {embeds.filter(e => e.type === 'WIDGET').map((embed) => (
+              <Card key={embed.id}>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    {asset.name}
-                    <Badge variant="secondary">Widget</Badge>
+                    {embed.name}
+                    <Badge variant="secondary">{embed.type}</Badge>
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">{asset.description}</p>
+                  <p className="text-sm text-muted-foreground">{embed.description}</p>
                 </CardHeader>
                 <CardContent className="p-4">
                   <iframe
-                    src={asset.previewUrl}
+                    src={`/embed/${embed.type.toLowerCase()}/${embed.id}?design=${embed.designVersionId || ''}`}
                     width="100%"
                     height="200"
                     className="w-full rounded border"
@@ -221,14 +247,14 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateSnippet("widget", asset.id)}
+                      onClick={() => generateSnippet(embed)}
                     >
                       Copy JS
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => generateIframe(asset.previewUrl)}
+                      onClick={() => generateIframe(embed)}
                     >
                       Copy iFrame
                     </Button>
@@ -236,35 +262,40 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                 </CardContent>
               </Card>
             ))}
+            {embeds.filter(e => e.type === 'WIDGET').length === 0 && (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-muted-foreground">No widgets created yet.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
-
         <TabsContent value="snippets" className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Generated Snippets</h2>
           <p className="text-muted-foreground mb-4">Code snippets for common embeds. Use the Create New Embed button for custom.</p>
           <div className="space-y-2">
             <pre className="bg-muted p-4 rounded text-sm font-mono overflow-auto">
-{`<script src="/embed.js" data-type="pricing-grid" data-style="brand"></script>
+{`<script src="/embed.js" data-type="widgets" data-id="chatbot" data-design="version123"></script>
 
-<iframe src="/embed/page/pricing" width="100%" height="600" style="border:none;" loading="lazy"></iframe>`}
+<iframe src="/embed/widget/chatbot?design=version123" width="100%" height="600" style="border:none;" loading="lazy"></iframe>`}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copySnippet(`<script src="/embed.js" data-type="pricing-grid" data-style="brand"></script>`)}
+                onClick={() => copySnippet(`<script src="/embed.js" data-type="widgets" data-id="chatbot" data-design="version123"></script>`)}
               >
                 Copy Example
               </Button>
             </pre>
           </div>
         </TabsContent>
-
         <TabsContent value="playground" className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Embed Playground</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="embed-url">Embed URL</Label>
-                <Input id="embed-url" placeholder="/embed/product/1" className="mt-2" />
+                <Input id="embed-url" placeholder="/embed/widget/chatbot?design=version123" className="mt-2" />
               </div>
               <div>
                 <Label htmlFor="width">Width</Label>
@@ -274,17 +305,20 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
                 <Label htmlFor="height">Height</Label>
                 <Input id="height" type="number" defaultValue="600" className="mt-2" />
               </div>
+              <div>
+                <Label htmlFor="design">Design ID</Label>
+                <Input id="design" placeholder="version123" className="mt-2" />
+              </div>
             </div>
             <Button className="w-full">Load Preview</Button>
             <iframe
-              src="/embed/product/1"
+              src="/embed/product/1?design="
               width="400"
               height="600"
               className="w-full rounded border"
             />
           </div>
         </TabsContent>
-
         <TabsContent value="analytics" className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Embed Analytics</h2>
           <p className="text-muted-foreground mb-4">Track views, clicks, and conversions for your embeds.</p>
@@ -297,13 +331,13 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
               <CardHeader>
                 <CardTitle>Total Views</CardTitle>
               </CardHeader>
-              <CardContent className="text-2xl font-bold text-primary">1,234</CardContent>
+              <CardContent className="text-2xl font-bold text-primary">{embeds.reduce((sum, e) => sum + (e.views || 0), 0)}</CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Total Clicks</CardTitle>
               </CardHeader>
-              <CardContent className="text-2xl font-bold text-primary">567</CardContent>
+              <CardContent className="text-2xl font-bold text-primary">{embeds.reduce((sum, e) => sum + (e.clicks || 0), 0)}</CardContent>
             </Card>
             <Card>
               <CardHeader>
