@@ -308,6 +308,40 @@
           </div>
         `;
         
+      // Custom rendering if custom fields present
+      if (data.customHTML) {
+        const container = document.createElement('div');
+        container.style.cssText = baseStyle;
+        
+        // Use shadow DOM for isolation
+        const shadow = container.attachShadow({ mode: 'open' });
+        
+        if (data.customCSS) {
+          const style = document.createElement('style');
+          style.textContent = data.customCSS;
+          shadow.appendChild(style);
+        }
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = data.customHTML;
+        shadow.appendChild(contentDiv);
+        
+        if (data.customJS) {
+          const script = document.createElement('script');
+          script.textContent = data.customJS;
+          shadow.appendChild(script);
+        }
+        
+        // Attach close button if needed
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'embed-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = 'background: none; border: none; cursor: pointer; font-size: 20px; color: inherit; position: absolute; top: 10px; right: 10px;';
+        container.appendChild(closeBtn);
+        
+        return container.outerHTML;
+      }
+      
       default:
         return `
           <div style="${baseStyle}">
@@ -441,6 +475,60 @@
         EmbedWidget.init(args[1], args[2]);
       }
     });
+  }
+
+  // Auto-initialize from script data attributes
+  function autoInit() {
+    const script = document.currentScript;
+    if (script && script.dataset.id) {
+      const id = script.dataset.id;
+      const type = script.dataset.type || 'widget';
+      const style = script.dataset.style || 'minimal';
+      const baseUrl = getBaseUrl();
+      
+      fetch(`${baseUrl}/api/embed/content/${id}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          
+          const config = {
+            contentType: type,
+            apiEndpoint: `/api/embed/content/${id}`,
+            designTokens: data.designTokens || getDefaultTokens(style),
+          };
+          
+          const encoded = btoa(JSON.stringify(config));
+          EmbedWidget.init(id, encoded);
+        })
+        .catch(error => {
+          console.error('Auto-init error:', error);
+        });
+    }
+  }
+
+  function getDefaultTokens(style) {
+    const minimal = {
+      primaryColor: '#0070f3',
+      backgroundColor: '#ffffff',
+      textColor: '#333333',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      borderRadius: '8px',
+      padding: '1rem',
+      maxWidth: '400px',
+    };
+    
+    if (style === 'brand') {
+      return { ...minimal, primaryColor: '#3b82f6' };
+    }
+    
+    return minimal;
+  }
+
+  // Call auto-init after DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
   }
   
   // Replace the stub with the real implementation

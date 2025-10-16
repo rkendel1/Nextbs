@@ -497,6 +497,9 @@ model Embed {
   description      String?
   features         Json?
   config           Json          // {style, customDomain, previewUrl}
+  customHTML       String?       @db.Text
+  customCSS        String?       @db.Text
+  customJS         String?       @db.Text
   designVersionId  String?
   designVersion    DesignVersion? @relation("DesignVersionEmbeds", fields: [designVersionId], references: [id])
   isActive         Boolean       @default(true)

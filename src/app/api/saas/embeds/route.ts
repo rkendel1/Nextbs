@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, type, description, features, config, designVersionId } = body;
+  const { name, type, description, features, config, designVersionId, customHTML, customCSS, customJS } = body;
 
   if (!name || !type) {
     return NextResponse.json({ error: 'Name and type required' }, { status: 400 });
@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
       description,
       features,
       config,
+      customHTML,
+      customCSS,
+      customJS,
       designVersionId: designVersionId || null,
     },
   });

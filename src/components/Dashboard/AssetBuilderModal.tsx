@@ -56,6 +56,11 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
   const [generatedEmbed, setGeneratedEmbed] = useState<GeneratedEmbed | null>(null);
   const [showAiInput, setShowAiInput] = useState(false);
 
+  // Custom code editing states
+  const [customHTML, setCustomHTML] = useState("");
+  const [customCSS, setCustomCSS] = useState("");
+  const [customJS, setCustomJS] = useState("");
+
   const addFeature = () => setFeatures([...features, ""]);
   const updateFeature = (index: number, value: string) => {
     const newFeatures = [...features];
@@ -64,12 +69,58 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
   };
   const removeFeature = (index: number) => setFeatures(features.filter((_, i) => i !== index));
 
-  const generateSnippet = () => {
-    const baseUrl = window.location.origin;
-    const snippet = `<script src="${baseUrl}/embed.js" data-type="${assetType}" data-id="${assetData.name.toLowerCase().replace(/\s+/g, '-')}" data-style="${configData.style}"></script>`;
-    setGeneratedSnippet(snippet);
-    toast.success("Embed asset created successfully!");
-    setStep(5);
+  const typeMap: Record<MockTypeKey, string> = {
+    pages: 'page',
+    collections: 'collection',
+    components: 'component',
+    widgets: 'widget',
+  };
+
+  const generateSnippet = async () => {
+    setLoading(true);
+    try {
+      const baseUrl = window.location.origin;
+      const singularType = typeMap[assetType];
+      const featuresJson = JSON.stringify(features.filter(f => f.trim()));
+      const configJson = JSON.stringify(configData);
+
+      const embedData = {
+        name: assetData.name,
+        type: singularType.toUpperCase(),
+        description: assetData.description,
+        features: featuresJson,
+        config: configJson,
+        customHTML: customHTML || undefined,
+        customCSS: customCSS || undefined,
+        customJS: customJS || undefined,
+        // designVersionId can be fetched from context if needed
+      };
+
+      const response = await fetch('/api/saas/embeds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(embedData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create embed');
+      }
+
+      const createdEmbed = await response.json();
+      const id = createdEmbed.id;
+
+      const snippet = `<script src="${baseUrl}/embed.js" data-type="${singularType}" data-id="${id}" data-style="${configData.style}"></script>`;
+      setGeneratedSnippet(snippet);
+      toast.success("Embed created and saved successfully!");
+      setStep(2); // Now step 2 is success/review
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create embed');
+    } finally {
+      setLoading(false);
+    }
   };
   
   const generateAIEmbed = async () => {
@@ -121,11 +172,17 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
       setGeneratedEmbed(data);
       
       // Pre-fill form with AI-generated data, with validation
+      const typeMap: Record<string, MockTypeKey> = {
+        'page': 'pages',
+        'collection': 'collections',
+        'component': 'components',
+        'widget': 'widgets'
+      };
       if (data.type && typeof data.type === 'string') {
         const lowerType = data.type.toLowerCase();
-        if (lowerType === 'page' || lowerType === 'collection' || 
-            lowerType === 'component' || lowerType === 'widget') {
-          setAssetType(lowerType as MockTypeKey);
+        const mappedType = typeMap[lowerType as keyof typeof typeMap];
+        if (mappedType) {
+          setAssetType(mappedType);
         }
       }
       
@@ -140,8 +197,13 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
       } else {
         setFeatures([""]);
       }
+
+      // Set custom code from AI
+      setCustomHTML(data.customHTML || '');
+      setCustomCSS(data.customCSS || '');
+      setCustomJS(data.customJS || '');
       
-      // Move to the next step
+      // Move to form step
       setStep(1);
       toast.success("AI generated your embed! Review and customize as needed.");
     } catch (error) {
@@ -178,8 +240,8 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                 <Code className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Choose Your Embed Type</h3>
-              <p className="text-sm text-body-color dark:text-dark-6">Select the embed type that fits your needs</p>
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Create Your Embed</h3>
+              <p className="text-sm text-body-color dark:text-dark-6">Use AI to generate or build manually</p>
             </div>
             
             {showAiInput ? (
@@ -261,7 +323,7 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 
                 <div className="flex gap-3 pt-4">
                   <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1">Cancel</Button>
-                  <Button onClick={() => setStep(1)} className="flex-1 bg-primary hover:bg-primary/90">Continue</Button>
+                  <Button onClick={() => setStep(1)} className="flex-1 bg-primary hover:bg-primary/90">Build Manually</Button>
                 </div>
               </>
             )}
@@ -275,8 +337,8 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                 <FileText className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Embed Information</h3>
-              <p className="text-sm text-body-color dark:text-dark-6">Enter details for your {mockTypes[assetType].title.toLowerCase()}</p>
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Embed Details</h3>
+              <p className="text-sm text-body-color dark:text-dark-6">Customize your {mockTypes[assetType].title.toLowerCase()} embed</p>
             </div>
             
             {generatedEmbed && (
@@ -286,15 +348,16 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                   <div>
                     <p className="text-sm font-medium text-green-900 dark:text-green-100">AI Generated</p>
                     <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                      This embed was generated by AI. You can edit the details below.
+                      Edit the details and custom code below. Preview updates in real-time.
                     </p>
                   </div>
                 </div>
               </div>
             )}
-            
-            <div>
-              <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">Name *</label>
+
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <label className="block text-base font-medium text-dark dark:text-white">Name *</label>
               <input
                 type="text"
                 placeholder={`e.g., Custom ${mockTypes[assetType].title}`}
@@ -303,9 +366,7 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
                 autoFocus
               />
-            </div>
-            <div>
-              <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">Description</label>
+              <label className="block text-base font-medium text-dark dark:text-white">Description</label>
               <textarea
                 placeholder="Brief description of this embed..."
                 value={assetData.description}
@@ -314,34 +375,10 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
               />
             </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Naming Tips</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">Keep it descriptive but concise for easy identification in your dashboard.</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(0)} className="flex-1">Back</Button>
-              <Button onClick={() => setStep(2)} disabled={!assetData.name.trim()} className="flex-1 bg-primary hover:bg-primary/90">Next: Configuration</Button>
-            </div>
-          </div>
-        );
 
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                <Zap className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Configuration</h3>
-              <p className="text-sm text-body-color dark:text-dark-6">Customize your {mockTypes[assetType].title.toLowerCase()}</p>
-            </div>
-            <div>
-              <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">Style</label>
+            {/* Configuration */}
+            <div className="space-y-4">
+              <label className="block text-base font-medium text-dark dark:text-white">Style</label>
               <select
                 value={configData.style}
                 onChange={(e) => setConfigData({ ...configData, style: e.target.value })}
@@ -351,9 +388,7 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 <option value="minimal">Minimal</option>
                 <option value="custom">Custom</option>
               </select>
-            </div>
-            <div>
-              <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">Custom Domain (optional)</label>
+              <label className="block text-base font-medium text-dark dark:text-white">Custom Domain (optional)</label>
               <input
                 type="text"
                 placeholder="e.g., embeds.yourdomain.com"
@@ -362,35 +397,8 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
               />
             </div>
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-green-900 dark:text-green-100">Configuration Tips</p>
-                  <ul className="text-sm text-green-700 dark:text-green-300 mt-2 space-y-1">
-                    <li>• Branded style uses your white-label colors</li>
-                    <li>• Custom domain makes embeds feel native to your site</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">Back</Button>
-              <Button onClick={() => setStep(3)} className="flex-1 bg-primary hover:bg-primary/90">Next: Features</Button>
-            </div>
-          </div>
-        );
 
-      case 3:
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                <Package className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Add Features</h3>
-              <p className="text-sm text-body-color dark:text-dark-6">What capabilities does this embed provide?</p>
-            </div>
+            {/* Features */}
             <div className="space-y-3">
               <label className="block text-base font-medium text-dark dark:text-white">Features</label>
               {features.map((feature, index) => (
@@ -409,37 +417,89 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                   )}
                 </div>
               ))}
+              <Button type="button" variant="outline" onClick={addFeature} className="w-full">+ Add Another Feature</Button>
             </div>
-            <Button type="button" variant="outline" onClick={addFeature} className="w-full">+ Add Another Feature</Button>
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+
+            {/* Custom Code - only show if AI generated or manual custom */}
+            {(generatedEmbed || customHTML || customCSS || customJS) && (
+              <div className="space-y-4">
+                <label className="block text-base font-medium text-dark dark:text-white">Custom Code (AI Generated)</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-dark dark:text-white mb-1">HTML</label>
+                    <textarea
+                      value={customHTML}
+                      onChange={(e) => setCustomHTML(e.target.value)}
+                      placeholder="Custom HTML content..."
+                      rows={6}
+                      className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark dark:text-white mb-1">CSS</label>
+                    <textarea
+                      value={customCSS}
+                      onChange={(e) => setCustomCSS(e.target.value)}
+                      placeholder="Custom CSS..."
+                      rows={6}
+                      className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary font-mono"
+                    />
+                  </div>
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Feature Tips</p>
-                  <ul className="text-sm text-purple-700 dark:text-purple-300 mt-2 space-y-1">
-                    <li>• Be specific: &quot;Responsive on all devices&quot; not &quot;Mobile friendly&quot;</li>
-                    <li>• Highlight unique value: &quot;One-click subscribe&quot; or &quot;Real-time previews&quot;</li>
-                  </ul>
+                  <label className="block text-sm font-medium text-dark dark:text-white mb-1">JavaScript</label>
+                  <textarea
+                    value={customJS}
+                    onChange={(e) => setCustomJS(e.target.value)}
+                    placeholder="Custom JS..."
+                    rows={4}
+                    className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-none transition placeholder:text-dark-6 focus:border-primary dark:border-dark-3 dark:text-white dark:focus:border-primary font-mono"
+                  />
+                </div>
+
+                {/* Preview */}
+                <div className="border rounded-lg p-4 bg-gray-50 dark:bg-dark-3">
+                  <label className="block text-sm font-medium text-dark dark:text-white mb-2">Live Preview</label>
+                  <iframe
+                    srcDoc={`
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <style>${customCSS || ''}</style>
+                      </head>
+                      <body style="margin: 0; padding: 1rem; font-family: system-ui;">
+                        ${customHTML || '<p>Preview: Enter custom HTML above</p>'}
+                        <script>${customJS || ''}<\/script>
+                      </body>
+                      </html>
+                    `}
+                    className="w-full h-48 border rounded-md"
+                    sandbox="allow-scripts"
+                  />
                 </div>
               </div>
-            </div>
+            )}
+
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(2)} className="flex-1">Back</Button>
-              <Button onClick={() => setStep(4)} disabled={features.every(f => !f.trim())} className="flex-1 bg-primary hover:bg-primary/90">Next: Review</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(0)} className="flex-1">Back</Button>
+              <Button onClick={() => setStep(2)} disabled={!assetData.name.trim()} className="flex-1 bg-primary hover:bg-primary/90">
+                Next: Review & Save
+              </Button>
             </div>
           </div>
         );
 
-      case 4:
+      case 2:
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
                 <CheckCircle2 className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Review Your Embed</h3>
-              <p className="text-sm text-body-color dark:text-dark-6">Confirm details before generating</p>
+              <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Review & Create</h3>
+              <p className="text-sm text-body-color dark:text-dark-6">Confirm details and generate your embed</p>
             </div>
+            
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-dashed border-primary/30">
               <div className="space-y-4">
                 <div>
@@ -473,15 +533,14 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                     </div>
                   </>
                 )}
-                
-                {generatedEmbed && (
+                {(customHTML || customCSS || customJS) && (
                   <>
                     <div className="h-px bg-stroke dark:bg-dark-3" />
                     <div>
-                      <p className="text-xs text-body-color dark:text-dark-6 mb-2">AI Generated Content</p>
+                      <p className="text-xs text-body-color dark:text-dark-6 mb-2">Custom Code</p>
                       <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
                         <p className="text-xs text-green-700 dark:text-green-300">
-                          This embed includes AI-generated HTML, CSS, and JavaScript optimized for your brand.
+                          Includes custom HTML, CSS, and JavaScript for advanced functionality.
                         </p>
                       </div>
                     </div>
@@ -489,16 +548,48 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                 )}
               </div>
             </div>
+
+            {/* Snippet Preview */}
+            <div className="bg-gray-50 dark:bg-dark-3 p-4 rounded-lg">
+              <h4 className="font-semibold text-dark dark:text-white mb-3 flex items-center gap-2">
+                <Code className="h-4 w-4" /> Embed Code Preview
+              </h4>
+              <div className="relative">
+                <textarea
+                  readOnly
+                  value={generatedSnippet || `<script src="${window.location.origin}/embed.js" data-type="${typeMap[assetType]}" data-id="[ID]" data-style="${configData.style}"></script>`}
+                  className="w-full h-20 p-3 border rounded-lg text-sm font-mono bg-white dark:bg-dark-2 resize-none"
+                  placeholder="Snippet will appear after saving..."
+                />
+                {generatedSnippet && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedSnippet);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                  >
+                    {copied ? <ClipboardCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(3)} className="flex-1">Back</Button>
-              <Button onClick={generateSnippet} disabled={loading} className="flex-1 bg-primary hover:bg-primary/90">
-                {loading ? <Loader /> : "Generate Embed"}
+              <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">Back to Edit</Button>
+              <Button onClick={generateSnippet} disabled={loading || !assetData.name.trim()} className="flex-1 bg-primary hover:bg-primary/90">
+                {loading ? <Loader /> : "Create & Save Embed"}
               </Button>
             </div>
           </div>
         );
 
-      case 5:
+      // Remove cases 3 and 4, merged into 1 and 2
+
+      case 2:
         return (
           <div className="space-y-6 text-center animate-fade-in">
             <div className="relative inline-flex items-center justify-center w-24 h-24 mb-4">
@@ -513,13 +604,25 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
             </div>
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
               <h4 className="font-semibold text-dark dark:text-white mb-3 flex items-center gap-2 justify-center">
-                <Eye className="h-5 w-5 text-primary" /> Preview
+                <Eye className="h-5 w-5 text-primary" /> Live Preview
               </h4>
               <iframe
-                src="/embed/platform"
+                srcDoc={`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <style>${customCSS || ''}</style>
+                  </head>
+                  <body style="margin: 0; padding: 1rem; font-family: system-ui;">
+                    ${customHTML || '<p>Preview: Embed saved successfully!</p>'}
+                    <script>${customJS || ''}<\/script>
+                  </body>
+                  </html>
+                `}
                 width="100%"
-                height="200"
+                height="300"
                 className="w-full rounded border"
+                sandbox="allow-scripts"
               />
             </div>
             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-6 rounded-lg">

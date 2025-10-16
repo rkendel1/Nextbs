@@ -11,36 +11,56 @@ export async function GET(
   { params }: { params: { widgetId: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
     const { widgetId } = params;
 
     if (!widgetId) {
       return NextResponse.json({ error: 'Missing widgetId' }, { status: 400 });
     }
 
-    const widget = await prisma.widget.findUnique({
-      where: { widgetId },
+    const embed = await prisma.embed.findUnique({
+      where: { id: widgetId },
       include: {
-        shortCodes: {
-          select: { code: true, clicks: true }
-        }
-      }
+        designVersion: true,
+        saasCreator: true,
+      },
     });
 
-    if (!widget) {
-      return NextResponse.json({ error: 'Widget not found' }, { status: 404 });
+    if (!embed || !embed.isActive) {
+      return NextResponse.json({ error: 'Embed not found' }, { status: 404 });
     }
 
-    // If private and not owner, deny
-    if (!widget.isPublic && (!userId || widget.userId !== userId)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Default design tokens if no design version
+    const defaultTokens = {
+      primaryColor: '#0070f3',
+      backgroundColor: '#ffffff',
+      textColor: '#333333',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      borderRadius: '8px',
+      padding: '1rem',
+      maxWidth: '400px',
+    };
 
-    // Return typed response
-    const response = widget as any;
+    const designTokens = embed.designVersion?.tokensJson || defaultTokens;
 
-    return NextResponse.json(response);
+    // Map to widget-compatible format
+    const responseData = {
+      id: embed.id,
+      name: embed.name,
+      title: embed.name,
+      description: embed.description,
+      features: embed.features,
+      contentType: embed.type.toLowerCase(),
+      designTokens,
+      customHTML: embed.customHTML,
+      customCSS: embed.customCSS,
+      customJS: embed.customJS,
+      config: embed.config,
+      // For compatibility with existing widget logic
+      isPublic: true,
+      isActive: embed.isActive,
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Content API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
