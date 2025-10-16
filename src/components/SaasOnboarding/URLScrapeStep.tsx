@@ -69,11 +69,14 @@ const URLScrapeStep = ({ data, onComplete, loading }: URLScrapeStepProps) => {
     }
 
     try {
-      // Trigger scrape (both lightweight and deep scraping happen in one call)
-      const response = await fetch("/api/scrape", {
+      // Trigger scrape using the design API with 'rerun' action and full URL
+      const apiUrl = window.location.origin + "/api/saas/design";
+      console.log("Making request to:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: normalizedUrl }),
+        body: JSON.stringify({ action: 'rerun', url: normalizedUrl }),
         credentials: 'include',
       });
 

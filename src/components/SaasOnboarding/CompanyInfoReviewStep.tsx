@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Loader from "@/components/Common/Loader";
 import toast from "react-hot-toast";
-import { CheckCircle, Edit2, Sparkles, User, MapPin, Mail, Phone, MessageCircle, Copy, Twitter, Linkedin, Facebook, Palette, Quote } from "lucide-react";
+import { CheckCircle, Edit2, Sparkles, User, MapPin, Mail, Phone, MessageCircle, Copy, Twitter, Linkedin, Facebook, Palette, Quote, Image, Grid, Type, Star, Link } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -191,6 +191,34 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
     );
   };
 
+  // Helper function to render color swatches
+  const renderColorSwatch = (color: string, label: string) => {
+    if (!color) return null;
+    return (
+      <div className="flex flex-col items-center">
+        <div
+          className="h-16 w-16 rounded-lg shadow-md border border-white dark:border-dark-2 mb-2"
+          style={{ backgroundColor: color }}
+        ></div>
+        <p className="text-xs font-medium text-dark dark:text-white">{label}</p>
+        <p className="text-xs text-body-color dark:text-dark-6 font-mono">{color}</p>
+      </div>
+    );
+  };
+
+  // Helper function to render font preview
+  const renderFontPreview = (font: string, index: number) => {
+    return (
+      <div key={index} className="p-4 bg-white rounded-lg shadow-sm dark:bg-dark-2 border border-stroke dark:border-dark-3">
+        <p className="text-xs text-body-color dark:text-dark-6 mb-1">Font {index + 1}</p>
+        <p style={{ fontFamily: font }} className="text-xl font-medium text-dark dark:text-white">
+          The quick brown fox jumps
+        </p>
+        <p className="text-xs text-body-color dark:text-dark-6 mt-1 font-mono">{font}</p>
+      </div>
+    );
+  };
+
   return (
     <div className="rounded-xl bg-white px-8 py-10 shadow-lg dark:bg-dark-2 sm:px-12 md:px-16">
       {/* Header with Animation */}
@@ -268,31 +296,42 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                   </div>
                 )}
 
-                {/* Color Palette Showcase */}
-                {(editedData.primaryColor || editedData.secondaryColor) && (
+                {/* Favicon Preview */}
+                {brandData.favicon_url && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>🎨 Your Color Palette</h3>
-                    <div className="flex gap-6 mb-4">
-                      {editedData.primaryColor && (
-                        <div className="flex-1">
-                          <div
-                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2 hover:scale-105 transition-transform duration-200 cursor-pointer"
-                            style={{ backgroundColor: editedData.primaryColor }}
-                          ></div>
-                          <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Primary Color</p>
-                          <p className="text-center text-xs text-body-color dark:text-dark-6 font-mono">{editedData.primaryColor}</p>
-                        </div>
-                      )}
-                      {editedData.secondaryColor && (
-                        <div className="flex-1">
-                          <div
-                            className="h-32 w-full rounded-lg shadow-lg border-2 border-white dark:border-dark-2 hover:scale-105 transition-transform duration-200 cursor-pointer"
-                            style={{ backgroundColor: editedData.secondaryColor }}
-                          ></div>
-                          <p className="mt-2 text-center text-sm font-medium text-dark dark:text-white">Secondary Color</p>
-                          <p className="text-center text-xs text-body-color dark:text-dark-6 font-mono">{editedData.secondaryColor}</p>
-                        </div>
-                      )}
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Image className="h-5 w-5" /> Favicon Preview
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={brandData.favicon_url}
+                          alt="Favicon"
+                          className="h-12 w-12 rounded border border-stroke dark:border-dark-3 bg-white dark:bg-dark-2 p-1"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm text-body-color dark:text-dark-6">Favicon from your site</p>
+                        <p className="text-xs text-muted-foreground font-mono mt-1">{brandData.favicon_url}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Color Palette Showcase */}
+                {(editedData.primaryColor || editedData.secondaryColor || brandData.colors) && (
+                  <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Palette className="h-5 w-5" /> Color Palette
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      {brandData.colors?.primary && renderColorSwatch(brandData.colors.primary, "Primary")}
+                      {brandData.colors?.secondary && renderColorSwatch(brandData.colors.secondary, "Secondary")}
+                      {(brandData.colors as any)?.tertiary && renderColorSwatch((brandData.colors as any).tertiary, "Tertiary")}
+                      {(brandData.colors as any)?.accent && renderColorSwatch((brandData.colors as any).accent, "Accent")}
+                      {(brandData.colors as any)?.background && renderColorSwatch((brandData.colors as any).background, "Background")}
+                      {(brandData.colors as any)?.text && renderColorSwatch((brandData.colors as any).text, "Text")}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       {renderEditableField("Primary Color", "primaryColor", "#3B82F6", false, false, true)}
@@ -304,39 +343,26 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                 {/* Typography Showcase */}
                 {editedData.fonts && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>✍️ Your Typography</h3>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Type className="h-5 w-5" /> Typography
+                    </h3>
                     <div className="space-y-3 mb-4">
-                      {JSON.parse(editedData.fonts || '[]').slice(0, 3).map((font: string, i: number) => (
-                        <div key={i} className="p-4 bg-white rounded-lg shadow-sm dark:bg-dark-2 border border-stroke dark:border-dark-3 hover:scale-105 transition-transform duration-200 cursor-pointer">
-                          <p className="text-xs text-body-color dark:text-dark-6 mb-1">Font {i + 1}</p>
-                          <p style={{ fontFamily: font }} className="text-2xl font-medium text-dark dark:text-white">
-                            The quick brown fox jumps
-                          </p>
-                          <p className="text-xs text-body-color dark:text-dark-6 mt-1 font-mono">{font}</p>
-                        </div>
-                      ))}
+                      {JSON.parse(editedData.fonts || '[]').map((font: string, i: number) => 
+                        renderFontPreview(font, i)
+                      )}
                     </div>
                     {renderEditableField("Font Stack (JSON)", "fonts", '["Font Name 1", "Font Name 2"]', false, true)}
                   </div>
                 )}
 
-                {/* Voice & Tone */}
-                {editedData.voiceAndTone && (
-                  <div className="rounded-lg border-2 border-dashed border-purple-200 p-6 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-dark">
-                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
-                      🎯 Brand Voice & Tone
-                    </h3>
-                    <p className="text-base text-purple-700 dark:text-purple-300 mb-4 italic">&quot;{editedData.voiceAndTone}&quot;</p>
-                    {renderEditableField("Voice & Tone", "voiceAndTone", "Your brand's voice description", false, true)}
-                  </div>
-                )}
-
-                {/* Spacing Tokens */}
-                {editedData.spacingValues && JSON.parse(editedData.spacingValues || '[]').length > 0 && (
+                {/* Spacing System */}
+                {brandData.spacingValues && brandData.spacingValues.length > 0 && (
                   <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
-                    <h3 className="text-lg font-semibold mb-4" style={{ color: editedData.primaryColor || '#3B82F6' }}>📏 Spacing System</h3>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Grid className="h-5 w-5" /> Spacing System
+                    </h3>
                     <div className="grid grid-cols-4 gap-3 mb-4">
-                      {JSON.parse(editedData.spacingValues || '[]').slice(0, 8).map((spacing: string, i: number) => (
+                      {brandData.spacingValues.slice(0, 8).map((spacing: string, i: number) => (
                         <div
                           key={i}
                           className="p-3 border-2 border-stroke rounded-lg dark:border-dark-3 bg-white dark:bg-dark-2 flex flex-col items-center justify-center hover:scale-105 transition-transform duration-200 cursor-pointer"
@@ -350,6 +376,77 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
                       ))}
                     </div>
                     {renderEditableField("Spacing Values (JSON)", "spacingValues", '["8px", "16px", "24px"]', false, true)}
+                  </div>
+                )}
+
+                {/* Voice & Tone */}
+                {brandData.voice && (
+                  <div className="rounded-lg border-2 border-dashed border-purple-200 p-6 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-dark">
+                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
+                      <Quote className="h-5 w-5" /> Brand Voice & Tone
+                    </h3>
+                    <p className="text-base text-purple-700 dark:text-purple-300 mb-4 italic">&quot;{brandData.voice}&quot;</p>
+                    {renderEditableField("Voice & Tone", "voiceAndTone", "Your brand's voice description", false, true)}
+                  </div>
+                )}
+
+                {/* Additional Design Elements */}
+                {brandData.images && brandData.images.length > 0 && (
+                  <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Image className="h-5 w-5" /> Design Assets
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {brandData.images.slice(0, 4).map((image, i) => (
+                        <div key={i} className="group relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.src}
+                            alt={image.alt}
+                            className="h-24 w-full rounded-lg object-cover border border-stroke dark:border-dark-3 group-hover:scale-105 transition-transform duration-200"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <span className="text-white text-xs text-center px-2">{image.alt}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Social Links */}
+                {brandData.links && brandData.links.length > 0 && (
+                  <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Link className="h-5 w-5" /> Social Links
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {brandData.links?.slice(0, 6).map((link: any, i: number) => (
+                        <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                          <span className="capitalize">{link.text}</span>
+                          <span className="text-xs text-muted-foreground">→</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confidence Scores */}
+                {brandData.confidence_scores && (
+                  <div className="rounded-lg border-2 border-dashed border-stroke p-6 dark:border-dark-3 bg-gradient-to-br from-gray-50 to-white dark:from-dark-3 dark:to-dark">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Star className="h-5 w-5" /> Data Confidence
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(brandData.confidence_scores).map(([key, value]) => (
+                        <div key={key} className="text-center">
+                          <p className="text-sm font-medium text-dark dark:text-white capitalize">{key}</p>
+                          <p className="text-xs text-body-color dark:text-dark-6">
+                            {Math.round(value * 100)}% confidence
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -425,29 +522,23 @@ const CompanyInfoReviewStep = ({ data, onComplete, onBack, loading }: CompanyInf
 
       {/* Action Buttons */}
       <div className="mt-8 flex gap-4">
-        <button
+        <Button
           onClick={onBack}
-          disabled={loading}
-          className="flex flex-1 items-center justify-center rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white disabled:opacity-50"
+          variant="outline"
+          className="flex-1"
         >
           Back
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleSubmit}
           disabled={loading}
-          className="flex flex-1 items-center justify-center rounded-md border border-primary bg-primary px-5 py-3 text-base text-white transition duration-300 ease-in-out hover:bg-blue-dark disabled:opacity-50"
+          className="flex-1"
         >
-          {loading ? (
-            <>
-              Saving... <Loader />
-            </>
-          ) : (
-            "Complete Setup ✨"
-          )}
-        </button>
+          {loading ? "Saving..." : "Complete Setup"}
+        </Button>
       </div>
     </div>
   );
-};
+}
 
 export default CompanyInfoReviewStep;

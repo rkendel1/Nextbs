@@ -256,6 +256,7 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
   });
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
 
   const fetchDesignTokens = useCallback(async () => {
     try {
@@ -269,11 +270,55 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
           editingToken: null,
           editingValue: '',
         });
+        setLogoPreview(''); // Clear preview on refresh
       }
     } catch (error) {
       console.error('Failed to fetch design tokens:', error);
     }
   }, []);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/tiff', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select a PNG, JPG, TIFF, or WEBP image.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (!base64) return;
+
+      setLogoPreview(base64);
+
+      try {
+        const response = await fetch('/api/saas/design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update-logo', logoData: base64 }),
+        });
+
+        if (response.ok) {
+          toast.success('Logo uploaded and updated successfully!');
+          // Refresh to sync with DB
+          await fetchDesignTokens();
+        } else {
+          const errorData = await response.json();
+          const errorMessage = errorData.error?.message || errorData.message || errorData.error || 'Failed to update logo';
+          toast.error(errorMessage);
+          setLogoPreview(''); // Revert on error
+        }
+      } catch (error) {
+        console.error('Logo upload error:', error);
+        toast.error('Failed to upload logo');
+        setLogoPreview('');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleRerunScrape = async () => {
     if (!saasCreator?.website) {
@@ -292,8 +337,9 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
         toast.success('Scrape rerun started. Check back in a few minutes.');
         setTimeout(fetchDesignTokens, 5000);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to rerun scrape');
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || errorData.error || 'Failed to rerun scrape';
+        toast.error(errorMessage);
       }
     } catch (error) {
       toast.error('Failed to rerun scrape');
@@ -318,8 +364,9 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
         fetchDesignTokens();
         onUpdate?.();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to save design');
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || errorData.error || 'Failed to save design';
+        toast.error(errorMessage);
       }
     } catch (error) {
       toast.error('Failed to save design');
@@ -366,8 +413,9 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
         fetchDesignTokens();
         onUpdate?.();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to revert version');
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || errorData.error || 'Failed to revert version';
+        toast.error(errorMessage);
       }
     } catch (error) {
       toast.error('Failed to revert version');
@@ -391,8 +439,9 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
         });
         toast.success('Configuration saved successfully');
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to save configuration');
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || errorData.error || 'Failed to save configuration';
+        toast.error(errorMessage);
       }
     } catch (error) {
       toast.error('Failed to save configuration');
@@ -451,9 +500,9 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-center mb-4">
-              {designTokens.currentTokens.logoUrl ? (
+              {logoPreview || designTokens.currentTokens?.logoUrl ? (
                 <img
-                  src={designTokens.currentTokens.logoUrl}
+                  src={logoPreview || designTokens.currentTokens.logoUrl}
                   alt="Brand Logo"
                   className="h-20 w-auto rounded-xl shadow-lg object-contain border-2 border-primary/20"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -463,6 +512,17 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
                   Logo
                 </div>
               )}
+            </div>
+            <div className="text-center space-y-2">
+              {!logoPreview && !designTokens.currentTokens?.logoUrl && (
+                <p className="text-sm text-muted-foreground">Upload your logo to customize your brand identity</p>
+              )}
+              <Input
+                type="file"
+                accept="image/png,image/jpeg,image/tiff,image/webp"
+                onChange={handleLogoUpload}
+                className="mx-auto max-w-xs"
+              />
             </div>
             <div className="text-center">
               <h3 className="text-2xl font-bold mb-2" style={{ 
@@ -550,9 +610,11 @@ const DesignStudio = ({ saasCreator, onUpdate }: DesignStudioProps) => {
                   <div className="p-3 rounded-lg bg-primary/5">
                     <span className="font-medium block mb-1">Personality Traits:</span>
                     <div className="flex flex-wrap gap-1">
-                      {designTokens.currentTokens.brandVoice.personality.map((trait: string, i: number) => (
-                        <Badge key={i} variant="outline">{trait}</Badge>
-                      ))}
+                      {Array.isArray(designTokens.currentTokens.brandVoice.personality) ? (
+                        designTokens.currentTokens.brandVoice.personality.map((trait: string, i: number) => (
+                          <Badge key={i} variant="outline">{trait}</Badge>
+                        ))
+                      ) : null}
                     </div>
                   </div>
                 )}

@@ -1,7 +1,6 @@
-// src/components/EmbedGenerator.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface DesignTokens {
   primaryColor: string;
@@ -19,10 +18,43 @@ interface EmbedConfig {
   contentType: 'form' | 'chat' | 'notification' | 'custom';
   apiEndpoint: string;
   designTokens: DesignTokens;
+  name?: string;
+  description?: string;
+  features?: string[];
+  customHTML?: string;
+  customCSS?: string;
+  customJS?: string;
+  designVersionId?: string;
+  saasCreatorId?: string;
 }
 
-export default function EmbedGenerator() {
-  const [config, setConfig] = useState<EmbedConfig>({
+interface EmbedGeneratorProps {
+  initialConfig?: Partial<EmbedConfig>;
+}
+
+interface PreviewContent {
+  name?: string;
+  contentType?: string;
+  customCSS?: string;
+  customJS?: string;
+  message?: string;
+  fields?: string[];
+  error?: string;
+  customHTML?: string;
+}
+
+interface GeneratedEmbed {
+  name: string;
+  type: 'PAGE' | 'COLLECTION' | 'COMPONENT' | 'WIDGET';
+  description: string;
+  features: string[];
+  customHTML: string;
+  customCSS: string;
+  customJS: string;
+}
+
+export default function EmbedGenerator({ initialConfig }: EmbedGeneratorProps) {
+  const defaultConfig: EmbedConfig = {
     widgetId: `widget-${Date.now()}`,
     contentType: 'chat',
     apiEndpoint: '/api/embed/content',
@@ -36,12 +68,62 @@ export default function EmbedGenerator() {
       maxWidth: '400px',
       position: 'inline'
     }
+  };
+
+  const [config, setConfig] = useState<EmbedConfig>(() => {
+    if (initialConfig) {
+      return {
+        ...defaultConfig,
+        ...initialConfig,
+        designTokens: {
+          ...defaultConfig.designTokens,
+          ...(initialConfig.designTokens || {}),
+        },
+      };
+    }
+    return defaultConfig;
   });
+
+  const [previewContent, setPreviewContent] = useState<PreviewContent>({});
 
   const [showPreview, setShowPreview] = useState(false);
   const [shortCode, setShortCode] = useState<string>('');
   const [isGeneratingShort, setIsGeneratingShort] = useState(false);
   const [useShortCode, setUseShortCode] = useState(true);
+
+  // AI states
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [embedId, setEmbedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showPreview) {
+      if (embedId) {
+        // Saved embed: fetch from API
+        fetch(`${config.apiEndpoint}?embedId=${embedId}&type=${config.contentType}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) {
+              setPreviewContent({ error: data.error });
+            } else {
+              setPreviewContent(data);
+            }
+          })
+          .catch(() => {
+            setPreviewContent({ error: 'Failed to load preview content' });
+          });
+      } else {
+        // Unsaved: use local config for preview
+        setPreviewContent({
+          name: config.name,
+          contentType: config.contentType,
+          customHTML: config.customHTML,
+          customCSS: config.customCSS,
+          customJS: config.customJS,
+        });
+      }
+    }
+  }, [showPreview, embedId, config]);
 
   const generateEmbedCode = () => {
     const baseUrl = window.location.origin;
@@ -86,20 +168,6 @@ embed('init','${config.widgetId}','${encodedConfig}');
     } finally {
       setIsGeneratingShort(false);
     }
-  };
-
-  const generateEmbedCode = () => {
-    const baseUrl = window.location.origin;
-    const encodedConfig = btoa(JSON.stringify(config));
-    
-    return `<script>
-(function(w,d,s,o,f,js,fjs){
-w['EmbedWidget']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
-js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-}(window,document,'script','embed','${baseUrl}/embed.js'));
-embed('init','${config.widgetId}','${encodedConfig}');
-</script>`;
   };
 
   const updateToken = (key: keyof DesignTokens, value: string) => {
@@ -453,25 +521,57 @@ embed('init','${config.widgetId}','${encodedConfig}');
                     border: '1px solid #e5e7eb'
                   }}
                 >
-                  <h4 style={{ margin: '0 0 12px 0', color: config.designTokens.primaryColor }}>
-                    {config.contentType.charAt(0).toUpperCase() + config.contentType.slice(1)} Widget
-                  </h4>
-                  <p style={{ margin: '0 0 15px 0', fontSize: '14px', lineHeight: '1.5' }}>
-                    This is a preview of your embedded widget. It will inherit these design tokens and render natively on any website.
-                  </p>
-                  <button
-                    style={{
-                      backgroundColor: config.designTokens.primaryColor,
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Interact
-                  </button>
+                  {previewContent.error ? (
+                    <p style={{ color: 'red', fontSize: '14px' }}>
+                      Preview Error: {previewContent.error}
+                    </p>
+                  ) : (
+                    <>
+                      <h4 style={{ margin: '0 0 12px 0', color: config.designTokens.primaryColor }}>
+                        {previewContent.name || (config.contentType.charAt(0).toUpperCase() + config.contentType.slice(1)) + ' Widget'}
+                      </h4>
+                      {previewContent.contentType === 'chat' && previewContent.message ? (
+                        <p style={{ margin: '0 0 15px 0', fontSize: '14px', lineHeight: '1.5' }}>
+                          {previewContent.message}
+                        </p>
+                      ) : previewContent.contentType === 'form' && previewContent.fields ? (
+                        <div style={{ margin: '0 0 15px 0' }}>
+                          {previewContent.fields.map((field: string, idx: number) => (
+                            <input
+                              key={idx}
+                              type="text"
+                              placeholder={field}
+                              style={{
+                                display: 'block',
+                                width: '100%',
+                                marginBottom: '10px',
+                                padding: '8px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ margin: '0 0 15px 0', fontSize: '14px', lineHeight: '1.5' }}>
+                          This is a preview of your embedded widget using real design tokens. Content will be dynamic based on your configuration.
+                        </p>
+                      )}
+                      <button
+                        style={{
+                          backgroundColor: config.designTokens.primaryColor,
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Interact
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

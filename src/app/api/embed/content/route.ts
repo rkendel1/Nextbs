@@ -1,5 +1,5 @@
-// src/app/api/embed/content/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/utils/prismaDB';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -16,14 +16,20 @@ export async function GET(request: NextRequest) {
 
   if (!widgetId) {
     return NextResponse.json(
-      { error: 'Widget ID is required' },
+      { error: 'Embed ID is required' },
       { status: 400, headers }
     );
   }
 
-  // Fetch widget content from your database or CMS
-  // This is a mock implementation - replace with your actual data source
-  const content = await getWidgetContent(widgetId, type);
+  // Fetch embed content from database
+  const content = await getEmbedContent(widgetId, type);
+
+  if (content.error) {
+    return NextResponse.json(
+      { error: content.error },
+      { status: 404, headers }
+    );
+  }
 
   return NextResponse.json(content, { headers });
 }
@@ -40,37 +46,36 @@ export async function OPTIONS() {
   });
 }
 
-// Mock function - replace with actual database/CMS query
-async function getWidgetContent(widgetId: string, type: string | null) {
-  // Simulate database lookup
-  const contentMap: Record<string, any> = {
-    chat: {
-      title: 'Chat with us',
-      message: 'Hi there! How can we help you today?',
-      agent: 'Support Team',
+async function getEmbedContent(embedId: string, type: string | null) {
+  const embed = await prisma.embed.findUnique({
+    where: { id: embedId },
+    include: {
+      designVersion: {
+        select: {
+          tokensJson: true,
+        },
+      },
     },
-    form: {
-      title: 'Get in Touch',
-      description: 'Fill out the form and we\'ll get back to you shortly.',
-      fields: ['name', 'email', 'message'],
-    },
-    notification: {
-      title: '🎉 Special Offer!',
-      message: 'Get 20% off your first order. Use code: WELCOME20',
-      action: 'Shop Now',
-    },
-    custom: {
-      title: 'Welcome!',
-      message: 'This is a custom widget. Content can be dynamically updated.',
-    },
-  };
+  });
 
-  const content = contentMap[type || 'custom'] || contentMap.custom;
+  if (!embed || !embed.isActive) {
+    return { error: 'Embed not found or inactive' };
+  }
+
+  const embedConfig = embed.config || {} as any;
+  const contentType = type || embed.type;
 
   return {
-    widgetId,
-    type,
+    embedId,
+    type: contentType,
     timestamp: new Date().toISOString(),
-    ...content,
+    name: embed.name,
+    description: embed.description,
+    features: embed.features,
+    customHTML: embedConfig.customHTML || '',
+    customCSS: embedConfig.customCSS || '',
+    customJS: embedConfig.customJS || '',
+    designTokens: embed.designVersion?.tokensJson || {},
+    apiEndpoint: embedConfig.apiEndpoint || '/api/embed/content',
   };
 }

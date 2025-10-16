@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Code, FileText, Layout, Layers, Zap, CheckCircle2, Copy, Eye, Sparkles, Package, ClipboardCheck } from "lucide-react";
+import { X, Code, FileText, Layout, Layers, Zap, CheckCircle2, Copy, Eye, Sparkles, Package, ClipboardCheck, Bot, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import toast from "react-hot-toast";
@@ -10,6 +10,17 @@ import Loader from "@/components/Common/Loader";
 interface AssetBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface GeneratedEmbed {
+  name: string;
+  type: 'PAGE' | 'COLLECTION' | 'COMPONENT' | 'WIDGET';
+  description: string;
+  features: string[];
+  customHTML: string;
+  customCSS: string;
+  customJS: string;
+  designVersionId?: string;
 }
 
 const mockTypes = {
@@ -38,6 +49,12 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
   const [features, setFeatures] = useState([""]);
   const [generatedSnippet, setGeneratedSnippet] = useState("");
   const [copied, setCopied] = useState(false);
+  
+  // AI-guided experience states
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [generatedEmbed, setGeneratedEmbed] = useState<GeneratedEmbed | null>(null);
+  const [showAiInput, setShowAiInput] = useState(false);
 
   const addFeature = () => setFeatures([...features, ""]);
   const updateFeature = (index: number, value: string) => {
@@ -54,6 +71,87 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
     toast.success("Embed asset created successfully!");
     setStep(5);
   };
+  
+  const generateAIEmbed = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please enter a prompt for the AI");
+      return;
+    }
+    
+    setIsGeneratingAI(true);
+    try {
+      // Safely get the base URL, defaulting to relative path if window is not available
+      let apiUrl = '/api/saas/embeds/ai-generate';
+      try {
+        if (typeof window !== 'undefined') {
+          apiUrl = `${window.location.origin}/api/saas/embeds/ai-generate`;
+        }
+      } catch (e) {
+        console.warn('Could not access window.location, using relative path');
+      }
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      });
+      
+      let data;
+      try {
+        const responseText = await response.text();
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse response as JSON:', responseText);
+          throw new Error('Invalid response format from server');
+        }
+      } catch (textError) {
+        console.error('Failed to get response text:', textError);
+        throw new Error('Failed to read server response');
+      }
+      
+      if (!response.ok) {
+        throw new Error(data?.error || `Server error: ${response.status}`);
+      }
+      
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response data from server');
+      }
+      
+      setGeneratedEmbed(data);
+      
+      // Pre-fill form with AI-generated data, with validation
+      if (data.type && typeof data.type === 'string') {
+        const lowerType = data.type.toLowerCase();
+        if (lowerType === 'page' || lowerType === 'collection' || 
+            lowerType === 'component' || lowerType === 'widget') {
+          setAssetType(lowerType as MockTypeKey);
+        }
+      }
+      
+      setAssetData({
+        name: data.name || 'AI Generated Embed',
+        description: data.description || '',
+        isActive: true,
+      });
+      
+      if (Array.isArray(data.features) && data.features.length > 0) {
+        setFeatures(data.features);
+      } else {
+        setFeatures([""]);
+      }
+      
+      // Move to the next step
+      setStep(1);
+      toast.success("AI generated your embed! Review and customize as needed.");
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate embed');
+    } finally {
+      setIsGeneratingAI(false);
+      setShowAiInput(false);
+    }
+  };
 
   const handleClose = (updated = false) => {
     if (updated) {
@@ -66,6 +164,9 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
     setAssetData({ name: "", description: "", isActive: true });
     setConfigData({ style: "brand", customDomain: "", previewUrl: "" });
     setFeatures([""]);
+    setAiPrompt("");
+    setGeneratedEmbed(null);
+    setShowAiInput(false);
   };
 
   const renderStep = () => {
@@ -80,35 +181,90 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Choose Your Embed Type</h3>
               <p className="text-sm text-body-color dark:text-dark-6">Select the embed type that fits your needs</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(mockTypes).map(([type, { icon: Icon, title, description }]) => {
-                const isSelected = assetType === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setAssetType(type as MockTypeKey)}
-                    className={`relative p-6 rounded-xl border-2 transition-all text-left ${
-                      isSelected ? "border-primary bg-primary/5 dark:bg-primary/10" : "border-stroke hover:border-primary/50 dark:border-dark-3"
-                    }`}
+            
+            {showAiInput ? (
+              <div className="space-y-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-xl border-2 border-primary/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <Bot className="h-6 w-6 text-primary" />
+                  <h4 className="text-lg font-semibold text-dark dark:text-white">AI-Guided Creation</h4>
+                </div>
+                <p className="text-sm text-body-color dark:text-dark-6 mb-2">
+                  Describe what kind of embed you want, and our AI will generate it for you.
+                </p>
+                <textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="E.g., Create a product showcase widget with a carousel that displays product images, titles, and prices with a buy now button"
+                  rows={4}
+                  className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 text-base text-dark outline-none transition placeholder:text-dark-6 focus:border-primary focus-visible:shadow-none dark:border-dark-3 dark:text-white dark:focus:border-primary"
+                />
+                <div className="flex gap-3">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowAiInput(false)} 
+                    className="flex-1"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Icon className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-dark dark:text-white mb-1">{title}</h4>
-                        <p className="text-sm text-body-color dark:text-dark-6 mb-2">{description}</p>
-                      </div>
-                      {isSelected && <CheckCircle2 className="h-6 w-6 text-primary" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1">Cancel</Button>
-              <Button onClick={() => setStep(1)} className="flex-1 bg-primary hover:bg-primary/90">Continue</Button>
-            </div>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={generateAIEmbed} 
+                    disabled={isGeneratingAI || !aiPrompt.trim()} 
+                    className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                  >
+                    {isGeneratingAI ? (
+                      <Loader />
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Generate with AI
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Object.entries(mockTypes).map(([type, { icon: Icon, title, description }]) => {
+                    const isSelected = assetType === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setAssetType(type as MockTypeKey)}
+                        className={`relative p-6 rounded-xl border-2 transition-all text-left ${
+                          isSelected ? "border-primary bg-primary/5 dark:bg-primary/10" : "border-stroke hover:border-primary/50 dark:border-dark-3"
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 rounded-lg bg-primary/10">
+                            <Icon className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold text-dark dark:text-white mb-1">{title}</h4>
+                            <p className="text-sm text-body-color dark:text-dark-6 mb-2">{description}</p>
+                          </div>
+                          {isSelected && <CheckCircle2 className="h-6 w-6 text-primary" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <Button 
+                  onClick={() => setShowAiInput(true)}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                >
+                  <Wand2 className="h-5 w-5 mr-2" />
+                  Let AI Create Your Embed
+                </Button>
+                
+                <div className="flex gap-3 pt-4">
+                  <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1">Cancel</Button>
+                  <Button onClick={() => setStep(1)} className="flex-1 bg-primary hover:bg-primary/90">Continue</Button>
+                </div>
+              </>
+            )}
           </div>
         );
 
@@ -122,6 +278,21 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">Embed Information</h3>
               <p className="text-sm text-body-color dark:text-dark-6">Enter details for your {mockTypes[assetType].title.toLowerCase()}</p>
             </div>
+            
+            {generatedEmbed && (
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mb-4">
+                <div className="flex gap-2">
+                  <Wand2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900 dark:text-green-100">AI Generated</p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      This embed was generated by AI. You can edit the details below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div>
               <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">Name *</label>
               <input
@@ -299,6 +470,20 @@ const AssetBuilderModal = ({ open, onOpenChange }: AssetBuilderModalProps) => {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  </>
+                )}
+                
+                {generatedEmbed && (
+                  <>
+                    <div className="h-px bg-stroke dark:bg-dark-3" />
+                    <div>
+                      <p className="text-xs text-body-color dark:text-dark-6 mb-2">AI Generated Content</p>
+                      <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
+                        <p className="text-xs text-green-700 dark:text-green-300">
+                          This embed includes AI-generated HTML, CSS, and JavaScript optimized for your brand.
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}

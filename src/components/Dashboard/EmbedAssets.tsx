@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Copy, Loader2 } from "lucide-react";
 import AssetBuilderModal from "./AssetBuilderModal";
+import EmbedGenerator from "@/components/EmbedGenerator";
 import toast from "react-hot-toast";
 
 const typeMap = {
@@ -79,6 +80,7 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
           <TabsTrigger value="collections">Collections</TabsTrigger>
           <TabsTrigger value="components">Components</TabsTrigger>
           <TabsTrigger value="widgets">Widgets</TabsTrigger>
+          <TabsTrigger value="generator">Generator</TabsTrigger>
           <TabsTrigger value="snippets">Snippets</TabsTrigger>
           <TabsTrigger value="playground">Playground</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -270,6 +272,11 @@ const EmbedAssets = ({ onCreateEmbed }: EmbedAssetsProps) => {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="generator" className="space-y-4">
+          <h2 className="text-xl font-semibold mb-4">Embed Generator</h2>
+          <EmbedGenerator />
         </TabsContent>
         <TabsContent value="snippets" className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Generated Snippets</h2>
