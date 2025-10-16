@@ -428,6 +428,12 @@ const Dashboard = () => {
                 </Card>
               )}
             </div>
+            {/* Guided Product Wizard */}
+            {showProductModal && (
+              <GuidedProductWizard
+                onClose={handleProductModalClose}
+              />
+            )}
           </div>
         );
       case 'embeds':
@@ -458,13 +464,6 @@ const Dashboard = () => {
         </TabsList>
       </Tabs>
       {renderContent()}
-
-      {/* Guided Product Wizard */}
-      {showProductModal && (
-        <GuidedProductWizard
-          onClose={handleProductModalClose}
-        />
-      )}
     </div>
   );
 };
