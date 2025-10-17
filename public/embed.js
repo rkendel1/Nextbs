@@ -484,7 +484,7 @@
       const id = script.dataset.id;
       const type = script.dataset.type || 'widget';
       const style = script.dataset.style || 'minimal';
-      const baseUrl = getBaseUrl();
+      const baseUrl = new URL(script.src).origin;
       
       fetch(`${baseUrl}/api/embed/content/${id}`)
         .then(response => response.json())

@@ -3,9 +3,46 @@ import { useState } from 'react';
 
 const EmbedViewerTool = () => {
   const [embedCode, setEmbedCode] = useState('');
+  const [previewDiv, setPreviewDiv] = useState<HTMLDivElement | null>(null);
 
   const handleEmbedCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEmbedCode(event.target.value);
+  };
+
+  const loadEmbed = () => {
+    if (!previewDiv) return;
+
+    // Clear previous content
+    previewDiv.innerHTML = '';
+
+    // Parse the pasted code to extract data attributes
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(embedCode, 'text/html');
+    const script = doc.querySelector('script[src="/embed.js"]') as HTMLScriptElement;
+
+    if (script) {
+      const type = script.dataset.type;
+      const id = script.dataset.id;
+      const style = script.dataset.style;
+
+      if (type && id) {
+        // Create script element with data attributes
+        const newScript = document.createElement('script');
+        newScript.src = '/embed.js';
+        newScript.dataset.type = type;
+        newScript.dataset.id = id;
+        newScript.dataset.style = style || 'brand';
+
+        // Append to preview div
+        previewDiv.appendChild(newScript);
+      } else {
+        // Fallback to raw HTML if not a script
+        previewDiv.innerHTML = embedCode;
+      }
+    } else {
+      // Fallback to raw HTML for iframe or other HTML
+      previewDiv.innerHTML = embedCode;
+    }
   };
 
   return (
@@ -19,18 +56,24 @@ const EmbedViewerTool = () => {
           <textarea
             value={embedCode}
             onChange={handleEmbedCodeChange}
-            placeholder="Paste your iframe embed code here, e.g., &lt;iframe src=&quot;/embed/product/[id]&quot; width=&quot;400&quot; height=&quot;600&quot; style=&quot;border:none;&quot; loading=&quot;lazy&quot; allowfullscreen&gt;&lt;/iframe&gt;"
+            placeholder="Paste your embed script here, e.g., &lt;script src=\&quot;/embed.js\&quot; data-type=\&quot;product\&quot; data-id=\&quot;your-id\&quot; data-style=\&quot;brand\&quot;&gt;&lt;/script&gt;"
             rows={6}
             className="w-full p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          <button
+            onClick={loadEmbed}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Load Preview
+          </button>
         </div>
 
         {embedCode && (
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Live Preview</h2>
             <div 
-              className="w-full border rounded-lg overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: embedCode }}
+              ref={setPreviewDiv}
+              className="w-full border rounded-lg overflow-hidden min-h-[400px]"
             />
           </div>
         )}
@@ -39,19 +82,19 @@ const EmbedViewerTool = () => {
           <p className="text-sm text-gray-600 mb-4">Examples:</p>
           <div className="space-x-4">
             <button
-              onClick={() => setEmbedCode(`&lt;iframe src="/embed/product/[your-product-id]" width="400" height="600" style="border:none;" loading="lazy" allowfullscreen&gt;&lt;/iframe&gt;`)}
+              onClick={() => setEmbedCode(`&lt;script src="/embed.js" data-type="product" data-id="[your-product-id]" data-style="brand"&gt;&lt;/script&gt;`)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Product Embed
             </button>
             <button
-              onClick={() => setEmbedCode(`&lt;iframe src="/embed/creator/[your-creator-id]" width="400" height="400" style="border:none;" loading="lazy" allowfullscreen&gt;&lt;/iframe&gt;`)}
+              onClick={() => setEmbedCode(`&lt;script src="/embed.js" data-type="creator" data-id="[your-creator-id]" data-style="brand"&gt;&lt;/script&gt;`)}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
               Creator Embed
             </button>
             <button
-              onClick={() => setEmbedCode(`&lt;iframe src="/embed/platform" width="400" height="300" style="border:none;" loading="lazy" allowfullscreen&gt;&lt;/iframe&gt;`)}
+              onClick={() => setEmbedCode(`&lt;script src="/embed.js" data-type="platform" data-id="[your-platform-id]" data-style="brand"&gt;&lt;/script&gt;`)}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
             >
               Platform Embed
